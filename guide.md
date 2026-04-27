@@ -79,5 +79,3 @@ sign-language-app/
 ├── .gitignore                  # Git ignore file
 └── README.md                   # Project overview
 ```
-
-
