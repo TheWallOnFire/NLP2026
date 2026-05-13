@@ -43,21 +43,20 @@ export default function DetectionScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing}>
-        <View style={styles.overlay}>
-          {/* Overlay elements like bounding boxes will go here */}
-          <Text style={styles.overlayText}>Model: ASL Basics (Live)</Text>
-        </View>
-        <View style={styles.buttonContainer}>
-          <IconButton 
-            icon="camera-flip" 
-            iconColor="white" 
-            size={32} 
-            onPress={toggleCameraFacing}
-            style={styles.iconButton}
-          />
-        </View>
-      </CameraView>
+      <CameraView style={styles.camera} facing={facing} />
+      <View style={styles.overlay}>
+        {/* Overlay elements like bounding boxes will go here */}
+        <Text style={styles.overlayText}>Model: ASL Basics (Live)</Text>
+      </View>
+      <View style={styles.buttonContainer}>
+        <IconButton 
+          icon="camera-flip" 
+          iconColor="white" 
+          size={32} 
+          onPress={toggleCameraFacing}
+          style={styles.iconButton}
+        />
+      </View>
     </View>
   );
 }

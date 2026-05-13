@@ -14,7 +14,7 @@ export default function App() {
   React.useEffect(() => {
     if (Platform.OS === 'android') {
       NavigationBar.setVisibilityAsync('hidden');
-      NavigationBar.setBehaviorAsync('sticky-immersive');
+      NavigationBar.setBehaviorAsync('overlay-swipe');
     }
   }, []);
 

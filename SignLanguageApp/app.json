@@ -20,11 +20,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "navigationBar": {
         "visible": false,
-        "behavior": "sticky-immersive"
+        "behavior": "overlay-swipe"
       }
     },
     "web": {

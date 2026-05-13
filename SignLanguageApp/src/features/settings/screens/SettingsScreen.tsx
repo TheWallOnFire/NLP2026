@@ -1,8 +1,10 @@
-import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
-import { Switch, List, useTheme, Divider } from 'react-native-paper';
+import * as React from 'react';
+import { StyleSheet, ScrollView, Alert, View } from 'react-native';
+import { List, useTheme, Divider, Button, Text, Card } from 'react-native-paper';
 import { useSettingsStore } from '../store/useSettingsStore';
 import SettingsToggleItem from '../components/SettingsToggleItem';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Shield, User, CircleHelp, AlertTriangle } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -13,6 +15,28 @@ export default function SettingsScreen() {
     hapticsEnabled, toggleHaptics,
     debugMode, toggleDebugMode
   } = useSettingsStore();
+
+  const handleClearAllData = () => {
+    Alert.alert(
+      "Clear All Data",
+      "This will permanently delete all your learning progress, history, and settings. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete Everything", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              Alert.alert("Success", "All data has been cleared. Please restart the app for changes to take effect.");
+            } catch (e) {
+              Alert.alert("Error", "Failed to clear storage.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -27,6 +51,27 @@ export default function SettingsScreen() {
         />
       </List.Section>
       
+      <Divider />
+
+      <List.Section>
+        <List.Subheader>Account & Security</List.Subheader>
+        <List.Item
+          title="Personal Information"
+          left={props => <List.Icon {...props} icon={() => <User size={20} color={theme.colors.onSurfaceVariant} />} />}
+          onPress={() => {}}
+        />
+        <List.Item
+          title="Security"
+          left={props => <List.Icon {...props} icon={() => <Shield size={20} color={theme.colors.onSurfaceVariant} />} />}
+          onPress={() => {}}
+        />
+        <List.Item
+          title="Privacy Policy"
+          left={props => <List.Icon {...props} icon="shield-account" />}
+          onPress={() => {}}
+        />
+      </List.Section>
+
       <Divider />
 
       <List.Section>
@@ -50,18 +95,16 @@ export default function SettingsScreen() {
       <Divider />
 
       <List.Section>
-        <List.Subheader>Data & Models</List.Subheader>
+        <List.Subheader>Support</List.Subheader>
         <List.Item
-          title="Model Packs"
-          description="Manage downloaded sign languages"
-          left={(props) => <List.Icon {...props} icon="database" />}
-          onPress={() => console.log('Open Model Packs')}
+          title="Help Center"
+          left={props => <List.Icon {...props} icon={() => <CircleHelp size={20} color={theme.colors.onSurfaceVariant} />} />}
+          onPress={() => {}}
         />
         <List.Item
-          title="Export Data"
-          description="Save your learning history to CSV"
-          left={(props) => <List.Icon {...props} icon="export" />}
-          onPress={() => console.log('Export Data')}
+          title="About SignLanguageApp"
+          left={props => <List.Icon {...props} icon="information" />}
+          onPress={() => {}}
         />
       </List.Section>
       
@@ -77,15 +120,49 @@ export default function SettingsScreen() {
           onValueChange={toggleDebugMode}
         />
       </List.Section>
+
+      <View style={styles.dangerZone}>
+        <Text variant="titleSmall" style={[styles.dangerTitle, { color: theme.colors.error }]}>Danger Zone</Text>
+        <Card mode="outlined" style={[styles.dangerCard, { borderColor: theme.colors.error }]}>
+          <List.Item
+            title="Reset All Factory Settings"
+            titleStyle={{ color: theme.colors.error, fontWeight: 'bold' }}
+            description="Wipe all app data and progress"
+            left={props => <List.Icon {...props} icon={() => <AlertTriangle size={24} color={theme.colors.error} />} />}
+            onPress={handleClearAllData}
+          />
+        </Card>
+      </View>
+      
+      <View style={styles.footer}>
+        <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
+      </View>
     </ScrollView>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  dangerZone: {
+    padding: 16,
+    marginTop: 8,
+  },
+  dangerTitle: {
+    marginBottom: 8,
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  dangerCard: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,0,0,0.02)',
+  },
+  footer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  versionText: {
+    opacity: 0.4,
+  },
 });
-
