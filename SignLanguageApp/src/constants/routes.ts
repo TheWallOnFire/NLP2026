@@ -1,6 +1,11 @@
 export const ROUTES = {
   DETECTION: 'Detection',
-  LEARNING: 'Learning',
+  LEARNING_TAB: 'LearningTab',
+  MODEL_PACKS: 'ModelPacks',
+  PACK_DETAIL: 'PackDetail',
+  TEST_CONFIG: 'TestConfig',
+  PRACTICE: 'Practice',
+  TEST: 'Test',
   HISTORY: 'History',
   SETTINGS: 'Settings',
 } as const;

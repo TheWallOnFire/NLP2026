@@ -1,47 +1,56 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useTheme } from 'react-native-paper';
 import { Camera, BookOpen, Clock, Settings as SettingsIcon } from 'lucide-react-native';
 
 import DetectionScreen from '../features/detection/screens/DetectionScreen';
-import LearningScreen from '../features/learning/screens/LearningScreen';
+import LearningNavigator from './LearningNavigator';
 import HistoryScreen from '../features/history/screens/HistoryScreen';
 import SettingsScreen from '../features/settings/screens/SettingsScreen';
+import { ROUTES } from '../constants/routes';
 
 const Tab = createBottomTabNavigator();
 
 export default function AppNavigator() {
+  const theme = useTheme();
+
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
-          tabBarActiveTintColor: '#6200ee',
-          tabBarInactiveTintColor: 'gray',
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.outline,
+          headerStyle: {
+            backgroundColor: theme.colors.surface,
+          },
+          headerTintColor: theme.colors.onSurface,
         }}
       >
         <Tab.Screen 
-          name="Detection" 
+          name={ROUTES.DETECTION} 
           component={DetectionScreen} 
           options={{
             tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
           }}
         />
         <Tab.Screen 
-          name="Learning" 
-          component={LearningScreen} 
+          name={ROUTES.LEARNING_TAB} 
+          component={LearningNavigator} 
           options={{
+            title: 'Learning',
             tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} />,
           }}
         />
         <Tab.Screen 
-          name="History" 
+          name={ROUTES.HISTORY} 
           component={HistoryScreen} 
           options={{
             tabBarIcon: ({ color, size }) => <Clock color={color} size={size} />,
           }}
         />
         <Tab.Screen 
-          name="Settings" 
+          name={ROUTES.SETTINGS} 
           component={SettingsScreen} 
           options={{
             tabBarIcon: ({ color, size }) => <SettingsIcon color={color} size={size} />,

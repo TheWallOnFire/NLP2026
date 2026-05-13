@@ -9,6 +9,8 @@ interface SettingsState {
   toggleSound: () => void;
   hapticsEnabled: boolean;
   toggleHaptics: () => void;
+  debugMode: boolean;
+  toggleDebugMode: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -20,6 +22,8 @@ export const useSettingsStore = create<SettingsState>()(
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
       hapticsEnabled: true,
       toggleHaptics: () => set((state) => ({ hapticsEnabled: !state.hapticsEnabled })),
+      debugMode: false,
+      toggleDebugMode: () => set((state) => ({ debugMode: !state.debugMode })),
     }),
     {
       name: 'settings-storage',

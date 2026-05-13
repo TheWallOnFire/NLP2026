@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { Text, useTheme, Button } from 'react-native-paper';
 import { useHistoryStore } from '../store/useHistoryStore';
 import HistoryTimelineItem from '../components/HistoryTimelineItem';
@@ -12,11 +12,22 @@ export default function HistoryScreen() {
     <HistoryTimelineItem item={item} />
   );
 
+  const confirmClearHistory = () => {
+    Alert.alert(
+      "Clear History",
+      "Are you sure you want to delete all activity history? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Yes, Delete", style: "destructive", onPress: clearHistory }
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Text variant="titleMedium">Recent Activity</Text>
-        <Button mode="text" onPress={clearHistory} disabled={history.length === 0}>
+        <Button mode="text" onPress={confirmClearHistory} disabled={history.length === 0} textColor="red">
           Clear
         </Button>
       </View>

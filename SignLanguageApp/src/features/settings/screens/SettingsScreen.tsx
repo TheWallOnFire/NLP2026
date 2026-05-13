@@ -10,7 +10,8 @@ export default function SettingsScreen() {
   const { 
     isDarkMode, toggleDarkMode, 
     soundEnabled, toggleSound, 
-    hapticsEnabled, toggleHaptics 
+    hapticsEnabled, toggleHaptics,
+    debugMode, toggleDebugMode
   } = useSettingsStore();
 
   return (
@@ -72,8 +73,8 @@ export default function SettingsScreen() {
           title="Debug Mode"
           description="Enable verbose logging"
           icon="bug"
-          value={false}
-          onValueChange={() => {}}
+          value={debugMode}
+          onValueChange={toggleDebugMode}
         />
       </List.Section>
     </ScrollView>

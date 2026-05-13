@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { Text, Button, useTheme, IconButton } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { triggerSelectionFeedback } from '../../../utils/feedback';
@@ -16,11 +16,21 @@ export default function DetectionScreen() {
 
   if (!permission.granted) {
     // Camera permissions are not granted yet.
+    const isPermanentDenial = !permission.canAskAgain;
+
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Text style={styles.message}>We need your permission to show the camera</Text>
-        <Button mode="contained" onPress={requestPermission} style={styles.button}>
-          Grant Permission
+        <Text style={styles.message}>
+          {isPermanentDenial 
+            ? "Camera permission was denied permanently. Please enable it in your system settings to use the detector." 
+            : "We need your permission to show the camera."}
+        </Text>
+        <Button 
+          mode="contained" 
+          onPress={isPermanentDenial ? () => Linking.openSettings() : requestPermission} 
+          style={styles.button}
+        >
+          {isPermanentDenial ? "Open System Settings" : "Grant Permission"}
         </Button>
       </View>
     );
@@ -39,9 +49,13 @@ export default function DetectionScreen() {
           <Text style={styles.overlayText}>Model: ASL Basics (Live)</Text>
         </View>
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.iconButton} onPress={toggleCameraFacing}>
-            <IconButton icon="camera-flip" iconColor="white" size={32} />
-          </TouchableOpacity>
+          <IconButton 
+            icon="camera-flip" 
+            iconColor="white" 
+            size={32} 
+            onPress={toggleCameraFacing}
+            style={styles.iconButton}
+          />
         </View>
       </CameraView>
     </View>

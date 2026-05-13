@@ -26,7 +26,7 @@ export const useHistoryStore = create<HistoryState>()(
         { id: '3', sign: 'A', time: '08:00 AM', date: 'Today', type: 'test' },
       ],
       addHistoryItem: (item) => set((state) => ({
-        history: [{ ...item, id: Date.now().toString() }, ...state.history],
+        history: [{ ...item, id: Date.now().toString() }, ...state.history].slice(0, 100),
       })),
       clearHistory: () => set({ history: [] }),
     }),
