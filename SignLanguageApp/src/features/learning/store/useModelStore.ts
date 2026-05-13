@@ -20,41 +20,26 @@ interface ModelState {
   setActivePack: (id: string | null) => void;
 }
 
-const initialPacks: ModelPack[] = [
-  { 
-    id: 'asl-basics', 
-    name: 'ASL Basics', 
-    description: 'Essential signs like Hello, Thank You, and common pronouns.',
-    version: '1.2.0',
-    wordCount: 15,
-    isDownloaded: true,
-    category: 'Basics'
-  },
-  { 
-    id: 'asl-numbers', 
-    name: 'Numbers & Counting', 
-    description: 'Master numbers 0-100 and basic mathematical signs.',
-    version: '1.0.1',
-    wordCount: 20,
+const generatePacks = (): ModelPack[] => {
+  const categories: ModelPack['category'][] = ['Basics', 'Conversational', 'Professional'];
+  return Array.from({ length: 12 }, (_, i) => ({
+    id: `demo-${i + 1}`,
+    name: `Demo ${i + 1}`,
+    description: `Educational pack ${i + 1} for learning sign language signs and patterns.`,
+    version: '1.0.0',
+    wordCount: 10 + i * 2,
     isDownloaded: false,
-    category: 'Basics'
-  },
-  { 
-    id: 'asl-medical', 
-    name: 'Medical ASL', 
-    description: 'Specialized signs for healthcare environments and emergency situations.',
-    version: '2.1.0',
-    wordCount: 45,
-    isDownloaded: false,
-    category: 'Professional'
-  }
-];
+    category: categories[i % 3]
+  }));
+};
+
+const initialPacks: ModelPack[] = generatePacks();
 
 export const useModelStore = create<ModelState>()(
   persist(
     (set) => ({
-      packs: initialPacks,
-      activePackId: 'asl-basics',
+      packs: __DEV__ ? initialPacks : [], // Kept empty for prod as per previous request
+      activePackId: null,
       downloadPack: (id) => set((state) => ({
         packs: state.packs.map(p => p.id === id ? { ...p, isDownloaded: true } : p)
       })),

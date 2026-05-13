@@ -21,7 +21,11 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "navigationBar": {
+        "visible": false,
+        "behavior": "sticky-immersive"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
