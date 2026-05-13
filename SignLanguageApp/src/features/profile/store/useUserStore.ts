@@ -9,11 +9,19 @@ interface UserProfile {
   email: string;
   location: string;
   nativeLanguage: string;
+  memberSince: string;
+  level: string;
+  preferredHand: string;
+  learningGoal: string;
+  gender: string;
+  occupation: string;
+  motivation: string;
 }
 
 interface UserState {
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => void;
+  resetProfile: () => void;
 }
 
 const initialProfile: UserProfile = {
@@ -23,6 +31,13 @@ const initialProfile: UserProfile = {
   email: 'signer.pro@example.com',
   location: 'San Francisco, CA',
   nativeLanguage: 'English',
+  memberSince: 'May 2026',
+  level: 'Intermediate',
+  preferredHand: 'Right',
+  learningGoal: 'Conversational Fluency',
+  gender: 'Non-binary',
+  occupation: 'Accessibility Advocate',
+  motivation: 'Communication with family members',
 };
 
 export const useUserStore = create<UserState>()(
@@ -32,6 +47,7 @@ export const useUserStore = create<UserState>()(
       updateProfile: (updates) => set((state) => ({
         profile: { ...state.profile, ...updates }
       })),
+      resetProfile: () => set({ profile: initialProfile }),
     }),
     {
       name: 'user-storage',

@@ -6,6 +6,12 @@ import SettingsToggleItem from '../components/SettingsToggleItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Shield, User, CircleHelp, AlertTriangle } from 'lucide-react-native';
 
+import { useModelStore } from '../../learning/store/useModelStore';
+import { useHistoryStore } from '../../history/store/useHistoryStore';
+import { useUserStore } from '../../profile/store/useUserStore';
+import { useLearningStore } from '../../learning/store/useLearningStore';
+import { triggerSuccessFeedback } from '../../../utils/feedback';
+
 export default function SettingsScreen() {
   const theme = useTheme();
   
@@ -16,21 +22,35 @@ export default function SettingsScreen() {
     debugMode, toggleDebugMode
   } = useSettingsStore();
 
+  const resetPacks = useModelStore(state => state.resetPacks);
+  const clearHistory = useHistoryStore(state => state.clearHistory);
+  const resetProfile = useUserStore(state => state.resetProfile);
+  const resetAllProgress = useLearningStore(state => state.resetAllProgress);
+
   const handleClearAllData = () => {
     Alert.alert(
-      "Clear All Data",
-      "This will permanently delete all your learning progress, history, and settings. This action cannot be undone.",
+      "Reset App Data",
+      "This will permanently delete all your learning progress, history, downloaded models, and personalized settings. You will be returned to the initial state.",
       [
         { text: "Cancel", style: "cancel" },
         { 
-          text: "Delete Everything", 
+          text: "Reset Everything", 
           style: "destructive",
           onPress: async () => {
             try {
+              // 1. Reset all in-memory stores
+              resetPacks();
+              clearHistory();
+              resetProfile();
+              resetAllProgress();
+
+              // 2. Clear persistence layer
               await AsyncStorage.clear();
-              Alert.alert("Success", "All data has been cleared. Please restart the app for changes to take effect.");
+              
+              triggerSuccessFeedback();
+              Alert.alert("Success", "Your application has been reset to factory defaults.");
             } catch (e) {
-              Alert.alert("Error", "Failed to clear storage.");
+              Alert.alert("Error", "Failed to clear system storage.");
             }
           }
         }

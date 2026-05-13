@@ -19,12 +19,7 @@ interface HistoryState {
 export const useHistoryStore = create<HistoryState>()(
   persist(
     (set) => ({
-      history: [
-        // Default mock data so it's not empty immediately for demonstration
-        { id: '1', sign: 'Hello', time: '10:30 AM', date: 'Today', type: 'detection' },
-        { id: '2', sign: 'Thank You', time: '09:15 AM', date: 'Today', type: 'learning' },
-        { id: '3', sign: 'A', time: '08:00 AM', date: 'Today', type: 'test' },
-      ],
+      history: [],
       addHistoryItem: (item) => set((state) => ({
         history: [{ ...item, id: Date.now().toString() }, ...state.history].slice(0, 100),
       })),

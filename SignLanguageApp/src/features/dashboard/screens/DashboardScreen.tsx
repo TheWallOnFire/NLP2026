@@ -4,6 +4,7 @@ import { Text, Card, Button, useTheme, Avatar, List, IconButton } from 'react-na
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
+import { useUserStore } from '../../profile/store/useUserStore';
 import { ROUTES } from '../../../constants/routes';
 import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp } from 'lucide-react-native';
 
@@ -12,43 +13,33 @@ export default function DashboardScreen({ navigation }: any) {
   const packs = useModelStore(state => state.packs);
   const packWords = useLearningStore(state => state.packWords);
   const history = useHistoryStore(state => state.history);
+  const { profile } = useUserStore();
 
-  const downloadedPacks = packs.filter(p => p.isDownloaded);
-  const totalWords = Object.values(packWords).flat().length;
-  const learnedWords = Object.values(packWords).flat().filter(w => w.learned).length;
-  const overallProgress = totalWords > 0 ? learnedWords / totalWords : 0;
+  const downloadedPacks = React.useMemo(() => packs.filter(p => p.isDownloaded), [packs]);
+  
+  const stats = React.useMemo(() => {
+    const allWords = Object.values(packWords).flat();
+    const total = allWords.length;
+    const learned = allWords.filter(w => w.learned).length;
+    return {
+      total,
+      learned,
+      progress: total > 0 ? learned / total : 0
+    };
+  }, [packWords]);
 
-  const recentHistory = history.slice(0, 3);
+  const recentHistory = React.useMemo(() => history.slice(0, 3), [history]);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header Profile Section */}
       <View style={styles.header}>
-        <View>
-          <Text variant="headlineMedium" style={styles.welcomeText}>Hello, Signer!</Text>
+        <View style={{ flex: 1 }}>
+          <Text variant="headlineMedium" style={styles.welcomeText}>Hello, {profile.name.split(' ')[0]}!</Text>
           <Text variant="bodyLarge" style={{ opacity: 0.7 }}>Ready to master some new signs today?</Text>
         </View>
         <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer }} />
       </View>
-
-      {/* Progress Overview Card */}
-      <Card style={[styles.progressCard, { backgroundColor: theme.colors.primary }]}>
-        <Card.Content>
-          <View style={styles.progressHeader}>
-            <View>
-              <Text variant="titleMedium" style={{ color: 'white' }}>Overall Progress</Text>
-              <Text variant="displaySmall" style={{ color: 'white', fontWeight: 'bold' }}>
-                {Math.round(overallProgress * 100)}%
-              </Text>
-            </View>
-            <TrendingUp color="white" size={40} opacity={0.5} />
-          </View>
-          <View style={styles.statRow}>
-            <Text style={{ color: 'rgba(255,255,255,0.8)' }}>{learnedWords} signs mastered</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.8)' }}>{downloadedPacks.length} packs active</Text>
-          </View>
-        </Card.Content>
-      </Card>
 
       {/* Quick Actions Grid */}
       <View style={styles.section}>
@@ -72,7 +63,7 @@ export default function DashboardScreen({ navigation }: any) {
 
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.surfaceVariant }]}
-            onPress={() => navigation.navigate(ROUTES.HISTORY)}
+            onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}
           >
             <HistoryIcon color={theme.colors.onSurfaceVariant} size={28} />
             <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>History</Text>
@@ -84,48 +75,70 @@ export default function DashboardScreen({ navigation }: any) {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text variant="titleLarge" style={styles.sectionTitle}>Recent Activity</Text>
-          <Button mode="text" compact onPress={() => navigation.navigate(ROUTES.HISTORY)}>View All</Button>
+          <Button mode="text" compact onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}>View All</Button>
         </View>
         
         {recentHistory.length > 0 ? (
           recentHistory.map((item, index) => (
-            <Card key={index} style={styles.activityCard} mode="outlined">
+            <Card key={item.id} style={styles.activityCard} mode="outlined">
               <List.Item
                 title={item.sign}
                 description={`${item.date} • ${item.time}`}
                 left={props => <List.Icon {...props} icon={item.type === 'test' ? 'clipboard-text' : 'camera'} />}
-                right={props => item.type === 'test' && <Text style={styles.testBadge}>Test</Text>}
+                right={props => item.type === 'test' && <View style={styles.testBadgeContainer}><Text style={styles.testBadge}>Test</Text></View>}
               />
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>No recent activity yet. Start detection or learning!</Text>
+          <Card mode="contained" style={styles.emptyCard}>
+            <Card.Content>
+              <Text style={styles.emptyText}>No recent activity yet. Start detection or learning to see your progress here!</Text>
+              <Button mode="contained-tonal" onPress={() => navigation.navigate(ROUTES.DETECTION)} style={{ marginTop: 8 }}>
+                Try Detection
+              </Button>
+            </Card.Content>
+          </Card>
         )}
       </View>
 
       {/* My Active Packs */}
-      {downloadedPacks.length > 0 && (
-        <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Continue Learning</Text>
+      <View style={styles.section}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>Continue Learning</Text>
+        {downloadedPacks.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packsScroll}>
-            {downloadedPacks.map(pack => (
-              <Card 
-                key={pack.id} 
-                style={styles.packCard} 
-                onPress={() => navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.PACK_DETAIL, params: { packId: pack.id } })}
-              >
-                <Card.Content style={styles.packCardContent}>
-                  <Avatar.Text size={32} label={pack.name[0]} style={{ backgroundColor: theme.colors.primaryContainer }} />
-                  <Text variant="titleSmall" numberOfLines={1} style={{ marginTop: 8 }}>{pack.name}</Text>
-                  <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
-                    {Math.round((packWords[pack.id]?.filter(w => w.learned).length / packWords[pack.id]?.length) * 100 || 0)}%
-                  </Text>
-                </Card.Content>
-              </Card>
-            ))}
+            {downloadedPacks.map(pack => {
+              const packWordsList = packWords[pack.id] || [];
+              const packLearned = packWordsList.filter(w => w.learned).length;
+              const packProgress = packWordsList.length > 0 ? packLearned / packWordsList.length : 0;
+              
+              return (
+                <Card 
+                  key={pack.id} 
+                  style={styles.packCard} 
+                  onPress={() => navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.PACK_DETAIL, params: { packId: pack.id } })}
+                >
+                  <Card.Content style={styles.packCardContent}>
+                    <Avatar.Text size={32} label={pack.name[0]} style={{ backgroundColor: theme.colors.primaryContainer }} />
+                    <Text variant="titleSmall" numberOfLines={1} style={{ marginTop: 8 }}>{pack.name}</Text>
+                    <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
+                      {Math.round(packProgress * 100)}%
+                    </Text>
+                  </Card.Content>
+                </Card>
+              );
+            })}
           </ScrollView>
-        </View>
-      )}
+        ) : (
+          <Card mode="contained" style={styles.emptyCard}>
+            <Card.Content>
+              <Text style={styles.emptyText}>You haven't added any learning packs yet.</Text>
+              <Button mode="contained-tonal" onPress={() => navigation.navigate(ROUTES.LEARNING_TAB)} style={{ marginTop: 8 }}>
+                Browse Library
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -190,19 +203,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
   },
+  emptyCard: {
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  testBadgeContainer: {
+    justifyContent: 'center',
+  },
   testBadge: {
-    alignSelf: 'center',
     fontSize: 10,
     backgroundColor: '#E3F2FD',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     color: '#1976D2',
+    overflow: 'hidden',
   },
   emptyText: {
     textAlign: 'center',
-    opacity: 0.5,
-    marginVertical: 20,
+    opacity: 0.6,
+    marginVertical: 12,
+    lineHeight: 20,
   },
   packsScroll: {
     marginTop: 8,

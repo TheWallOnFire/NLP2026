@@ -2,17 +2,24 @@ import * as React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider } from 'react-native-paper';
 import { ROUTES } from '../../../constants/routes';
-import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe } from 'lucide-react-native';
+import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart } from 'lucide-react-native';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useUserStore } from '../store/useUserStore';
+import { useHistoryStore } from '../../history/store/useHistoryStore';
+import HistoryTimelineItem from '../../history/components/HistoryTimelineItem';
 
 export default function ProfileScreen({ navigation }: any) {
   const theme = useTheme();
   const packWords = useLearningStore(state => state.packWords);
   const { profile, updateProfile } = useUserStore();
+  const { history, clearHistory } = useHistoryStore();
   
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedProfile, setEditedProfile] = React.useState(profile);
+
+  React.useEffect(() => {
+    setEditedProfile(profile);
+  }, [profile]);
 
   const learnedCount = Object.values(packWords).flat().filter(w => w.learned).length;
   const favoriteCount = Object.values(packWords).flat().filter(w => w.favorite).length;
@@ -26,6 +33,25 @@ export default function ProfileScreen({ navigation }: any) {
     setEditedProfile(profile);
     setIsEditing(false);
   };
+
+  const confirmClearHistory = () => {
+    Alert.alert(
+      "Clear History",
+      "Delete all activity history?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: clearHistory }
+      ]
+    );
+  };
+
+  const BulletItem = ({ label, value, icon }: { label: string, value: string, icon?: any }) => (
+    <View style={styles.bulletItem}>
+      {icon ? icon : <Dot size={20} color={theme.colors.primary} />}
+      <Text variant="bodyMedium" style={styles.bulletLabel}>{label}:</Text>
+      <Text variant="bodyMedium" style={styles.bulletValue}>{value}</Text>
+    </View>
+  );
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -57,8 +83,6 @@ export default function ProfileScreen({ navigation }: any) {
                 <Text variant="bodySmall" style={styles.detailText}>{profile.nativeLanguage}</Text>
               </View>
             </View>
-
-            <Text variant="bodySmall" style={styles.bioText}>{profile.bio}</Text>
           </>
         ) : (
           <View style={styles.editForm}>
@@ -70,51 +94,13 @@ export default function ProfileScreen({ navigation }: any) {
               style={styles.input}
               dense
             />
-            <View style={styles.row}>
-              <TextInput
-                label="Age"
-                value={editedProfile.age}
-                onChangeText={text => setEditedProfile({...editedProfile, age: text})}
-                mode="outlined"
-                style={[styles.input, { flex: 1, marginRight: 8 }]}
-                keyboardType="numeric"
-                dense
-              />
-              <TextInput
-                label="Email"
-                value={editedProfile.email}
-                onChangeText={text => setEditedProfile({...editedProfile, email: text})}
-                mode="outlined"
-                style={[styles.input, { flex: 2 }]}
-                dense
-              />
-            </View>
-            <View style={styles.row}>
-              <TextInput
-                label="Location"
-                value={editedProfile.location}
-                onChangeText={text => setEditedProfile({...editedProfile, location: text})}
-                mode="outlined"
-                style={[styles.input, { flex: 1, marginRight: 8 }]}
-                dense
-              />
-              <TextInput
-                label="Native Language"
-                value={editedProfile.nativeLanguage}
-                onChangeText={text => setEditedProfile({...editedProfile, nativeLanguage: text})}
-                mode="outlined"
-                style={[styles.input, { flex: 1 }]}
-                dense
-              />
-            </View>
             <TextInput
-              label="Bio / Summary"
-              value={editedProfile.bio}
-              onChangeText={text => setEditedProfile({...editedProfile, bio: text})}
+              label="Email"
+              value={editedProfile.email}
+              onChangeText={text => setEditedProfile({...editedProfile, email: text})}
               mode="outlined"
-              multiline
-              numberOfLines={3}
               style={styles.input}
+              dense
             />
             <View style={styles.editActions}>
               <Button mode="outlined" onPress={handleCancel} icon={() => <X size={16} />} style={styles.actionBtn}>Cancel</Button>
@@ -135,33 +121,43 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text variant="titleLarge" style={styles.statNumber}>12</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>Tests</Text>
+            <Text variant="titleLarge" style={styles.statNumber}>{history.length}</Text>
+            <Text variant="labelSmall" style={styles.statLabel}>Detections</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text variant="labelLarge" style={styles.sectionTitle}>Quick Access</Text>
-        <Card mode="contained" style={styles.menuCard}>
-          <List.Item
-            title="Learning History"
-            description="View your past signs and test scores"
-            left={props => <History {...props} color={theme.colors.primary} size={24} />}
-            right={props => <ChevronRight {...props} color={theme.colors.outline} size={20} />}
-            onPress={() => navigation.navigate(ROUTES.HISTORY)}
-          />
-        </Card>
+        <View style={styles.sectionHeader}>
+          <Text variant="titleLarge" style={styles.sectionTitle}>Activity History</Text>
+          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>Clear</Button>
+        </View>
+        
+        {history.length > 0 ? (
+          history.slice(0, 5).map((item) => (
+            <HistoryTimelineItem key={item.id} item={item} />
+          ))
+        ) : (
+          <Card mode="contained" style={styles.activityCard}>
+            <Card.Content>
+              <Text style={{ textAlign: 'center', opacity: 0.5 }}>No recent activity recorded.</Text>
+            </Card.Content>
+          </Card>
+        )}
+        {history.length > 5 && (
+          <Button mode="outlined" style={{ marginTop: 8 }} onPress={() => navigation.navigate(ROUTES.HISTORY)}>
+            View All History
+          </Button>
+        )}
       </View>
 
       <View style={styles.section}>
-        <Text variant="labelLarge" style={styles.sectionTitle}>Learning Tips</Text>
-        <Card mode="elevated" style={[styles.tipCard, { backgroundColor: theme.colors.secondaryContainer }]}>
-          <Card.Content style={styles.tipContent}>
-            <Info size={24} color={theme.colors.onSecondaryContainer} />
-            <Text variant="bodyMedium" style={[styles.tipText, { color: theme.colors.onSecondaryContainer }]}>
-              Practice daily for at least 15 minutes to build muscle memory for sign language!
-            </Text>
+        <Text variant="titleLarge" style={styles.sectionTitle}>Account Details</Text>
+        <Card mode="contained" style={styles.menuCard}>
+          <Card.Content>
+            <BulletItem label="Level" value={profile.level} />
+            <BulletItem label="Hand" value={profile.preferredHand} />
+            <BulletItem label="Occupation" value={profile.occupation} icon={<Briefcase size={18} color={theme.colors.primary} style={{ marginRight: 4 }} />} />
           </Card.Content>
         </Card>
       </View>
@@ -285,18 +281,31 @@ const styles = StyleSheet.create({
   menuCard: {
     borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 16,
   },
-  tipCard: {
-    borderRadius: 16,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  tipContent: {
+  activityCard: {
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  bulletItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 6,
   },
-  tipText: {
+  bulletLabel: {
+    fontWeight: 'bold',
+    marginLeft: 4,
+    width: 130,
+  },
+  bulletValue: {
     flex: 1,
-    marginLeft: 16,
-    lineHeight: 20,
+    opacity: 0.8,
   },
   versionText: {
     textAlign: 'center',

@@ -18,6 +18,7 @@ interface ModelState {
   deletePack: (id: string) => void;
   activePackId: string | null;
   setActivePack: (id: string | null) => void;
+  resetPacks: () => void;
 }
 
 const generatePacks = (): ModelPack[] => {
@@ -47,6 +48,7 @@ export const useModelStore = create<ModelState>()(
         packs: state.packs.map(p => p.id === id ? { ...p, isDownloaded: false } : p)
       })),
       setActivePack: (id) => set({ activePackId: id }),
+      resetPacks: () => set({ packs: __DEV__ ? generatePacks() : [], activePackId: null }),
     }),
     {
       name: 'model-storage',

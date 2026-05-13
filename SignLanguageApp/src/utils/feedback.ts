@@ -49,3 +49,9 @@ export const triggerSelectionFeedback = () => {
     Haptics.selectionAsync();
   }
 };
+export const triggerImpactFeedback = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium) => {
+  const { hapticsEnabled } = useSettingsStore.getState();
+  if (hapticsEnabled) {
+    Haptics.impactAsync(style);
+  }
+};
