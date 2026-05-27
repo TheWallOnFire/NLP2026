@@ -1,21 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Linking, Animated, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator } from 'react-native-paper';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+// @ts-ignore
+import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import { useTensorflowModel } from 'react-native-fast-tflite';
+import { useSharedValue } from 'react-native-worklets-core';
+
+const VisionCamera = Camera as any;
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
-import { ChevronDown, History as HistoryIcon, Zap, ZapOff, Maximize, Brain } from 'lucide-react-native';
+import { ChevronDown, History as HistoryIcon, Zap, ZapOff, Maximize, Brain, FileBox } from 'lucide-react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Video, ResizeMode } from 'expo-av';
+import * as Speech from 'expo-speech';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
@@ -24,8 +31,30 @@ export default function DetectionScreen({ navigation }: any) {
   const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
+  
+  // Vision Camera Device
+  const device = useCameraDevice(facing);
 
-  const { packs, activePackId, setActivePack } = useModelStore();
+  // Fast TFLite Plugin (Dynamic Loading)
+  // @ts-ignore
+  const tfModel = useTensorflowModel(customModelUri ? { url: customModelUri } : require('../../../../assets/asl_model.tflite'));
+
+  const isModelReady = tfModel.state === 'loaded';
+
+  // @ts-ignore
+  const frameProcessor = useFrameProcessor((frame: any) => {
+    'worklet'
+    if (tfModel.model == null) return;
+    
+    // Resize frame and run model (dummy logic since it's a dummy model)
+    const result = tfModel.model.run([frame]); 
+    // In reality you extract argmax here
+    
+    // runOnJS(setDetectedWord)("dummy");
+  }, [tfModel]);
+
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
@@ -34,6 +63,8 @@ export default function DetectionScreen({ navigation }: any) {
   const history = useHistoryStore(state => state.history).filter(h => h.type === 'detection');
 
   const scanAnim = useRef(new Animated.Value(0)).current;
+
+
 
   // Immersive Mode
   useEffect(() => {
@@ -53,7 +84,7 @@ export default function DetectionScreen({ navigation }: any) {
   };
 
   useEffect(() => {
-    if (permission?.granted && detectionSpeed !== 'off' && activePackId && detectionMode === 'live') {
+    if (hasPermission && detectionSpeed !== 'off' && activePackId && detectionMode === 'live') {
       // Start scanning animation
       Animated.loop(
         Animated.sequence([
@@ -72,7 +103,7 @@ export default function DetectionScreen({ navigation }: any) {
       setDetectedWord(null);
       setConfidence(0);
     }
-  }, [permission?.granted, detectionSpeed, activePackId, detectionMode]);
+  }, [hasPermission, detectionSpeed, activePackId, detectionMode]);
 
   const performMockDetection = (words: string[]) => {
     if (words.length === 0) return;
@@ -85,6 +116,7 @@ export default function DetectionScreen({ navigation }: any) {
     
     if (Math.random() > 0.9) {
       triggerImpactFeedback();
+      Speech.speak(randomWord, { language: 'en', rate: 0.9 });
       addHistoryItem({
         sign: randomWord,
         type: 'detection',
@@ -135,31 +167,50 @@ export default function DetectionScreen({ navigation }: any) {
     }
   };
 
+  const pickModelFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const fileUri = result.assets[0].uri;
+        if (result.assets[0].name.endsWith('.tflite')) {
+          setCustomModelUri(fileUri);
+          Alert.alert("Success", "Custom TFLite model loaded successfully!");
+        } else {
+          Alert.alert("Invalid File", "Please select a valid .tflite model file.");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to pick model", err);
+    }
+  };
+
   const translateY = scanAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 200],
   });
 
-  if (!permission) return <View />;
-
-  if (!permission.granted) {
-    const isPermanentDenial = !permission.canAskAgain;
+  if (!hasPermission) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.permissionContainer}>
           <IconButton icon="camera-off" size={64} iconColor={theme.colors.error} />
           <Text variant="headlineSmall" style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.message}>
-            {isPermanentDenial 
-              ? "Camera permission was denied permanently. Please enable it in your system settings to use the detector." 
-              : "We need your permission to access the camera for real-time sign language detection."}
+            We need your permission to access the camera for real-time sign language detection. If you have denied it previously, you may need to open system settings.
           </Text>
           <Button 
             mode="contained" 
-            onPress={isPermanentDenial ? () => Linking.openSettings() : requestPermission} 
+            onPress={async () => {
+              const granted = await requestPermission();
+              if (!granted) Linking.openSettings();
+            }} 
             style={styles.button}
           >
-            {isPermanentDenial ? "Open System Settings" : "Grant Permission"}
+            Grant Permission / Open Settings
           </Button>
         </View>
       </View>
@@ -201,7 +252,22 @@ export default function DetectionScreen({ navigation }: any) {
         </View>
 
         {detectionMode === 'live' ? (
-          <CameraView style={styles.camera} facing={facing} enableTorch={flash} />
+          isModelReady && device ? (
+            <View style={styles.camera}>
+              <VisionCamera
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={true}
+                frameProcessor={frameProcessor}
+                pixelFormat="rgb"
+              />
+            </View>
+          ) : (
+            <View style={[styles.camera, {justifyContent: 'center', alignItems: 'center'}]}>
+              <ActivityIndicator size="large" />
+              <Text style={{color: 'white', marginTop: 10}}>Loading TFJS Handpose...</Text>
+            </View>
+          )
         ) : (
           <View style={styles.mediaContainer}>
             {selectedMedia ? (
@@ -352,7 +418,6 @@ export default function DetectionScreen({ navigation }: any) {
         </ScrollView>
       </View>
 
-      {/* Overlays (Modal style) */}
       {isModelMenuOpen && (
         <View style={styles.speedOverlay}>
           <View style={styles.historyHeader}>
@@ -363,15 +428,30 @@ export default function DetectionScreen({ navigation }: any) {
             {downloadedPacks.map(pack => (
               <TouchableOpacity 
                 key={pack.id} 
-                style={[styles.modelOption, activePackId === pack.id && { backgroundColor: theme.colors.primaryContainer }]}
-                onPress={() => { setActivePack(pack.id); setIsModelMenuOpen(false); }}
+                style={[styles.modelOption, activePackId === pack.id && !customModelUri && { backgroundColor: theme.colors.primaryContainer }]}
+                onPress={() => { setActivePack(pack.id); setCustomModelUri(null); setIsModelMenuOpen(false); }}
               >
-                <Text style={[styles.modelOptionText, activePackId === pack.id && { color: theme.colors.primary, fontWeight: 'bold' }]}>
+                <Text style={[styles.modelOptionText, activePackId === pack.id && !customModelUri && { color: theme.colors.primary, fontWeight: 'bold' }]}>
                   {pack.name}
                 </Text>
-                {activePackId === pack.id && <IconButton icon="check" size={16} iconColor={theme.colors.primary} />}
+                {activePackId === pack.id && !customModelUri && <IconButton icon="check" size={16} iconColor={theme.colors.primary} />}
               </TouchableOpacity>
             ))}
+            
+            <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 8, paddingTop: 8 }}>
+              <TouchableOpacity 
+                style={[styles.modelOption, customModelUri && { backgroundColor: theme.colors.secondaryContainer }]}
+                onPress={() => { pickModelFile(); setIsModelMenuOpen(false); }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <FileBox size={18} color={customModelUri ? theme.colors.secondary : 'white'} style={{ marginRight: 8 }} />
+                  <Text style={[styles.modelOptionText, customModelUri && { color: theme.colors.secondary, fontWeight: 'bold' }]}>
+                    Load Custom .tflite File
+                  </Text>
+                </View>
+                {customModelUri && <IconButton icon="check" size={16} iconColor={theme.colors.secondary} />}
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </View>
       )}

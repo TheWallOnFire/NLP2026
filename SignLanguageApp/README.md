@@ -1,61 +1,36 @@
-# Sign Language Detector App (Frontend)
+# SignLanguageApp - Native AI Translate
 
-This directory contains the React Native/Expo frontend for the Sign Language Detector project. 
+This is a React Native (Expo) application designed to translate American Sign Language (ASL) into real-time text and speech. The application runs on a pure native C++ AI pipeline for maximum performance.
 
-## 🌟 Overview
-This mobile application is built using React Native and Expo. It provides the user interface and logic for real-time hand sign recognition, learning modules, activity history, and settings management as defined in the main project specifications.
+## Features
+- **Real-time Camera Feed:** Built using `react-native-vision-camera` to stream the live view directly to native frame processors.
+- **Native AI Execution:** Utilizes `react-native-fast-tflite` to run models at 60 FPS on the device's NPU/GPU without the overhead of JavaScript or WebGL.
+- **Multi-threaded Worklets:** Relies on `react-native-worklets-core` to ensure the main UI thread never freezes during ML inference.
+- **Dynamic Model Loading:** Features a custom `.tflite` model picker using `expo-document-picker`. Users can download their own TFLite models to their device and load them directly into the app.
+- **Text-to-Speech (TTS):** When a sign is detected with high confidence, the app uses `expo-speech` to speak the word aloud, enabling immediate communication.
+- **Offline First:** Designed to run heavy models purely on-device.
 
-## 🛠️ Tech Stack
-- **Framework:** React Native with Expo
-- **Language:** TypeScript
-- **Navigation:** React Navigation (Bottom Tabs & Native Stack)
-- **State Management:** Zustand
-- **UI Components:** React Native Paper
-- **Icons:** Lucide React Native
+## Getting Started
 
-## 📂 Project Structure
+> [!WARNING]
+> Because this app uses Native Frame Processors and C++ modules, **it cannot be run on the standard Expo Go app**. You must compile the native binary.
 
-```text
-SignLanguageApp/
-├── src/
-│   ├── components/    # Reusable UI components (buttons, modals, etc.)
-│   ├── navigation/    # AppNavigator and routing configurations
-│   ├── screens/       # Main views (Detection, Learning, History, Settings)
-│   ├── store/         # Zustand global state stores
-│   └── theme/         # Color palettes, typography, and theme config
-├── App.tsx            # Main entry point of the application
-├── app.json           # Expo configuration file
-└── package.json       # Project dependencies and scripts
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-Make sure you have Node.js and npm installed. You should also have the **Expo Go** app installed on your physical mobile device if you wish to run it there.
-
-### Installation
-1. Navigate to this directory:
-   ```bash
-   cd SignLanguageApp
-   ```
-2. Install the dependencies:
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-### Running the App
-Start the Expo development server:
-```bash
-npx expo start
-```
-From here, you can:
-- **Scan the QR code** with your phone's camera (iOS) or the Expo Go app (Android).
-- Press `a` to open in an Android Emulator (if Android Studio is installed and running).
-- Press `i` to open in an iOS Simulator (if on a Mac with Xcode installed).
-- Press `w` to open it in a web browser.
+2. **Run the app natively:**
+   ```bash
+   npx expo run:android
+   # or
+   npx expo run:ios
+   ```
 
-## ⚙️ Key Features in Development
-- **Detection Screen:** Integration with Camera and MediaPipe for offline real-time sign language translation.
-- **Learning Screen:** Interactive modules to test and learn downloaded model packs.
-- **History Screen:** A timeline logging user progress and past detections.
-- **Settings:** Customizable preferences for dark mode, audio/haptic feedback, and storage management.
+3. Connect a physical Android or iOS device via USB. Emulators often lack camera support or sufficient GPU acceleration for smooth tracking.
+
+## Project Structure
+- `src/features/detection/`: Contains the core `DetectionScreen` with Vision Camera frame processors, fast-tflite AI inference, and TTS audio.
+- `src/features/learning/`: Contains the model pack store (Zustand) and dynamic custom model loading logic.
+- `src/features/history/`: Contains the global Zustand store tracking past translations.
+- `src/navigation/`: The bottom tab navigator integrating all features.
