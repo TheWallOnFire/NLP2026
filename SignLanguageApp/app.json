@@ -30,7 +30,6 @@
         "behavior": "overlay-swipe"
       },
       "permissions": [
-        "android.permission.CAMERA",
         "android.permission.CAMERA"
       ],
       "package": "com.anonymous.SignLanguageApp"
@@ -47,6 +46,11 @@
           "enableMicrophonePermission": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "45bbafdb-e7d4-4a04-8a16-d6915ae05e77"
+      }
+    }
   }
 }

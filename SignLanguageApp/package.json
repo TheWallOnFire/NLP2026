@@ -16,6 +16,7 @@
     "expo": "~54.0.33",
     "expo-asset": "~12.0.x",
     "expo-av": "~16.0.8",
+    "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.8",
     "expo-haptics": "~15.0.8",
     "expo-image-picker": "~17.0.11",
@@ -35,7 +36,16 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/plugin-proposal-logical-assignment-operators": "^7.20.7",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
+    "@babel/plugin-proposal-numeric-separator": "^7.18.6",
+    "@babel/plugin-proposal-optional-chaining": "^7.21.0",
+    "@babel/plugin-transform-arrow-functions": "^7.29.7",
+    "@babel/plugin-transform-shorthand-properties": "^7.29.7",
+    "@babel/plugin-transform-template-literals": "^7.29.7",
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
   },
   "overrides": {
