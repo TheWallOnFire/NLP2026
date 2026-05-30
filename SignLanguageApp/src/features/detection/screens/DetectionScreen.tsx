@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Linking, Animated, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator } from 'react-native-paper';
-// @ts-ignore
-import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
-import { useTensorflowModel } from 'react-native-fast-tflite';
-import { useSharedValue } from 'react-native-worklets-core';
-
-const VisionCamera = Camera as any;
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../../learning/store/useModelStore';
@@ -22,7 +17,8 @@ export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState(false);
-  const { hasPermission, requestPermission } = useCameraPermission();
+  const [permission, requestPermission] = useCameraPermissions();
+  const hasPermission = permission?.granted;
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
@@ -34,26 +30,7 @@ export default function DetectionScreen({ navigation }: any) {
   
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
   
-  // Vision Camera Device
-  const device = useCameraDevice(facing);
-
-  // Fast TFLite Plugin (Dynamic Loading)
-  // @ts-ignore
-  const tfModel = useTensorflowModel(customModelUri ? { url: customModelUri } : require('../../../../assets/asl_model.tflite'));
-
-  const isModelReady = tfModel.state === 'loaded';
-
-  // @ts-ignore
-  const frameProcessor = useFrameProcessor((frame: any) => {
-    'worklet'
-    if (tfModel.model == null) return;
-    
-    // Resize frame and run model (dummy logic since it's a dummy model)
-    const result = tfModel.model.run([frame]); 
-    // In reality you extract argmax here
-    
-    // runOnJS(setDetectedWord)("dummy");
-  }, [tfModel]);
+  const isModelReady = true;
 
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
@@ -252,14 +229,12 @@ export default function DetectionScreen({ navigation }: any) {
         </View>
 
         {detectionMode === 'live' ? (
-          isModelReady && device ? (
+          isModelReady ? (
             <View style={styles.camera}>
-              <VisionCamera
+              <CameraView
                 style={StyleSheet.absoluteFill}
-                device={device}
-                isActive={true}
-                frameProcessor={frameProcessor}
-                pixelFormat="rgb"
+                facing={facing}
+                enableTorch={flash}
               />
             </View>
           ) : (
