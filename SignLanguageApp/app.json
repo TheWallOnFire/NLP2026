@@ -25,7 +25,6 @@
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-
       "permissions": [
         "android.permission.CAMERA"
       ],

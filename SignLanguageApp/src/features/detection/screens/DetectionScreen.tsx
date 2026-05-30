@@ -31,7 +31,6 @@ export default function DetectionScreen({ navigation }: any) {
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
   
   const isModelReady = true;
-
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
