@@ -12,6 +12,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Video, ResizeMode } from 'expo-av';
 import * as Speech from 'expo-speech';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-react-native';
+import * as mobilenet from '@tensorflow-models/mobilenet';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
@@ -30,7 +33,20 @@ export default function DetectionScreen({ navigation }: any) {
   
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
   
-  const isModelReady = true;
+  const [isTfReady, setIsTfReady] = useState(false);
+  const [tfModel, setTfModel] = useState<mobilenet.MobileNet | null>(null);
+
+  useEffect(() => {
+    async function initTF() {
+      await tf.ready();
+      const model = await mobilenet.load({ version: 2, alpha: 1.0 });
+      setTfModel(model);
+      setIsTfReady(true);
+    }
+    initTF();
+  }, []);
+
+  const isModelReady = isTfReady && tfModel !== null;
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
@@ -115,6 +131,17 @@ export default function DetectionScreen({ navigation }: any) {
       performMockDetection(words);
       setIsProcessing(false);
     }, 800);
+  };
+
+  // Mock function to represent capturing the bounding box area
+  const captureBoundingBoxAndAnalyze = async () => {
+    // In a full implementation, we would use expo-gl or cameraWithTensors here 
+    // to capture the pixels specifically inside the styles.reticle area.
+    // For now, we simulate the TFJS model prediction delay.
+    if (tfModel && isTfReady) {
+      console.log("Analyzing bounding box with TFJS MobileNet...");
+      // tfModel.classify(tensor) would go here
+    }
   };
 
   const pickImage = async () => {
@@ -228,20 +255,19 @@ export default function DetectionScreen({ navigation }: any) {
         </View>
 
         {detectionMode === 'live' ? (
-          isModelReady ? (
-            <View style={styles.camera}>
-              <CameraView
-                style={StyleSheet.absoluteFill}
-                facing={facing}
-                enableTorch={flash}
-              />
-            </View>
-          ) : (
-            <View style={[styles.camera, {justifyContent: 'center', alignItems: 'center'}]}>
-              <ActivityIndicator size="large" />
-              <Text style={{color: 'white', marginTop: 10}}>Loading TFJS Handpose...</Text>
-            </View>
-          )
+          <View style={styles.camera}>
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              enableTorch={flash}
+            />
+            {!isModelReady && (
+              <View style={[StyleSheet.absoluteFill, {justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)'}]}>
+                <ActivityIndicator size="large" color="white" />
+                <Text style={{color: 'white', marginTop: 10, fontWeight: 'bold'}}>Loading TFJS Model...</Text>
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.mediaContainer}>
             {selectedMedia ? (

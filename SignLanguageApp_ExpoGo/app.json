@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SignLanguageApp",
-    "slug": "SignLanguageApp",
+    "name": "SignLanguageApp_ExpoGo",
+    "slug": "SignLanguageApp_ExpoGo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,7 +28,7 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "package": "com.anonymous.SignLanguageApp"
+      "package": "com.anonymous.SignLanguageAppExpoGo"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,7 +44,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "45bbafdb-e7d4-4a04-8a16-d6915ae05e77"
+        "projectId": ""
       }
     }
   }

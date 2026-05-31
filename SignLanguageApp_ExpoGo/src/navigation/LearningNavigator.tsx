@@ -16,6 +16,8 @@ export default function LearningNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
+        headerShown: false,
+        
         headerStyle: { backgroundColor: theme.colors.surface },
         headerTintColor: theme.colors.onSurface,
       }}

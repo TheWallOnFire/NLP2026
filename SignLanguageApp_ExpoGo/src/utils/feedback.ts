@@ -7,13 +7,13 @@ import { useSettingsStore } from '../features/settings/store/useSettingsStore';
 // const errorSound = require('../../assets/sounds/error.mp3');
 
 export const triggerSuccessFeedback = async () => {
-  const { hapticsEnabled, soundEnabled } = useSettingsStore.getState();
+  const { haptics, sound } = useSettingsStore.getState();
 
-  if (hapticsEnabled) {
+  if (haptics) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
-  if (soundEnabled) {
+  if (sound.systemSounds) {
     // try {
     //   const { sound } = await Audio.Sound.createAsync(successSound);
     //   await sound.playAsync();
@@ -25,13 +25,13 @@ export const triggerSuccessFeedback = async () => {
 };
 
 export const triggerErrorFeedback = async () => {
-  const { hapticsEnabled, soundEnabled } = useSettingsStore.getState();
+  const { haptics, sound } = useSettingsStore.getState();
 
-  if (hapticsEnabled) {
+  if (haptics) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   }
 
-  if (soundEnabled) {
+  if (sound.systemSounds) {
     // try {
     //   const { sound } = await Audio.Sound.createAsync(errorSound);
     //   await sound.playAsync();
@@ -43,15 +43,15 @@ export const triggerErrorFeedback = async () => {
 };
 
 export const triggerSelectionFeedback = () => {
-  const { hapticsEnabled } = useSettingsStore.getState();
+  const { haptics } = useSettingsStore.getState();
   
-  if (hapticsEnabled) {
+  if (haptics) {
     Haptics.selectionAsync();
   }
 };
 export const triggerImpactFeedback = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium) => {
-  const { hapticsEnabled } = useSettingsStore.getState();
-  if (hapticsEnabled) {
+  const { haptics } = useSettingsStore.getState();
+  if (haptics) {
     Haptics.impactAsync(style);
   }
 };

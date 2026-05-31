@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider } from 'react-native-paper';
+import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider, Switch } from 'react-native-paper';
 import { ROUTES } from '../../../constants/routes';
-import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart } from 'lucide-react-native';
+import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu } from 'lucide-react-native';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useUserStore } from '../store/useUserStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -151,16 +151,7 @@ export default function ProfileScreen({ navigation }: any) {
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>Account Details</Text>
-        <Card mode="contained" style={styles.menuCard}>
-          <Card.Content>
-            <BulletItem label="Level" value={profile.level} />
-            <BulletItem label="Hand" value={profile.preferredHand} />
-            <BulletItem label="Occupation" value={profile.occupation} icon={<Briefcase size={18} color={theme.colors.primary} style={{ marginRight: 4 }} />} />
-          </Card.Content>
-        </Card>
-      </View>
+
 
       <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
     </ScrollView>

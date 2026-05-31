@@ -59,7 +59,8 @@ The **Sign Language Detector App** is an offline mobile app, designed to recogni
 - **Timeline View:** A chronological log of all your past detections, learning sessions, and tests. Click on any entry to view details.
 
 
-### Setting feature
+### ⚙️ Settings
+*Note: The settings module has been fully decoupled from the user profile for a cleaner, centralized architecture.*
 - **Theme:** Full support for Light, Dark, and Mixed modes with customizable color palettes.
 - **Sound & Voice:** Change sound effect, volume, TTS language and voice rate.
     - **System Sounds:** High-quality sound effects for generic actions (opening pages, clicking buttons, etc.).

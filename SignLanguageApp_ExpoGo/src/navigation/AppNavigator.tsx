@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { LayoutGrid, Camera, BookOpen, User, Settings as SettingsIcon } from 'lucide-react-native';
@@ -17,10 +18,12 @@ export default function AppNavigator() {
   const theme = useTheme();
 
   return (
-    <NavigationContainer>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <NavigationContainer>
       <Tab.Navigator
         initialRouteName={ROUTES.DASHBOARD}
         screenOptions={{
+        headerShown: false,
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.outline,
           tabBarStyle: {
@@ -82,5 +85,6 @@ export default function AppNavigator() {
         />
       </Tab.Navigator>
     </NavigationContainer>
+    </SafeAreaView>
   );
 }
