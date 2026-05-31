@@ -11,6 +11,7 @@ export const ROUTES = {
   PROFILE_TAB: 'ProfileTab',
   PROFILE: 'Profile',
   SETTINGS: 'Settings',
+  MODEL_MANAGER: 'ModelManager',
 } as const;
 
 export type RouteNames = typeof ROUTES[keyof typeof ROUTES];

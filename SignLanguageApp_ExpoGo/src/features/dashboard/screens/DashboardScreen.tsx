@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, BackHandler, Alert } from 'react-native';
 import { Text, Card, Button, useTheme, Avatar, List, IconButton } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -29,6 +30,27 @@ export default function DashboardScreen({ navigation }: any) {
   }, [packWords]);
 
   const recentHistory = React.useMemo(() => history.slice(0, 3), [history]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert(
+          'Exit App',
+          'Are you sure you want to exit?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
+          ],
+          { cancelable: true }
+        );
+        return true; // prevent default behavior
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>

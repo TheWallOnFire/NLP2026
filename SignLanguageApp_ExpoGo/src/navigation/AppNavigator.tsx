@@ -9,7 +9,7 @@ import DetectionScreen from '../features/detection/screens/DetectionScreen';
 import DashboardScreen from '../features/dashboard/screens/DashboardScreen';
 import LearningNavigator from './LearningNavigator';
 import ProfileNavigator from './ProfileNavigator';
-import SettingsScreen from '../features/settings/screens/SettingsScreen';
+import SettingsNavigator from './SettingsNavigator';
 import { ROUTES } from '../constants/routes';
 
 const Tab = createBottomTabNavigator();
@@ -22,6 +22,7 @@ export default function AppNavigator() {
       <NavigationContainer>
       <Tab.Navigator
         initialRouteName={ROUTES.DASHBOARD}
+        backBehavior="history"
         screenOptions={{
         headerShown: false,
           tabBarActiveTintColor: theme.colors.primary,
@@ -77,9 +78,10 @@ export default function AppNavigator() {
           }}
         />
         <Tab.Screen
-          name={ROUTES.SETTINGS}
-          component={SettingsScreen}
+          name="SettingsTab"
+          component={SettingsNavigator}
           options={{
+            title: 'Settings',
             tabBarIcon: ({ color, size }) => <SettingsIcon color={color} size={size} />,
           }}
         />

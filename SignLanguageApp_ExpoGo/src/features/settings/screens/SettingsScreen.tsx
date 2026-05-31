@@ -11,6 +11,7 @@ import { useModelStore } from '../../learning/store/useModelStore';
 import { useUserStore } from '../../profile/store/useUserStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
+import { importCustomPack } from '../../../utils/packImporter';
 
 export default function SettingsScreen({ navigation }: any) {
   const theme = useTheme();
@@ -20,8 +21,28 @@ export default function SettingsScreen({ navigation }: any) {
   const { clearHistory } = useHistoryStore();
 
   const resetPacks = useModelStore(state => state.resetPacks);
+  const importCustomPackAction = useModelStore(state => state.importCustomPack);
   const resetProfile = useUserStore(state => state.resetProfile);
   const resetAllProgress = useLearningStore(state => state.resetAllProgress);
+  const initializePackWords = useLearningStore(state => state.initializePackWords);
+
+  const [isImporting, setIsImporting] = React.useState(false);
+
+  const handleImport = async () => {
+    try {
+      setIsImporting(true);
+      const result = await importCustomPack();
+      if (result) {
+        initializePackWords(result.pack.id, result.words);
+        importCustomPackAction(result.pack);
+        Alert.alert("Success", `Imported ${result.pack.name} successfully!`);
+      }
+    } catch (error: any) {
+      Alert.alert("Import Failed", error.message || "Failed to import model pack.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const confirmClearHistory = () => {
     Alert.alert(
@@ -50,6 +71,7 @@ export default function SettingsScreen({ navigation }: any) {
               clearHistory();
               resetProfile();
               resetAllProgress();
+              settings.resetSettings();
 
               // 2. Clear persistence layer
               await AsyncStorage.clear();
@@ -120,11 +142,22 @@ export default function SettingsScreen({ navigation }: any) {
             <Divider />
 
             {/* 3. Camera */}
-            <List.Item
+            <List.Accordion
               title="Camera Options"
+              description={`Default: ${settings.camera?.defaultFacing === 'front' ? 'Front' : 'Back'}`}
               left={props => <List.Icon {...props} icon={() => <Camera size={24} color={theme.colors.primary} />} />}
-              right={props => <ChevronRight size={24} color={theme.colors.onSurfaceVariant} />}
-            />
+            >
+              <List.Item
+                title="Front Camera"
+                onPress={() => updateSettings({ camera: { ...settings.camera, defaultFacing: 'front' } })}
+                right={props => settings.camera?.defaultFacing === 'front' ? <Check size={20} color={theme.colors.primary} /> : null}
+              />
+              <List.Item
+                title="Back Camera"
+                onPress={() => updateSettings({ camera: { ...settings.camera, defaultFacing: 'back' } })}
+                right={props => settings.camera?.defaultFacing === 'back' ? <Check size={20} color={theme.colors.primary} /> : null}
+              />
+            </List.Accordion>
             <Divider />
 
             {/* 4. Haptics */}
@@ -160,13 +193,23 @@ export default function SettingsScreen({ navigation }: any) {
             <Divider />
 
             {/* 6. Model */}
-            <List.Item
+            <List.Accordion
               title="Model Pack"
-              description="Select active AI model"
+              description="Manage AI models"
               left={props => <List.Icon {...props} icon={() => <Cpu size={24} color={theme.colors.primary} />} />}
-              right={props => <ChevronRight size={24} color={theme.colors.onSurfaceVariant} />}
-              onPress={() => navigation.navigate(ROUTES.MODEL_PACKS)}
-            />
+            >
+              <List.Item
+                title="View Library"
+                left={props => <List.Icon {...props} icon="library" />}
+                onPress={() => navigation.navigate(ROUTES.MODEL_MANAGER)}
+              />
+              <List.Item
+                title={isImporting ? "Importing..." : "Import Custom Pack"}
+                left={props => <List.Icon {...props} icon={isImporting ? "loading" : "file-import"} />}
+                onPress={handleImport}
+                disabled={isImporting}
+              />
+            </List.Accordion>
             <Divider />
 
             {/* 7. System & Alerts */}

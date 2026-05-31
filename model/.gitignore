@@ -10,6 +10,9 @@ logs/
 *.ckpt
 *.pb
 saved_model/
+packs/
+*.zip
+
 
 # Jupyter Notebook
 .ipynb_checkpoints/

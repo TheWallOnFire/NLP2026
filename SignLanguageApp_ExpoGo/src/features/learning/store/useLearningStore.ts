@@ -16,6 +16,7 @@ interface LearningState {
   markLearned: (packId: string, wordId: string, learned: boolean) => void;
   getPackProgress: (packId: string) => number;
   getPackWords: (packId: string) => Word[];
+  initializePackWords: (packId: string, words: Word[]) => void;
   clearPackProgress: (packId: string) => void;
   resetAllProgress: () => void;
 }
@@ -47,6 +48,10 @@ export const useLearningStore = create<LearningState>()(
       packWords: defaultPacksWords,
       
       getPackWords: (packId) => get().packWords[packId] || [],
+      
+      initializePackWords: (packId, words) => set((state) => ({
+        packWords: { ...state.packWords, [packId]: words }
+      })),
       
       getPackProgress: (packId) => {
         const words = get().packWords[packId] || [];

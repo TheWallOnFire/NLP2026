@@ -12,6 +12,9 @@ export interface SettingsState {
     ttsLanguage: string;
     voiceRate: number;
   };
+  camera: {
+    defaultFacing: 'back' | 'front';
+  };
   haptics: boolean;
   permissions: {
     camera: boolean;
@@ -28,7 +31,8 @@ export interface SettingsState {
   };
   developerDebugMode: boolean;
 
-  updateSettings: (updates: Partial<Omit<SettingsState, 'updateSettings'>>) => void;
+  updateSettings: (updates: Partial<Omit<SettingsState, 'updateSettings' | 'resetSettings'>>) => void;
+  resetSettings: () => void;
 }
 
 const initialSettings: Omit<SettingsState, 'updateSettings'> = {
@@ -40,6 +44,9 @@ const initialSettings: Omit<SettingsState, 'updateSettings'> = {
     volume: 1.0,
     ttsLanguage: 'en-US',
     voiceRate: 1.0,
+  },
+  camera: {
+    defaultFacing: 'front',
   },
   haptics: true,
   permissions: {
@@ -63,10 +70,35 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       ...initialSettings,
       updateSettings: (updates) => set((state) => ({ ...state, ...updates })),
+      resetSettings: () => set(() => ({ ...initialSettings })),
     }),
     {
       name: 'settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      merge: (persistedState: any, currentState) => ({
+        ...currentState,
+        ...persistedState,
+        sound: {
+          ...currentState.sound,
+          ...(persistedState?.sound || {}),
+        },
+        camera: {
+          ...currentState.camera,
+          ...(persistedState?.camera || {}),
+        },
+        permissions: {
+          ...currentState.permissions,
+          ...(persistedState?.permissions || {}),
+        },
+        storage: {
+          ...currentState.storage,
+          ...(persistedState?.storage || {}),
+        },
+        systemAlerts: {
+          ...currentState.systemAlerts,
+          ...(persistedState?.systemAlerts || {}),
+        },
+      }),
     }
   )
 );

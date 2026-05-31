@@ -6,11 +6,12 @@ import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
+import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import { ChevronDown, History as HistoryIcon, Zap, ZapOff, Maximize, Brain, FileBox } from 'lucide-react-native';
 
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-react-native';
@@ -18,7 +19,11 @@ import * as mobilenet from '@tensorflow-models/mobilenet';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
-  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  
+  const defaultFacing = useSettingsStore(state => state.camera?.defaultFacing || 'back');
+  const ttsSettings = useSettingsStore(state => state.sound);
+  
+  const [facing, setFacing] = useState<'back' | 'front'>(defaultFacing);
   const [flash, setFlash] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted;
@@ -35,6 +40,13 @@ export default function DetectionScreen({ navigation }: any) {
   
   const [isTfReady, setIsTfReady] = useState(false);
   const [tfModel, setTfModel] = useState<mobilenet.MobileNet | null>(null);
+
+  const player = useVideoPlayer(selectedMedia, player => {
+    if (player) {
+      player.loop = true;
+      player.play();
+    }
+  });
 
   useEffect(() => {
     async function initTF() {
@@ -108,7 +120,9 @@ export default function DetectionScreen({ navigation }: any) {
     
     if (Math.random() > 0.9) {
       triggerImpactFeedback();
-      Speech.speak(randomWord, { language: 'en', rate: 0.9 });
+      if (ttsSettings?.systemSounds !== false) {
+        Speech.speak(randomWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+      }
       addHistoryItem({
         sign: randomWord,
         type: 'detection',
@@ -274,12 +288,11 @@ export default function DetectionScreen({ navigation }: any) {
               detectionMode === 'picture' ? (
                 <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} resizeMode="contain" />
               ) : (
-                <Video
-                  source={{ uri: selectedMedia }}
+                <VideoView
+                  player={player}
                   style={styles.mediaPreview}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  isLooping
+                  allowsFullscreen
+                  allowsPictureInPicture
                 />
               )
             ) : (

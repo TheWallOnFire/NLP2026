@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSettingsStore } from './src/features/settings/store/useSettingsStore';
 import { lightTheme, darkTheme } from './src/theme';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform, LogBox } from 'react-native';
+import { Platform, LogBox, useColorScheme } from 'react-native';
 
 LogBox.ignoreLogs(['Expo AV has been deprecated']);
 
@@ -13,7 +13,10 @@ import LoadingScreen from './src/features/common/screens/LoadingScreen';
 
 export default function App() {
   const [isLoading, setIsLoading] = React.useState(true);
-  const isDarkMode = useSettingsStore((state) => state.isDarkMode);
+  const systemColorScheme = useColorScheme();
+  const themePreference = useSettingsStore((state) => state.theme);
+  
+  const isDarkMode = themePreference === 'dark' || (themePreference === 'mixed' && systemColorScheme === 'dark');
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   React.useEffect(() => {
