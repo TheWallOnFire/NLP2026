@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider, Switch } from 'react-native-paper';
+import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider } from 'react-native-paper';
 import { ROUTES } from '../../../constants/routes';
-import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu } from 'lucide-react-native';
+import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart } from 'lucide-react-native';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useUserStore } from '../store/useUserStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -13,7 +13,7 @@ export default function ProfileScreen({ navigation }: any) {
   const packWords = useLearningStore(state => state.packWords);
   const { profile, updateProfile } = useUserStore();
   const { history, clearHistory } = useHistoryStore();
-
+  
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedProfile, setEditedProfile] = React.useState(profile);
 
@@ -61,7 +61,7 @@ export default function ProfileScreen({ navigation }: any) {
           <IconButton
             icon={() => <Edit2 size={16} color="white" />}
             style={[styles.editAvatarBtn, { backgroundColor: theme.colors.primary }]}
-            onPress={() => { }}
+            onPress={() => {}}
           />
         </View>
 
@@ -72,7 +72,7 @@ export default function ProfileScreen({ navigation }: any) {
               <IconButton icon={() => <Edit2 size={18} color={theme.colors.primary} />} onPress={() => setIsEditing(true)} />
             </View>
             <Text variant="bodyMedium" style={styles.userEmail}>{profile.email}</Text>
-
+            
             <View style={styles.detailsRow}>
               <View style={styles.detailItem}>
                 <MapPin size={14} color={theme.colors.onSurfaceVariant} />
@@ -89,7 +89,7 @@ export default function ProfileScreen({ navigation }: any) {
             <TextInput
               label="Full Name"
               value={editedProfile.name}
-              onChangeText={text => setEditedProfile({ ...editedProfile, name: text })}
+              onChangeText={text => setEditedProfile({...editedProfile, name: text})}
               mode="outlined"
               style={styles.input}
               dense
@@ -97,7 +97,7 @@ export default function ProfileScreen({ navigation }: any) {
             <TextInput
               label="Email"
               value={editedProfile.email}
-              onChangeText={text => setEditedProfile({ ...editedProfile, email: text })}
+              onChangeText={text => setEditedProfile({...editedProfile, email: text})}
               mode="outlined"
               style={styles.input}
               dense
@@ -108,7 +108,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
         )}
-
+        
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text variant="titleLarge" style={styles.statNumber}>{learnedCount}</Text>
@@ -132,7 +132,7 @@ export default function ProfileScreen({ navigation }: any) {
           <Text variant="titleLarge" style={styles.sectionTitle}>Activity History</Text>
           <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>Clear</Button>
         </View>
-
+        
         {history.length > 0 ? (
           history.slice(0, 5).map((item) => (
             <HistoryTimelineItem key={item.id} item={item} />
@@ -151,6 +151,16 @@ export default function ProfileScreen({ navigation }: any) {
         )}
       </View>
 
+      <View style={styles.section}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>Account Details</Text>
+        <Card mode="contained" style={styles.menuCard}>
+          <Card.Content>
+            <BulletItem label="Level" value={profile.level} />
+            <BulletItem label="Hand" value={profile.preferredHand} />
+            <BulletItem label="Occupation" value={profile.occupation} icon={<Briefcase size={18} color={theme.colors.primary} style={{ marginRight: 4 }} />} />
+          </Card.Content>
+        </Card>
+      </View>
 
       <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
     </ScrollView>

@@ -14,7 +14,7 @@ import { triggerSuccessFeedback } from '../../../utils/feedback';
 
 export default function SettingsScreen({ navigation }: any) {
   const theme = useTheme();
-  
+
   const settings = useSettingsStore();
   const { updateSettings } = settings;
   const { clearHistory } = useHistoryStore();
@@ -40,8 +40,8 @@ export default function SettingsScreen({ navigation }: any) {
       "This will permanently delete all your learning progress, history, downloaded models, and personalized settings. You will be returned to the initial state.",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Reset Everything", 
+        {
+          text: "Reset Everything",
           style: "destructive",
           onPress: async () => {
             try {
@@ -53,7 +53,7 @@ export default function SettingsScreen({ navigation }: any) {
 
               // 2. Clear persistence layer
               await AsyncStorage.clear();
-              
+
               triggerSuccessFeedback();
               Alert.alert("Success", "Your application has been reset to factory defaults.");
             } catch (e) {
@@ -80,18 +80,18 @@ export default function SettingsScreen({ navigation }: any) {
               description={`Current: ${settings.theme}`}
               left={props => <List.Icon {...props} icon={() => <Sun size={24} color={theme.colors.primary} />} />}
             >
-              <List.Item 
-                title="Light" 
+              <List.Item
+                title="Light"
                 onPress={() => updateSettings({ theme: 'light' })}
                 right={props => settings.theme === 'light' ? <Check size={20} color={theme.colors.primary} /> : null}
               />
-              <List.Item 
-                title="Dark" 
+              <List.Item
+                title="Dark"
                 onPress={() => updateSettings({ theme: 'dark' })}
                 right={props => settings.theme === 'dark' ? <Check size={20} color={theme.colors.primary} /> : null}
               />
-              <List.Item 
-                title="Mixed" 
+              <List.Item
+                title="Mixed"
                 onPress={() => updateSettings({ theme: 'mixed' })}
                 right={props => settings.theme === 'mixed' ? <Check size={20} color={theme.colors.primary} /> : null}
               />
@@ -104,16 +104,16 @@ export default function SettingsScreen({ navigation }: any) {
               description="System sounds and TTS"
               left={props => <List.Icon {...props} icon={() => <Volume2 size={24} color={theme.colors.primary} />} />}
             >
-              <List.Item 
-                title="System Sounds" 
+              <List.Item
+                title="System Sounds"
                 right={() => <Switch value={settings.sound.systemSounds} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, systemSounds: val } })} />}
               />
-              <List.Item 
-                title="Learning Feedback" 
+              <List.Item
+                title="Learning Feedback"
                 right={() => <Switch value={settings.sound.learningFeedback} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, learningFeedback: val } })} />}
               />
-              <List.Item 
-                title="Capture Notification" 
+              <List.Item
+                title="Capture Notification"
                 right={() => <Switch value={settings.sound.captureNotification} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, captureNotification: val } })} />}
               />
             </List.Accordion>
@@ -141,18 +141,18 @@ export default function SettingsScreen({ navigation }: any) {
               description="Manage history and exports"
               left={props => <List.Icon {...props} icon={() => <HardDrive size={24} color={theme.colors.primary} />} />}
             >
-              <List.Item 
-                title="Local Logging" 
+              <List.Item
+                title="Local Logging"
                 right={() => <Switch value={settings.storage.localLogging} onValueChange={(val) => updateSettings({ storage: { ...settings.storage, localLogging: val } })} />}
               />
-              <List.Item 
-                title="Export Data (CSV)" 
+              <List.Item
+                title="Export Data (CSV)"
                 left={props => <List.Icon {...props} icon={() => <Download size={20} color={theme.colors.primary} />} />}
                 onPress={() => Alert.alert("Export", "Data exported to CSV")}
               />
-              <List.Item 
+              <List.Item
                 title="Delete All Data"
-                titleStyle={{ color: 'red' }} 
+                titleStyle={{ color: 'red' }}
                 left={props => <List.Icon {...props} icon={() => <Database size={20} color="red" />} />}
                 onPress={confirmClearHistory}
               />
@@ -174,12 +174,12 @@ export default function SettingsScreen({ navigation }: any) {
               title="System & Alerts"
               left={props => <List.Icon {...props} icon={() => <Bell size={24} color={theme.colors.primary} />} />}
             >
-              <List.Item 
-                title="Daily Reminders" 
+              <List.Item
+                title="Daily Reminders"
                 right={() => <Switch value={settings.systemAlerts.dailyReminders} onValueChange={(val) => updateSettings({ systemAlerts: { ...settings.systemAlerts, dailyReminders: val } })} />}
               />
-              <List.Item 
-                title="Battery Saver Mode" 
+              <List.Item
+                title="Battery Saver Mode"
                 right={() => <Switch value={settings.systemAlerts.powerManagement} onValueChange={(val) => updateSettings({ systemAlerts: { ...settings.systemAlerts, powerManagement: val } })} />}
               />
             </List.Accordion>
