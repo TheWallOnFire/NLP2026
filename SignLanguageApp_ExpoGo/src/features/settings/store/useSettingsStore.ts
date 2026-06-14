@@ -35,7 +35,7 @@ export interface SettingsState {
   resetSettings: () => void;
 }
 
-const initialSettings: Omit<SettingsState, 'updateSettings'> = {
+const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> = {
   theme: 'mixed',
   sound: {
     systemSounds: true,

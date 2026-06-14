@@ -26,7 +26,9 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.anonymous.SignLanguageAppExpoGo"
     },
@@ -35,18 +37,13 @@
     },
     "plugins": [
       "expo-asset",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
-        }
-      ],
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      "react-native-fast-tflite"
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "4e3a60ff-e927-4f2c-96aa-4c85805ebc1b"
       }
     }
   }

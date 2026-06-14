@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Linking, Animated, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator } from 'react-native-paper';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { loadTensorflowModel } from 'react-native-fast-tflite';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../../learning/store/useModelStore';
@@ -13,9 +14,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-react-native';
-import * as mobilenet from '@tensorflow-models/mobilenet';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
@@ -25,8 +23,54 @@ export default function DetectionScreen({ navigation }: any) {
   
   const [facing, setFacing] = useState<'back' | 'front'>(defaultFacing);
   const [flash, setFlash] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
-  const hasPermission = permission?.granted;
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice(facing);
+
+  const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
+
+  // Fast TFLite model integration (dynamic loading to prevent crash)
+  const [tfliteModel, setTfliteModel] = useState<{ model: any, state: string, error?: any }>({
+    model: undefined,
+    state: 'loading'
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadModel = async () => {
+      if (!customModelUri) {
+        setTfliteModel({ model: undefined, state: 'loading' });
+        return;
+      }
+      try {
+        setTfliteModel({ model: undefined, state: 'loading' });
+        const m = await loadTensorflowModel({ url: customModelUri }, []);
+        if (isMounted) {
+          setTfliteModel({ model: m, state: 'loaded' });
+        }
+      } catch (e) {
+        console.error("Fast TFLite Load Error:", e);
+        if (isMounted) {
+          setTfliteModel({ model: undefined, state: 'error', error: e });
+        }
+      }
+    };
+    loadModel();
+    return () => { isMounted = false; };
+  }, [customModelUri]);
+
+  // Define JS callback for Mock Detection Updates
+  const handleDetection = (word: string, conf: number) => {
+    if (Date.now() - lastDetectionTime.current > 1000) {
+      setDetectedWord(word);
+      setConfidence(conf);
+      lastDetectionTime.current = Date.now();
+    }
+  };
+  const lastDetectionTime = useRef(0);
+
+  // NOTE: react-native-worklets-core crashes natively on React Native 0.81.
+  // The frame processor logic is temporarily disabled to prevent C++ aborts.
+  // Real TFLite inference will require a compatible worklet engine or a native frame adapter.
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
@@ -35,11 +79,6 @@ export default function DetectionScreen({ navigation }: any) {
   const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
-  
-  const [isTfReady, setIsTfReady] = useState(false);
-  const [tfModel, setTfModel] = useState<mobilenet.MobileNet | null>(null);
 
   const player = useVideoPlayer(selectedMedia, player => {
     if (player) {
@@ -47,18 +86,7 @@ export default function DetectionScreen({ navigation }: any) {
       player.play();
     }
   });
-
-  useEffect(() => {
-    async function initTF() {
-      await tf.ready();
-      const model = await mobilenet.load({ version: 2, alpha: 1.0 });
-      setTfModel(model);
-      setIsTfReady(true);
-    }
-    initTF();
-  }, []);
-
-  const isModelReady = isTfReady && tfModel !== null;
+  
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
@@ -149,13 +177,8 @@ export default function DetectionScreen({ navigation }: any) {
 
   // Mock function to represent capturing the bounding box area
   const captureBoundingBoxAndAnalyze = async () => {
-    // In a full implementation, we would use expo-gl or cameraWithTensors here 
-    // to capture the pixels specifically inside the styles.reticle area.
-    // For now, we simulate the TFJS model prediction delay.
-    if (tfModel && isTfReady) {
-      console.log("Analyzing bounding box with TFJS MobileNet...");
-      // tfModel.classify(tensor) would go here
-    }
+    // In a full implementation, we will pass cropped frame buffers directly to fast-tflite
+    console.log("Analyzing bounding box natively...");
   };
 
   const pickImage = async () => {
@@ -270,15 +293,17 @@ export default function DetectionScreen({ navigation }: any) {
 
         {detectionMode === 'live' ? (
           <View style={styles.camera}>
-            <CameraView
-              style={StyleSheet.absoluteFill}
-              facing={facing}
-              enableTorch={flash}
-            />
-            {!isModelReady && (
-              <View style={[StyleSheet.absoluteFill, {justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)'}]}>
+            {device != null ? (
+              <Camera
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={true}
+                torchMode={flash ? 'on' : 'off'}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, {justifyContent: 'center', alignItems: 'center', backgroundColor: 'black'}]}>
                 <ActivityIndicator size="large" color="white" />
-                <Text style={{color: 'white', marginTop: 10, fontWeight: 'bold'}}>Loading TFJS Model...</Text>
+                <Text style={{color: 'white', marginTop: 10}}>Loading Camera...</Text>
               </View>
             )}
           </View>
