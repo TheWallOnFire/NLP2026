@@ -7,7 +7,8 @@ import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useUserStore } from '../../profile/store/useUserStore';
 import { ROUTES } from '../../../constants/routes';
-import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp } from 'lucide-react-native';
+import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp, Sparkles } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function DashboardScreen({ navigation }: any) {
   const theme = useTheme();
@@ -61,6 +62,36 @@ export default function DashboardScreen({ navigation }: any) {
           <Text variant="bodyLarge" style={{ opacity: 0.7 }}>Ready to master some new signs today?</Text>
         </View>
         <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer }} />
+      </View>
+
+      {/* Progress Banner */}
+      <View style={{ paddingHorizontal: 16 }}>
+        <LinearGradient 
+          colors={['#4facfe', '#00f2fe']} 
+          start={{ x: 0, y: 0 }} 
+          end={{ x: 1, y: 1 }} 
+          style={styles.progressCard}
+        >
+          <View style={styles.progressHeader}>
+            <View>
+              <Text variant="titleMedium" style={{ color: 'rgba(255,255,255,0.8)' }}>Overall Progress</Text>
+              <Text variant="displaySmall" style={{ color: 'white', fontWeight: 'bold' }}>
+                {Math.round(stats.progress * 100)}%
+              </Text>
+            </View>
+            <Sparkles color="white" size={32} opacity={0.8} />
+          </View>
+          <View style={styles.statRow}>
+            <View>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.learned}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Learned</Text>
+            </View>
+            <View>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.total}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Total Words</Text>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
 
       {/* Quick Actions Grid */}
@@ -180,9 +211,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   progressCard: {
-    margin: 16,
     borderRadius: 24,
-    elevation: 4,
+    padding: 24,
+    marginBottom: 8,
+    shadowColor: '#4facfe',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   progressHeader: {
     flexDirection: 'row',

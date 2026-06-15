@@ -11,11 +11,9 @@ import { ChevronDown, History as HistoryIcon, Zap, ZapOff, Maximize, Brain, File
 
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-react-native';
-import * as mobilenet from '@tensorflow-models/mobilenet';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
@@ -38,8 +36,7 @@ export default function DetectionScreen({ navigation }: any) {
   
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
   
-  const [isTfReady, setIsTfReady] = useState(false);
-  const [tfModel, setTfModel] = useState<mobilenet.MobileNet | null>(null);
+  const isModelReady = true;
 
   const player = useVideoPlayer(selectedMedia, player => {
     if (player) {
@@ -47,18 +44,6 @@ export default function DetectionScreen({ navigation }: any) {
       player.play();
     }
   });
-
-  useEffect(() => {
-    async function initTF() {
-      await tf.ready();
-      const model = await mobilenet.load({ version: 2, alpha: 1.0 });
-      setTfModel(model);
-      setIsTfReady(true);
-    }
-    initTF();
-  }, []);
-
-  const isModelReady = isTfReady && tfModel !== null;
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
@@ -149,18 +134,13 @@ export default function DetectionScreen({ navigation }: any) {
 
   // Mock function to represent capturing the bounding box area
   const captureBoundingBoxAndAnalyze = async () => {
-    // In a full implementation, we would use expo-gl or cameraWithTensors here 
-    // to capture the pixels specifically inside the styles.reticle area.
-    // For now, we simulate the TFJS model prediction delay.
-    if (tfModel && isTfReady) {
-      console.log("Analyzing bounding box with TFJS MobileNet...");
-      // tfModel.classify(tensor) would go here
-    }
+    // In a full implementation, we would use Native TFLite here.
+    console.log("Analyzing bounding box...");
   };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 1,
     });
@@ -173,7 +153,7 @@ export default function DetectionScreen({ navigation }: any) {
 
   const pickVideo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       allowsEditing: true,
       quality: 1,
     });
@@ -249,7 +229,10 @@ export default function DetectionScreen({ navigation }: any) {
       {/* Top Half: Mode-Specific View */}
       <View style={styles.cameraHalf}>
         {/* Mode Selector Tabs */}
-        <View style={styles.modeTabBar}>
+        <LinearGradient
+          colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)', 'transparent']}
+          style={styles.modeTabBar}
+        >
           {(['live', 'picture', 'video'] as const).map(mode => (
             <TouchableOpacity 
               key={mode} 
@@ -266,7 +249,7 @@ export default function DetectionScreen({ navigation }: any) {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </LinearGradient>
 
         {detectionMode === 'live' ? (
           <View style={styles.camera}>
@@ -291,7 +274,6 @@ export default function DetectionScreen({ navigation }: any) {
                 <VideoView
                   player={player}
                   style={styles.mediaPreview}
-                  allowsFullscreen
                   allowsPictureInPicture
                 />
               )
@@ -414,13 +396,18 @@ export default function DetectionScreen({ navigation }: any) {
         <ScrollView style={styles.historyScroll} contentContainerStyle={{ paddingBottom: 20 }}>
           {history.length > 0 ? (
             history.map((item, i) => (
-              <View key={item.id || i} style={styles.outputItem}>
-                <View style={styles.outputInfo}>
-                  <Text variant="titleMedium" style={styles.outputSign}>{item.sign}</Text>
-                  <Text variant="bodySmall" style={styles.outputMeta}>{item.date} • {item.time}</Text>
+              <Card key={item.id || i} style={styles.outputItem} mode="elevated">
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={styles.historyIconContainer}>
+                    <Text style={{ fontSize: 24 }}>✨</Text>
+                  </View>
+                  <View style={styles.outputInfo}>
+                    <Text variant="titleMedium" style={styles.outputSign}>{item.sign}</Text>
+                    <Text variant="bodySmall" style={styles.outputMeta}>{item.date} • {item.time}</Text>
+                  </View>
+                  <Badge style={styles.outputBadge}>{item.type.toUpperCase()}</Badge>
                 </View>
-                <Badge style={styles.outputBadge}>{item.type.toUpperCase()}</Badge>
-              </View>
+              </Card>
             ))
           ) : (
             <View style={styles.emptyOutput}>
@@ -514,12 +501,11 @@ const styles = StyleSheet.create({
   },
   modeTabBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.8)',
     paddingTop: 45, // Account for status bar
     paddingBottom: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
     zIndex: 20,
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
   },
   modeTab: {
     flex: 1,
@@ -659,17 +645,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 4,
   },
   confBadgeInline: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   confTextInline: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
-    color: 'gray',
+    color: '#2E7D32',
   },
   manualTriggerContainer: {
     position: 'absolute',
@@ -694,29 +681,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   outputItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 10,
-    elevation: 2,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 8,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+  },
+  historyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   outputInfo: {
     flex: 1,
   },
   outputSign: {
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '900',
   },
   outputMeta: {
-    color: '#888',
-    marginTop: 2,
+    marginTop: 4,
   },
   outputBadge: {
     backgroundColor: '#E8EAF6',

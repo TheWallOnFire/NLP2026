@@ -13,6 +13,9 @@ saved_model/
 packs/
 *.zip
 
+asl_alphabet_train/
+demo/
+
 
 # Jupyter Notebook
 .ipynb_checkpoints/

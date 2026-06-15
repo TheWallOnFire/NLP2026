@@ -11,7 +11,7 @@ export default function TestScreen({ route, navigation }: any) {
   const { packId, duration, mode } = route.params || {};
   const theme = useTheme();
   
-  const words = useLearningStore(state => state.packWords[packId] || []);
+  const words = useLearningStore(state => state.packWords[packId]) || [];
   const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
   const packs = useModelStore(state => state.packs);
   

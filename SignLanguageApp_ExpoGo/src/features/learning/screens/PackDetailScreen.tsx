@@ -1,7 +1,9 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Button, Card, ProgressBar, useTheme, Appbar } from 'react-native-paper';
-import { useLearningStore } from '../store/useLearningStore';
+import { View, StyleSheet, ScrollView, Image } from 'react-native';
+import { Text, Button, Card, ProgressBar, useTheme, Appbar, Modal, Portal, IconButton } from 'react-native-paper';
+import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLearningStore, Word } from '../store/useLearningStore';
 import { useModelStore } from '../store/useModelStore';
 import { triggerSelectionFeedback, triggerSuccessFeedback } from '../../../utils/feedback';
 import WordChip from '../components/WordChip';
@@ -11,7 +13,7 @@ export default function PackDetailScreen({ route, navigation }: any) {
   const { packId } = route.params || {};
   const theme = useTheme();
   
-  const words = useLearningStore(state => state.packWords[packId] || []);
+  const words = useLearningStore(state => state.packWords[packId]) || [];
   const toggleFavorite = useLearningStore(state => state.toggleFavorite);
   const markLearned = useLearningStore(state => state.markLearned);
   
@@ -19,6 +21,15 @@ export default function PackDetailScreen({ route, navigation }: any) {
   const pack = packs.find(p => p.id === packId);
 
   const progress = words.length > 0 ? words.filter(w => w.learned).length / words.length : 0;
+
+  const [selectedWord, setSelectedWord] = React.useState<Word | null>(null);
+  const [imageError, setImageError] = React.useState(false);
+
+  const handlePressWord = (word: Word) => {
+    setImageError(false);
+    setSelectedWord(word);
+    triggerSelectionFeedback();
+  };
 
   const handleToggleFavorite = (wordId: string) => {
     triggerSelectionFeedback();
@@ -41,11 +52,16 @@ export default function PackDetailScreen({ route, navigation }: any) {
       </Appbar.Header>
       
       <ScrollView>
-        <View style={[styles.header, { backgroundColor: theme.colors.primaryContainer }]}>
-          <Text variant="headlineMedium">{pack.name}</Text>
-          <Text variant="bodyMedium">Progress: {Math.round((progress || 0) * 100)}%</Text>
-          <ProgressBar progress={progress || 0} style={styles.progressBar} color={theme.colors.primary} />
-        </View>
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.tertiary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <Text variant="headlineMedium" style={{ color: 'white', fontWeight: 'bold' }}>{pack.name}</Text>
+          <Text variant="bodyMedium" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>Progress: {Math.round((progress || 0) * 100)}%</Text>
+          <ProgressBar progress={progress || 0} style={styles.progressBar} color="white" />
+        </LinearGradient>
 
         <View style={styles.section}>
           <Text variant="titleLarge" style={styles.sectionTitle}>Vocabulary</Text>
@@ -54,8 +70,8 @@ export default function PackDetailScreen({ route, navigation }: any) {
               <WordChip 
                 key={w.id} 
                 word={w} 
-                onToggleFavorite={() => handleToggleFavorite(w.id)} 
-                onMarkLearned={() => handleMarkLearned(w.id, !w.learned)} 
+                onPressWord={handlePressWord} 
+                onLongPressWord={(w) => handleMarkLearned(w.id, !w.learned)} 
               />
             ))}
           </View>
@@ -83,6 +99,58 @@ export default function PackDetailScreen({ route, navigation }: any) {
           </Card>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Modal
+          visible={!!selectedWord}
+          onDismiss={() => setSelectedWord(null)}
+          contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
+        >
+          {selectedWord && (
+            <View>
+              <View style={styles.modalHeader}>
+                <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>{selectedWord.word}</Text>
+                <IconButton icon="close" onPress={() => setSelectedWord(null)} />
+              </View>
+              
+              <Card style={styles.imageCard}>
+                {!imageError ? (
+                  <Image 
+                    source={{ uri: `${FileSystem.documentDirectory}packs/${packId}/word_images/${selectedWord.word}.png` }} 
+                    style={styles.wordImage}
+                    resizeMode="contain"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text variant="bodyLarge" style={{ color: 'gray' }}>No demo image available</Text>
+                  </View>
+                )}
+              </Card>
+
+              <View style={styles.modalActions}>
+                <IconButton 
+                  icon={selectedWord.favorite ? "star" : "star-outline"} 
+                  iconColor={selectedWord.favorite ? "#FFC107" : "gray"}
+                  size={32}
+                  onPress={() => handleToggleFavorite(selectedWord.id)}
+                />
+                <Button 
+                  mode="contained" 
+                  icon="play-circle" 
+                  style={{ flex: 1, marginLeft: 16 }}
+                  onPress={() => {
+                    setSelectedWord(null);
+                    navigation.navigate(ROUTES.PRACTICE, { packId, wordId: selectedWord.id });
+                  }}
+                >
+                  Practice Now
+                </Button>
+              </View>
+            </View>
+          )}
+        </Modal>
+      </Portal>
     </View>
   );
 }
@@ -91,8 +159,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    padding: 20,
+  headerGradient: {
+    padding: 24,
+    paddingTop: 32,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    marginBottom: 16,
   },
   progressBar: {
     marginTop: 10,
@@ -116,5 +194,36 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 16,
+  },
+  modalContainer: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  imageCard: {
+    overflow: 'hidden',
+    marginBottom: 20,
+    backgroundColor: '#f5f5f5',
+  },
+  wordImage: {
+    width: '100%',
+    height: 250,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 250,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

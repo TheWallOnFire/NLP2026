@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { Text, Card, Button, useTheme, ProgressBar, Badge, SegmentedButtons, IconButton, Searchbar, ActivityIndicator } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useModelStore, ModelPack } from '../store/useModelStore';
 import { useLearningStore } from '../store/useLearningStore';
 import { ROUTES } from '../../../constants/routes';
@@ -112,17 +113,22 @@ export default function ModelPacksScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.headerToolbar}>
-        <Text variant="titleLarge" style={styles.headerTitle}>Learning Modules</Text>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.tertiary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerToolbar}
+      >
+        <Text variant="headlineSmall" style={styles.headerTitle}>Learning Modules</Text>
         <View style={styles.tabActions}>
-          <View style={styles.mainTabs} />
           <IconButton
             icon={viewMode === 'list' ? 'view-grid' : 'view-list'}
+            iconColor="white"
             size={24}
             onPress={() => setViewMode(prev => prev === 'list' ? 'grid' : 'list')}
           />
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
@@ -185,22 +191,23 @@ const styles = StyleSheet.create({
   },
   headerToolbar: {
     padding: 16,
-    paddingTop: 24,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingTop: 50,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    marginBottom: 8,
   },
   headerTitle: {
     fontWeight: 'bold',
-  },
-  searchBar: {
-    height: 45,
-    elevation: 0,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-    borderRadius: 12,
+    color: 'white',
+    marginLeft: 8,
   },
   tabActions: {
     flexDirection: 'row',
@@ -243,7 +250,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   gridCard: {
-    borderRadius: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 4,
   },
   gridCardInner: {
     padding: 12,
@@ -284,7 +293,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   listCard: {
-    borderRadius: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 2,
   },
   listCardInner: {
     flexDirection: 'row',

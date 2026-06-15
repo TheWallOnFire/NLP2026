@@ -2,6 +2,11 @@ import tensorflow as tf
 import os
 import json
 import shutil
+import urllib.request
+import sys
+
+# Đảm bảo console in được tiếng Việt
+sys.stdout.reconfigure(encoding='utf-8')
 
 # 1. Định nghĩa danh sách các file Keras của bạn và thông tin metadata tương ứng
 def load_config(config_filename="models_config.json"):
@@ -31,6 +36,7 @@ def create_model_pack(info):
     author = info.get("author", "Your Name")
     language = info.get("language", "en-US")
     description = info.get("description", "Không có mô tả")
+    word_image_url = info.get("word_image_url")
 
     if not pack_name or not keras_file or not words:
         print(f"Lỗi: Thiếu thông tin bắt buộc (pack_name, keras_file, words) trong cấu hình: {info}")
@@ -51,6 +57,20 @@ def create_model_pack(info):
     # 2. Tạo cấu trúc thư mục
     os.makedirs(images_dir, exist_ok=True)
     print(f"Đang xử lý Pack: {pack_name}...")
+
+    # Tải placeholder images nếu có URL
+    if word_image_url:
+        print("  -> Đang tải placeholder images cho các từ vựng...")
+        for word in words:
+            try:
+                # Thay thế placeholder {word} bằng từ thực tế
+                url = word_image_url.replace("{word}", urllib.parse.quote(word))
+                img_path = os.path.join(images_dir, f"{word}.png")
+                # Chỉ tải nếu chưa có
+                if not os.path.exists(img_path):
+                    urllib.request.urlretrieve(url, img_path)
+            except Exception as e:
+                print(f"     [!] Lỗi tải ảnh cho từ '{word}': {e}")
 
     # 3. Chuyển đổi mô hình Keras sang TFLite
     try:

@@ -1,32 +1,43 @@
 [
   {
-    "keras_file": "baseline_best.keras",
-    "pack_name": "ASL_Baseline_Pack",
-    "id": "asl_baseline_001",
+    "keras_file": "best_asl_model.keras",
+    "pack_name": "ASL_Best_Model",
+    "id": "asl_best_model_001",
     "version": "1.0.0",
     "author": "AI Developer Team",
     "language": "en-US",
-    "description": "Mô hình CNN Baseline nhận diện 29 lớp ngôn ngữ ký hiệu ASL (A-Z, del, nothing, space).",
-    "words": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "del", "nothing", "space"]
-  },
-  {
-    "keras_file": "mobilenet_best.keras",
-    "pack_name": "ASL_MobileNet_Pack",
-    "id": "asl_mobilenet_001",
-    "version": "1.0.0",
-    "author": "AI Developer Team",
-    "language": "en-US",
-    "description": "Mô hình MobileNetV2 tối ưu cho thiết bị di động, nhận diện 29 lớp ASL.",
-    "words": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "del", "nothing", "space"]
-  },
-  {
-    "keras_file": "efficientnet_best.keras",
-    "pack_name": "ASL_EfficientNet_Pack",
-    "id": "asl_efficientnet_001",
-    "version": "1.0.0",
-    "author": "AI Developer Team",
-    "language": "en-US",
-    "description": "Mô hình EfficientNetB0 độ chính xác cao, nhận diện 29 lớp ASL.",
-    "words": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "del", "nothing", "space"]
+    "description": "Mô hình CNN nhận diện 29 lớp ngôn ngữ ký hiệu ASL (A-Z, del, nothing, space).",
+    "word_image_url": "file:///d:/VScode/Python/Project/NLP2026/model/demo/{word}/demo_image.jpg",
+    "words": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z",
+      "del",
+      "nothing",
+      "space"
+    ]
   }
 ]

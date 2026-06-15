@@ -87,7 +87,7 @@ export default function ModelManagerScreen({ navigation }: any) {
   const handleOpenPack = (pack: ModelPack) => {
     triggerSelectionFeedback();
     setActivePack(pack.id);
-    navigation.navigate(ROUTES.PACK_DETAIL, { packId: pack.id });
+    navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.PACK_DETAIL, params: { packId: pack.id } });
   };
 
   const handleDeletePack = (pack: ModelPack) => {
