@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import JSZip from 'jszip';
 import { ModelPack } from '../features/learning/store/useModelStore';
 import { Word } from '../features/learning/store/useLearningStore';
