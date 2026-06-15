@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider, Switch } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ROUTES } from '../../../constants/routes';
 import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu } from 'lucide-react-native';
 import { useLearningStore } from '../../learning/store/useLearningStore';
@@ -55,12 +56,17 @@ export default function ProfileScreen({ navigation }: any) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.tertiary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
         <View style={styles.avatarContainer}>
-          <Avatar.Icon size={80} icon="account" style={styles.avatar} />
+          <Avatar.Icon size={90} icon="account" style={styles.avatar} />
           <IconButton
             icon={() => <Edit2 size={16} color="white" />}
-            style={[styles.editAvatarBtn, { backgroundColor: theme.colors.primary }]}
+            style={[styles.editAvatarBtn, { backgroundColor: theme.colors.secondary }]}
             onPress={() => { }}
           />
         </View>
@@ -69,17 +75,17 @@ export default function ProfileScreen({ navigation }: any) {
           <>
             <View style={styles.nameRow}>
               <Text variant="headlineSmall" style={styles.userName}>{profile.name}</Text>
-              <IconButton icon={() => <Edit2 size={18} color={theme.colors.primary} />} onPress={() => setIsEditing(true)} />
+              <IconButton icon={() => <Edit2 size={18} color="white" />} onPress={() => setIsEditing(true)} />
             </View>
             <Text variant="bodyMedium" style={styles.userEmail}>{profile.email}</Text>
 
             <View style={styles.detailsRow}>
               <View style={styles.detailItem}>
-                <MapPin size={14} color={theme.colors.onSurfaceVariant} />
+                <MapPin size={14} color="rgba(255,255,255,0.8)" />
                 <Text variant="bodySmall" style={styles.detailText}>{profile.location}</Text>
               </View>
               <View style={styles.detailItem}>
-                <Globe size={14} color={theme.colors.onSurfaceVariant} />
+                <Globe size={14} color="rgba(255,255,255,0.8)" />
                 <Text variant="bodySmall" style={styles.detailText}>{profile.nativeLanguage}</Text>
               </View>
             </View>
@@ -90,7 +96,7 @@ export default function ProfileScreen({ navigation }: any) {
               label="Full Name"
               value={editedProfile.name}
               onChangeText={text => setEditedProfile({ ...editedProfile, name: text })}
-              mode="outlined"
+              mode="flat"
               style={styles.input}
               dense
             />
@@ -98,34 +104,34 @@ export default function ProfileScreen({ navigation }: any) {
               label="Email"
               value={editedProfile.email}
               onChangeText={text => setEditedProfile({ ...editedProfile, email: text })}
-              mode="outlined"
+              mode="flat"
               style={styles.input}
               dense
             />
             <View style={styles.editActions}>
-              <Button mode="outlined" onPress={handleCancel} icon={() => <X size={16} />} style={styles.actionBtn}>Cancel</Button>
-              <Button mode="contained" onPress={handleSave} icon={() => <Check size={16} />} style={styles.actionBtn}>Save</Button>
+              <Button mode="elevated" onPress={handleCancel} style={styles.actionBtn}>Cancel</Button>
+              <Button mode="contained" onPress={handleSave} style={[styles.actionBtn, {backgroundColor: theme.colors.secondary}]}>Save</Button>
             </View>
           </View>
         )}
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text variant="titleLarge" style={styles.statNumber}>{learnedCount}</Text>
+            <Text variant="headlineMedium" style={styles.statNumber}>{learnedCount}</Text>
             <Text variant="labelSmall" style={styles.statLabel}>Learned</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text variant="titleLarge" style={styles.statNumber}>{favoriteCount}</Text>
+            <Text variant="headlineMedium" style={styles.statNumber}>{favoriteCount}</Text>
             <Text variant="labelSmall" style={styles.statLabel}>Favorites</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text variant="titleLarge" style={styles.statNumber}>{history.length}</Text>
+            <Text variant="headlineMedium" style={styles.statNumber}>{history.length}</Text>
             <Text variant="labelSmall" style={styles.statLabel}>Detections</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -161,12 +167,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerGradient: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    marginBottom: 10,
   },
   avatarContainer: {
     position: 'relative',
@@ -190,9 +202,11 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontWeight: 'bold',
+    color: 'white',
   },
   userEmail: {
-    opacity: 0.6,
+    opacity: 0.8,
+    color: 'white',
     marginBottom: 8,
   },
   detailsRow: {
@@ -207,6 +221,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     marginLeft: 4,
+    color: 'rgba(255,255,255,0.9)',
   },
   bioText: {
     textAlign: 'center',
@@ -250,15 +265,17 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontWeight: 'bold',
+    color: 'white',
   },
   statLabel: {
-    opacity: 0.6,
+    opacity: 0.8,
+    color: 'white',
     textTransform: 'uppercase',
   },
   statDivider: {
     width: 1,
-    height: 30,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   section: {
     padding: 16,

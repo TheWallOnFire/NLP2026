@@ -39,7 +39,13 @@
       "expo-asset",
       "expo-audio",
       "expo-video",
-      "react-native-fast-tflite"
+      "react-native-fast-tflite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
+        }
+      ]
     ],
     "extra": {
       "eas": {

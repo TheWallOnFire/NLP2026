@@ -21,7 +21,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
 
     // 2. Read the zip file into base64
     const base64Content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     // 3. Load with JSZip
@@ -83,7 +83,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     const tfliteDestUri = `${packDir}model.tflite`;
     const tfliteBase64 = await (tfliteFile as any).async("base64");
     await FileSystem.writeAsStringAsync(tfliteDestUri, tfliteBase64, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     // Extract word images if any
@@ -98,7 +98,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
         if (fileName) {
           const promise = zipEntry.async("base64").then(b64 => {
             return FileSystem.writeAsStringAsync(`${imagesDir}${fileName}`, b64, {
-              encoding: FileSystem.EncodingType.Base64,
+              encoding: 'base64',
             });
           });
           extractPromises.push(promise);

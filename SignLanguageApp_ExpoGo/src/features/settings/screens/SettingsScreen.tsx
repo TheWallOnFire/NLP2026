@@ -2,7 +2,8 @@ import * as React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, List, useTheme, Card, Divider, Switch, IconButton } from 'react-native-paper';
 import { ROUTES } from '../../../constants/routes';
-import { ChevronRight, Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, AlertTriangle } from 'lucide-react-native';
+import { ChevronRight, Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, AlertTriangle, Settings as SettingsIcon } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -89,12 +90,18 @@ export default function SettingsScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <Text variant="titleLarge" style={styles.headerTitle}>Settings</Text>
-      </View>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.tertiary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <SettingsIcon color="white" size={32} />
+        <Text variant="headlineMedium" style={styles.headerTitle}>Settings</Text>
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <Card mode="contained" style={styles.menuCard}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Card mode="elevated" style={styles.menuCard}>
           <List.Section>
             {/* 1. Theme */}
             <List.Accordion
@@ -264,24 +271,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    flexDirection: 'row',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   headerTitle: {
     fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 12,
   },
   content: {
-    padding: 16,
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 16,
   },
   menuCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
+    elevation: 4,
     marginBottom: 16,
   },
   dangerZone: {

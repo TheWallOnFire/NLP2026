@@ -53,6 +53,12 @@ export default function AppNavigator() {
             headerShown: false,
             tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} />,
           }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+              navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.MODEL_PACKS });
+            },
+          })}
         />
         <Tab.Screen
           name={ROUTES.DASHBOARD}

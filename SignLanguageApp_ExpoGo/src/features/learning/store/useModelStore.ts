@@ -25,25 +25,12 @@ interface ModelState {
   resetPacks: () => void;
 }
 
-const generatePacks = (): ModelPack[] => {
-  const categories: ModelPack['category'][] = ['Basics', 'Conversational', 'Professional'];
-  return Array.from({ length: 12 }, (_, i) => ({
-    id: `demo-${i + 1}`,
-    name: `Demo ${i + 1}`,
-    description: `Educational pack ${i + 1} for learning sign language signs and patterns.`,
-    version: '1.0.0',
-    wordCount: 10 + i * 2,
-    isDownloaded: false,
-    category: categories[i % 3]
-  }));
-};
 
-const initialPacks: ModelPack[] = generatePacks();
 
 export const useModelStore = create<ModelState>()(
   persist(
     (set) => ({
-      packs: __DEV__ ? initialPacks : [], // Kept empty for prod as per previous request
+      packs: [],
       activePackId: null,
       downloadPack: (id) => set((state) => ({
         packs: state.packs.map(p => p.id === id ? { ...p, isDownloaded: true } : p)
@@ -58,13 +45,7 @@ export const useModelStore = create<ModelState>()(
         } catch (e) {
             console.error("Failed to delete pack folder", e);
         }
-        set((state) => {
-            const isCustom = !id.startsWith('demo-');
-            if (isCustom) {
-                return { packs: state.packs.filter(p => p.id !== id) };
-            }
-            return { packs: state.packs.map(p => p.id === id ? { ...p, isDownloaded: false } : p) };
-        });
+        set((state) => ({ packs: state.packs.filter(p => p.id !== id) }));
       },
       setActivePack: (id) => set({ activePackId: id }),
       customModelUri: null,
@@ -72,7 +53,7 @@ export const useModelStore = create<ModelState>()(
       importCustomPack: (pack) => set((state) => ({
         packs: [...state.packs.filter(p => p.id !== pack.id), { ...pack, isDownloaded: true }]
       })),
-      resetPacks: () => set({ packs: __DEV__ ? generatePacks() : [], activePackId: null }),
+      resetPacks: () => set({ packs: [], activePackId: null }),
     }),
     {
       name: 'model-storage',

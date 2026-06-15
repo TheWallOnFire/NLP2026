@@ -12,15 +12,16 @@ import { ChevronDown, History as HistoryIcon, Zap, ZapOff, Maximize, Brain, File
 
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
-  
+
   const defaultFacing = useSettingsStore(state => state.camera?.defaultFacing || 'back');
   const ttsSettings = useSettingsStore(state => state.sound);
-  
+
   const [facing, setFacing] = useState<'back' | 'front'>(defaultFacing);
   const [flash, setFlash] = useState(false);
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -79,6 +80,7 @@ export default function DetectionScreen({ navigation }: any) {
   const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const isModelReady = true;
 
   const player = useVideoPlayer(selectedMedia, player => {
     if (player) {
@@ -86,11 +88,11 @@ export default function DetectionScreen({ navigation }: any) {
       player.play();
     }
   });
-  
+
   const packWords = useLearningStore(state => state.packWords);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
-  
+
   const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
   const history = useHistoryStore(state => state.history).filter(h => h.type === 'detection');
 
@@ -106,7 +108,7 @@ export default function DetectionScreen({ navigation }: any) {
   }, [navigation]);
 
   const getInterval = () => {
-    switch(detectionSpeed) {
+    switch (detectionSpeed) {
       case 'slow': return 3000;
       case 'normal': return 1000;
       case 'fast': return 100;
@@ -139,13 +141,13 @@ export default function DetectionScreen({ navigation }: any) {
 
   const performMockDetection = (words: string[]) => {
     if (words.length === 0) return;
-    
+
     const randomWord = words[Math.floor(Math.random() * words.length)];
     const randomConf = 0.85 + Math.random() * 0.14;
-    
+
     setDetectedWord(randomWord);
     setConfidence(randomConf);
-    
+
     if (Math.random() > 0.9) {
       triggerImpactFeedback();
       if (ttsSettings?.systemSounds !== false) {
@@ -183,7 +185,7 @@ export default function DetectionScreen({ navigation }: any) {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 1,
     });
@@ -196,7 +198,7 @@ export default function DetectionScreen({ navigation }: any) {
 
   const pickVideo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       allowsEditing: true,
       quality: 1,
     });
@@ -242,12 +244,12 @@ export default function DetectionScreen({ navigation }: any) {
           <Text style={styles.message}>
             We need your permission to access the camera for real-time sign language detection. If you have denied it previously, you may need to open system settings.
           </Text>
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             onPress={async () => {
               const granted = await requestPermission();
               if (!granted) Linking.openSettings();
-            }} 
+            }}
             style={styles.button}
           >
             Grant Permission / Open Settings
@@ -272,14 +274,17 @@ export default function DetectionScreen({ navigation }: any) {
       {/* Top Half: Mode-Specific View */}
       <View style={styles.cameraHalf}>
         {/* Mode Selector Tabs */}
-        <View style={styles.modeTabBar}>
+        <LinearGradient
+          colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)', 'transparent']}
+          style={styles.modeTabBar}
+        >
           {(['live', 'picture', 'video'] as const).map(mode => (
-            <TouchableOpacity 
-              key={mode} 
+            <TouchableOpacity
+              key={mode}
               style={[styles.modeTab, detectionMode === mode && { borderBottomColor: theme.colors.primary, borderBottomWidth: 3 }]}
-              onPress={() => { 
-                setDetectionMode(mode); 
-                setSelectedMedia(null); 
+              onPress={() => {
+                setDetectionMode(mode);
+                setSelectedMedia(null);
                 setDetectedWord(null);
                 triggerSelectionFeedback();
               }}
@@ -289,7 +294,7 @@ export default function DetectionScreen({ navigation }: any) {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </LinearGradient>
 
         {detectionMode === 'live' ? (
           <View style={styles.camera}>
@@ -301,9 +306,9 @@ export default function DetectionScreen({ navigation }: any) {
                 torchMode={flash ? 'on' : 'off'}
               />
             ) : (
-              <View style={[StyleSheet.absoluteFill, {justifyContent: 'center', alignItems: 'center', backgroundColor: 'black'}]}>
+              <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }]}>
                 <ActivityIndicator size="large" color="white" />
-                <Text style={{color: 'white', marginTop: 10}}>Loading Camera...</Text>
+                <Text style={{ color: 'white', marginTop: 10 }}>Loading Camera...</Text>
               </View>
             )}
           </View>
@@ -316,16 +321,15 @@ export default function DetectionScreen({ navigation }: any) {
                 <VideoView
                   player={player}
                   style={styles.mediaPreview}
-                  allowsFullscreen
                   allowsPictureInPicture
                 />
               )
             ) : (
               <View style={styles.emptyMedia}>
-                <IconButton 
-                  icon={detectionMode === 'picture' ? "image-plus" : "video-plus"} 
-                  size={64} 
-                  onPress={detectionMode === 'picture' ? pickImage : pickVideo} 
+                <IconButton
+                  icon={detectionMode === 'picture' ? "image-plus" : "video-plus"}
+                  size={64}
+                  onPress={detectionMode === 'picture' ? pickImage : pickVideo}
                 />
                 <Text variant="bodyLarge">Select a {detectionMode} to analyze</Text>
                 <Button mode="outlined" style={{ marginTop: 12 }} onPress={detectionMode === 'picture' ? pickImage : pickVideo}>
@@ -335,7 +339,7 @@ export default function DetectionScreen({ navigation }: any) {
             )}
           </View>
         )}
-        
+
         {/* Top Controls Overlay */}
         <View style={styles.topControls}>
           <View style={styles.glassHeader}>
@@ -392,8 +396,8 @@ export default function DetectionScreen({ navigation }: any) {
         {/* Manual/Action Button */}
         {(detectionSpeed === 'off' || detectionMode !== 'live') && (
           <View style={styles.manualTriggerContainer}>
-            <Button 
-              mode="contained" 
+            <Button
+              mode="contained"
               loading={isProcessing}
               onPress={handleManualScan}
               style={styles.manualBtn}
@@ -435,17 +439,22 @@ export default function DetectionScreen({ navigation }: any) {
           </View>
           <Text variant="labelSmall" style={{ opacity: 0.4 }}>{history.length} signs</Text>
         </View>
-        
+
         <ScrollView style={styles.historyScroll} contentContainerStyle={{ paddingBottom: 20 }}>
           {history.length > 0 ? (
             history.map((item, i) => (
-              <View key={item.id || i} style={styles.outputItem}>
-                <View style={styles.outputInfo}>
-                  <Text variant="titleMedium" style={styles.outputSign}>{item.sign}</Text>
-                  <Text variant="bodySmall" style={styles.outputMeta}>{item.date} • {item.time}</Text>
+              <Card key={item.id || i} style={styles.outputItem} mode="elevated">
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={styles.historyIconContainer}>
+                    <Text style={{ fontSize: 24 }}>✨</Text>
+                  </View>
+                  <View style={styles.outputInfo}>
+                    <Text variant="titleMedium" style={styles.outputSign}>{item.sign}</Text>
+                    <Text variant="bodySmall" style={styles.outputMeta}>{item.date} • {item.time}</Text>
+                  </View>
+                  <Badge style={styles.outputBadge}>{item.type.toUpperCase()}</Badge>
                 </View>
-                <Badge style={styles.outputBadge}>{item.type.toUpperCase()}</Badge>
-              </View>
+              </Card>
             ))
           ) : (
             <View style={styles.emptyOutput}>
@@ -464,8 +473,8 @@ export default function DetectionScreen({ navigation }: any) {
           </View>
           <ScrollView style={{ maxHeight: 200 }}>
             {downloadedPacks.map(pack => (
-              <TouchableOpacity 
-                key={pack.id} 
+              <TouchableOpacity
+                key={pack.id}
                 style={[styles.modelOption, activePackId === pack.id && !customModelUri && { backgroundColor: theme.colors.primaryContainer }]}
                 onPress={() => { setActivePack(pack.id); setCustomModelUri(null); setIsModelMenuOpen(false); }}
               >
@@ -475,9 +484,9 @@ export default function DetectionScreen({ navigation }: any) {
                 {activePackId === pack.id && !customModelUri && <IconButton icon="check" size={16} iconColor={theme.colors.primary} />}
               </TouchableOpacity>
             ))}
-            
+
             <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 8, paddingTop: 8 }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modelOption, customModelUri && { backgroundColor: theme.colors.secondaryContainer }]}
                 onPress={() => { pickModelFile(); setIsModelMenuOpen(false); }}
               >
@@ -502,7 +511,7 @@ export default function DetectionScreen({ navigation }: any) {
           </View>
           <View style={styles.speedOptions}>
             {(['slow', 'normal', 'fast', 'off'] as const).map((s) => (
-              <Button 
+              <Button
                 key={s}
                 mode={detectionSpeed === s ? "contained" : "text"}
                 onPress={() => { setDetectionSpeed(s); setIsSpeedMenuOpen(false); }}
@@ -539,12 +548,11 @@ const styles = StyleSheet.create({
   },
   modeTabBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.8)',
     paddingTop: 45, // Account for status bar
     paddingBottom: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
     zIndex: 20,
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
   },
   modeTab: {
     flex: 1,
@@ -684,17 +692,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 4,
   },
   confBadgeInline: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   confTextInline: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
-    color: 'gray',
+    color: '#2E7D32',
   },
   manualTriggerContainer: {
     position: 'absolute',
@@ -719,29 +728,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   outputItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 10,
-    elevation: 2,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 8,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+  },
+  historyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   outputInfo: {
     flex: 1,
   },
   outputSign: {
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '900',
   },
   outputMeta: {
-    color: '#888',
-    marginTop: 2,
+    marginTop: 4,
   },
   outputBadge: {
     backgroundColor: '#E8EAF6',
