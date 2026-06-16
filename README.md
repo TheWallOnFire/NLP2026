@@ -20,8 +20,6 @@ The **Sign Language Detector App** is a powerful offline-first mobile applicatio
 
 You can download the latest Android APK from the [Releases Page](https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo/releases). 
 
----
-
 ## 🏗️ Project Structure
 
 The repository is structured to separate the mobile application from the AI model training environment:
@@ -192,3 +190,30 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## 📬 Contact
 **Author:** Aung Myo Kyaw (Jame)  
 **Project Link:** [https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo](https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo)
+
+---
+
+## 🛠️ Build Instructions (EAS)
+
+Use Expo Application Services (EAS) to build the app:
+
+**Development Build** (For testing on your own device):
+```bash
+eas build -p android --profile development
+eas build -p ios --profile development
+npx expo prebuild --clean
+```
+
+**Production Build** (For App Stores):
+```bash
+eas build -p android --profile production
+eas build -p ios --profile production
+```
+
+**Running the Development Server (Debug Mode):**
+To start the Expo development server and debug locally:
+```bash
+npx expo start
+# Or clear the cache if you encounter issues:
+npx expo start -c
+```

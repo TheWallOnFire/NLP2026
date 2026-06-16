@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Linking, Animated, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator } from 'react-native-paper';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { loadTensorflowModel } from 'react-native-fast-tflite';
+import { useSignLanguageModel } from '../hooks/useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../../learning/store/useModelStore';
@@ -29,49 +29,40 @@ export default function DetectionScreen({ navigation }: any) {
 
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
 
-  // Fast TFLite model integration (dynamic loading to prevent crash)
-  const [tfliteModel, setTfliteModel] = useState<{ model: any, state: string, error?: any }>({
-    model: undefined,
-    state: 'loading'
-  });
+  const packWords = useLearningStore(state => state.packWords);
+  const downloadedPacks = packs.filter(p => p.isDownloaded);
+  const activePack = downloadedPacks.find(p => p.id === activePackId);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadModel = async () => {
-      if (!customModelUri) {
-        setTfliteModel({ model: undefined, state: 'loading' });
-        return;
-      }
-      try {
-        setTfliteModel({ model: undefined, state: 'loading' });
-        const m = await loadTensorflowModel({ url: customModelUri }, []);
-        if (isMounted) {
-          setTfliteModel({ model: m, state: 'loaded' });
-        }
-      } catch (e) {
-        console.error("Fast TFLite Load Error:", e);
-        if (isMounted) {
-          setTfliteModel({ model: undefined, state: 'error', error: e });
-        }
-      }
-    };
-    loadModel();
-    return () => { isMounted = false; };
-  }, [customModelUri]);
+  const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
+  const history = useHistoryStore(state => state.history).filter(h => h.type === 'detection');
 
-  // Define JS callback for Mock Detection Updates
-  const handleDetection = (word: string, conf: number) => {
+  const handleDetection = useCallback((index: number, conf: number) => {
     if (Date.now() - lastDetectionTime.current > 1000) {
-      setDetectedWord(word);
-      setConfidence(conf);
-      lastDetectionTime.current = Date.now();
+      const words = packWords[activePackId || '']?.map(w => w.word) || [];
+      if (words.length > 0 && index >= 0 && index < words.length) {
+        const word = words[index];
+        setDetectedWord(word);
+        setConfidence(conf);
+        lastDetectionTime.current = Date.now();
+
+        if (conf > 0.8 && Math.random() > 0.9) {
+          triggerImpactFeedback();
+          if (ttsSettings?.systemSounds !== false) {
+            Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+          }
+          addHistoryItem({
+            sign: word,
+            type: 'detection',
+            date: 'Today',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+        }
+      }
     }
-  };
+  }, [activePackId, packWords, ttsSettings, addHistoryItem]);
   const lastDetectionTime = useRef(0);
 
-  // NOTE: react-native-worklets-core crashes natively on React Native 0.81.
-  // The frame processor logic is temporarily disabled to prevent C++ aborts.
-  // Real TFLite inference will require a compatible worklet engine or a native frame adapter.
+  const { frameOutput, isModelReady } = useSignLanguageModel(handleDetection);
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
@@ -80,7 +71,6 @@ export default function DetectionScreen({ navigation }: any) {
   const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const isModelReady = true;
 
   const player = useVideoPlayer(selectedMedia, player => {
     if (player) {
@@ -88,13 +78,6 @@ export default function DetectionScreen({ navigation }: any) {
       player.play();
     }
   });
-
-  const packWords = useLearningStore(state => state.packWords);
-  const downloadedPacks = packs.filter(p => p.isDownloaded);
-  const activePack = downloadedPacks.find(p => p.id === activePackId);
-
-  const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
-  const history = useHistoryStore(state => state.history).filter(h => h.type === 'detection');
 
   const scanAnim = useRef(new Animated.Value(0)).current;
 
@@ -126,41 +109,11 @@ export default function DetectionScreen({ navigation }: any) {
           Animated.timing(scanAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
         ])
       ).start();
-
-      const words = packWords[activePackId]?.map(w => w.word) || ['Hello', 'Sign'];
-      const interval = setInterval(() => {
-        performMockDetection(words);
-      }, getInterval());
-
-      return () => clearInterval(interval);
     } else {
       setDetectedWord(null);
       setConfidence(0);
     }
   }, [hasPermission, detectionSpeed, activePackId, detectionMode]);
-
-  const performMockDetection = (words: string[]) => {
-    if (words.length === 0) return;
-
-    const randomWord = words[Math.floor(Math.random() * words.length)];
-    const randomConf = 0.85 + Math.random() * 0.14;
-
-    setDetectedWord(randomWord);
-    setConfidence(randomConf);
-
-    if (Math.random() > 0.9) {
-      triggerImpactFeedback();
-      if (ttsSettings?.systemSounds !== false) {
-        Speech.speak(randomWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
-      }
-      addHistoryItem({
-        sign: randomWord,
-        type: 'detection',
-        date: 'Today',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      });
-    }
-  };
 
   const handleManualScan = () => {
     if (!activePackId) {
@@ -170,9 +123,15 @@ export default function DetectionScreen({ navigation }: any) {
     }
     setIsProcessing(true);
     triggerImpactFeedback();
+    
+    // In a full implementation without frame processors, we would process selectedMedia here.
+    // For now, we mock it for image/video manual scans
     const words = packWords[activePackId]?.map(w => w.word) || [];
     setTimeout(() => {
-      performMockDetection(words);
+      if (words.length > 0) {
+        setDetectedWord(words[Math.floor(Math.random() * words.length)]);
+        setConfidence(0.85 + Math.random() * 0.14);
+      }
       setIsProcessing(false);
     }, 800);
   };
@@ -304,6 +263,7 @@ export default function DetectionScreen({ navigation }: any) {
                 device={device}
                 isActive={true}
                 torchMode={flash ? 'on' : 'off'}
+                outputs={detectionMode === 'live' && detectionSpeed !== 'off' ? [frameOutput] : []}
               />
             ) : (
               <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }]}>

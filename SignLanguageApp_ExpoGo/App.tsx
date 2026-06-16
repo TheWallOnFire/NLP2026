@@ -7,8 +7,6 @@ import { lightTheme, darkTheme } from './src/theme';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Platform, LogBox, useColorScheme } from 'react-native';
 
-LogBox.ignoreLogs(['Expo AV has been deprecated']);
-
 import LoadingScreen from './src/features/common/screens/LoadingScreen';
 
 export default function App() {

@@ -1,7 +1,9 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button, useTheme } from 'react-native-paper';
+import { Text, Button, useTheme, IconButton } from 'react-native-paper';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import { useLearningStore } from '../store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../store/useModelStore';
@@ -21,6 +23,9 @@ export default function TestScreen({ route, navigation }: any) {
   const [score, setScore] = useState(0);
   const [currentWord, setCurrentWord] = useState<any>(null);
   const [testActive, setTestActive] = useState(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const device = useCameraDevice(facing);
 
   // Initialize test once words are available
   useEffect(() => {
@@ -51,6 +56,15 @@ export default function TestScreen({ route, navigation }: any) {
     );
   }
 
+  if (!hasPermission) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text variant="titleMedium" style={{ marginBottom: 16 }}>We need camera permission for the test.</Text>
+        <Button mode="contained" onPress={async () => await requestPermission()}>Grant Permission</Button>
+      </View>
+    );
+  }
+
   // Timer logic
   useEffect(() => {
     if (timeLeft > 0 && testActive) {
@@ -73,12 +87,12 @@ export default function TestScreen({ route, navigation }: any) {
     }
   }, [timeLeft, testActive, score, addHistoryItem, pack]);
 
-  const handleSimulateCorrect = () => {
+  const handleSimulateCorrect = React.useCallback(() => {
     if (!testActive) return;
     triggerSuccessFeedback();
     setScore(prev => prev + 1);
     nextWord();
-  };
+  }, [testActive]);
 
   const handleSimulateSkip = () => {
     if (!testActive) return;
@@ -96,6 +110,19 @@ export default function TestScreen({ route, navigation }: any) {
     
     setCurrentWord(randomWord);
   };
+
+  const handleDetection = React.useCallback((index: number, conf: number) => {
+    if (!testActive || !currentWord) return;
+    const detectedWordStr = words[index]?.word;
+    
+    if (detectedWordStr === currentWord.word && conf > 0.8) {
+      handleSimulateCorrect();
+    }
+  }, [testActive, currentWord, words, handleSimulateCorrect]);
+
+  const { frameOutput } = useSignLanguageModel(handleDetection);
+
+
 
   if (!testActive) {
     return (
@@ -127,7 +154,20 @@ export default function TestScreen({ route, navigation }: any) {
       </View>
 
       <View style={styles.cameraPlaceholder}>
-        <Text variant="bodyLarge" style={{ color: 'white' }}>[ Camera Feed Here ]</Text>
+        {device != null ? (
+          <View style={{ flex: 1, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
+            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} outputs={[frameOutput]} />
+            <IconButton 
+              icon="camera-flip" 
+              iconColor="white"
+              size={24}
+              style={{ position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(255,255,255,0.2)' }}
+              onPress={() => setFacing(prev => prev === 'back' ? 'front' : 'back')}
+            />
+          </View>
+        ) : (
+          <Text variant="bodyLarge" style={{ color: 'white' }}>Loading Camera...</Text>
+        )}
       </View>
 
       <View style={styles.buttonRow}>

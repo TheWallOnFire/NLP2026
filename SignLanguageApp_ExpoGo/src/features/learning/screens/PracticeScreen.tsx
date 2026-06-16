@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { CheckCircle, Camera as CameraIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text, Button, useTheme, Card, Appbar, IconButton } from 'react-native-paper';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useLearningStore } from '../store/useLearningStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
@@ -18,8 +19,9 @@ export default function PracticeScreen({ route, navigation }: any) {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [practiceWords, setPracticeWords] = useState<any[]>([]);
-  const [permission, requestPermission] = useCameraPermissions();
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const device = useCameraDevice(facing);
   const [imageError, setImageError] = useState(false);
 
   // Reset image error when word changes
@@ -45,7 +47,7 @@ export default function PracticeScreen({ route, navigation }: any) {
   
   const currentWord = practiceWords[currentIndex];
 
-  const handleSimulateDetection = () => {
+  const handleSimulateDetection = useCallback(() => {
     if (!currentWord) return;
     
     triggerSuccessFeedback();
@@ -53,7 +55,19 @@ export default function PracticeScreen({ route, navigation }: any) {
 
     // Go to next word or wrap around
     setCurrentIndex((prev) => (prev + 1) % practiceWords.length);
-  };
+  }, [currentWord, markLearned, packId, practiceWords.length]);
+
+  const handleDetection = useCallback((index: number, conf: number) => {
+    if (!currentWord) return;
+    const detectedWordStr = words[index]?.word;
+    
+    // If the detected word matches the word we are practicing, and confidence is high
+    if (detectedWordStr === currentWord.word && conf > 0.8) {
+      handleSimulateDetection();
+    }
+  }, [currentWord, words, handleSimulateDetection]);
+
+  const { frameOutput } = useSignLanguageModel(handleDetection);
 
   if (!currentWord) {
     return (
@@ -66,15 +80,11 @@ export default function PracticeScreen({ route, navigation }: any) {
     );
   }
 
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
-
-  if (!permission.granted) {
+  if (!hasPermission) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
         <Text variant="titleMedium" style={{ marginBottom: 16 }}>We need camera permission to practice.</Text>
-        <Button mode="contained" onPress={requestPermission}>Grant Permission</Button>
+        <Button mode="contained" onPress={async () => await requestPermission()}>Grant Permission</Button>
       </View>
     );
   }
@@ -120,7 +130,9 @@ export default function PracticeScreen({ route, navigation }: any) {
           end={{ x: 1, y: 1 }}
         />
         <View style={styles.cameraContainer}>
-          <CameraView style={StyleSheet.absoluteFill} facing={facing} />
+          {device != null && (
+            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} outputs={[frameOutput]} />
+          )}
           
           <LinearGradient
             colors={['rgba(0,0,0,0.5)', 'transparent']}
