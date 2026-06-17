@@ -67,7 +67,7 @@ export default function PracticeScreen({ route, navigation }: any) {
     }
   }, [currentWord, words, handleSimulateDetection]);
 
-  const { frameOutput } = useSignLanguageModel(handleDetection);
+  const { isModelReady } = useSignLanguageModel(handleDetection);
 
   if (!currentWord) {
     return (
@@ -131,7 +131,7 @@ export default function PracticeScreen({ route, navigation }: any) {
         />
         <View style={styles.cameraContainer}>
           {device != null && (
-            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} outputs={[frameOutput]} />
+            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} />
           )}
           
           <LinearGradient

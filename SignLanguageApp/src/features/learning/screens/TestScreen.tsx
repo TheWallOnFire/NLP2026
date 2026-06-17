@@ -120,7 +120,7 @@ export default function TestScreen({ route, navigation }: any) {
     }
   }, [testActive, currentWord, words, handleSimulateCorrect]);
 
-  const { frameOutput } = useSignLanguageModel(handleDetection);
+  const { isModelReady } = useSignLanguageModel(handleDetection);
 
 
 
@@ -156,7 +156,7 @@ export default function TestScreen({ route, navigation }: any) {
       <View style={styles.cameraPlaceholder}>
         {device != null ? (
           <View style={{ flex: 1, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
-            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} outputs={[frameOutput]} />
+            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} />
             <IconButton 
               icon="camera-flip" 
               iconColor="white"

@@ -62,7 +62,7 @@ export default function DetectionScreen({ navigation }: any) {
   }, [activePackId, packWords, ttsSettings, addHistoryItem]);
   const lastDetectionTime = useRef(0);
 
-  const { frameOutput, isModelReady } = useSignLanguageModel(handleDetection);
+  const { isModelReady } = useSignLanguageModel(handleDetection);
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
@@ -72,7 +72,7 @@ export default function DetectionScreen({ navigation }: any) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const player = useVideoPlayer(selectedMedia, player => {
+  const player = useVideoPlayer(detectionMode === 'video' ? selectedMedia : null, player => {
     if (player) {
       player.loop = true;
       player.play();
@@ -263,7 +263,6 @@ export default function DetectionScreen({ navigation }: any) {
                 device={device}
                 isActive={true}
                 torchMode={flash ? 'on' : 'off'}
-                outputs={detectionMode === 'live' && detectionSpeed !== 'off' ? [frameOutput] : []}
               />
             ) : (
               <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }]}>
