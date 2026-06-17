@@ -24,6 +24,9 @@ export interface SettingsState {
     localLogging: boolean;
     exportFormat: string;
   };
+  detection: {
+    speed: 'slow' | 'normal' | 'fast' | 'off';
+  };
   systemAlerts: {
     dailyReminders: boolean;
     milestoneAlerts: boolean;
@@ -56,6 +59,9 @@ const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> =
   storage: {
     localLogging: true,
     exportFormat: 'csv',
+  },
+  detection: {
+    speed: 'normal',
   },
   systemAlerts: {
     dailyReminders: true,
@@ -93,6 +99,10 @@ export const useSettingsStore = create<SettingsState>()(
         storage: {
           ...currentState.storage,
           ...(persistedState?.storage || {}),
+        },
+        detection: {
+          ...currentState.detection,
+          ...(persistedState?.detection || {}),
         },
         systemAlerts: {
           ...currentState.systemAlerts,

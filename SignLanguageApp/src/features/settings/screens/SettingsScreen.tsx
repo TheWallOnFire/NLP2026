@@ -148,10 +148,10 @@ export default function SettingsScreen({ navigation }: any) {
             </List.Accordion>
             <Divider />
 
-            {/* 3. Camera */}
+            {/* 3. Camera & Detection */}
             <List.Accordion
-              title="Camera Options"
-              description={`Default: ${settings.camera?.defaultFacing === 'front' ? 'Front' : 'Back'}`}
+              title="Camera & Detection"
+              description={`Facing: ${settings.camera?.defaultFacing === 'front' ? 'Front' : 'Back'} • Speed: ${settings.detection?.speed.toUpperCase()}`}
               left={props => <List.Icon {...props} icon={() => <Camera size={24} color={theme.colors.primary} />} />}
             >
               <List.Item
@@ -164,6 +164,16 @@ export default function SettingsScreen({ navigation }: any) {
                 onPress={() => updateSettings({ camera: { ...settings.camera, defaultFacing: 'back' } })}
                 right={props => settings.camera?.defaultFacing === 'back' ? <Check size={20} color={theme.colors.primary} /> : null}
               />
+              <Divider style={{ marginVertical: 8 }} />
+              <List.Subheader>Detection Speed</List.Subheader>
+              {(['slow', 'normal', 'fast', 'off'] as const).map(speed => (
+                <List.Item
+                  key={speed}
+                  title={speed.toUpperCase()}
+                  onPress={() => updateSettings({ detection: { ...settings.detection, speed } })}
+                  right={props => settings.detection?.speed === speed ? <Check size={20} color={theme.colors.primary} /> : null}
+                />
+              ))}
             </List.Accordion>
             <Divider />
 
