@@ -19,6 +19,7 @@ export interface SettingsState {
   permissions: {
     camera: boolean;
     microphone: boolean;
+    storage: boolean;
   };
   storage: {
     localLogging: boolean;
@@ -55,6 +56,7 @@ const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> =
   permissions: {
     camera: true,
     microphone: false,
+    storage: true,
   },
   storage: {
     localLogging: true,

@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, List, useTheme, Card, Divider, Switch, IconButton } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { Text, List, useTheme, Card, Divider, Switch, IconButton, ProgressBar } from 'react-native-paper';
 import { ROUTES } from '../../../constants/routes';
-import { ChevronRight, Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, AlertTriangle, Settings as SettingsIcon } from 'lucide-react-native';
+import { ChevronRight, Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, AlertTriangle, Settings as SettingsIcon, Shield, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -13,6 +13,7 @@ import { useUserStore } from '../../profile/store/useUserStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
 import { importCustomPack } from '../../../utils/packImporter';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export default function SettingsScreen({ navigation }: any) {
   const theme = useTheme();
@@ -28,6 +29,67 @@ export default function SettingsScreen({ navigation }: any) {
   const initializePackWords = useLearningStore(state => state.initializePackWords);
 
   const [isImporting, setIsImporting] = React.useState(false);
+  const [cacheSize, setCacheSize] = React.useState<string | null>(null);
+  const [isClearing, setIsClearing] = React.useState(false);
+
+  const calculateCacheSize = React.useCallback(async () => {
+    try {
+      const cacheDir = `${FileSystem.cacheDirectory}captured_media/`;
+      const info = await FileSystem.getInfoAsync(cacheDir);
+      if (!info.exists) {
+        setCacheSize('0 KB');
+        return;
+      }
+      const files = await FileSystem.readDirectoryAsync(cacheDir);
+      let totalBytes = 0;
+      for (const file of files) {
+        const fileInfo = await FileSystem.getInfoAsync(`${cacheDir}${file}`);
+        if (fileInfo.exists && !fileInfo.isDirectory && fileInfo.size) {
+          totalBytes += fileInfo.size;
+        }
+      }
+      if (totalBytes < 1024) setCacheSize(`${totalBytes} B`);
+      else if (totalBytes < 1024 * 1024) setCacheSize(`${(totalBytes / 1024).toFixed(1)} KB`);
+      else setCacheSize(`${(totalBytes / (1024 * 1024)).toFixed(1)} MB`);
+    } catch {
+      setCacheSize('N/A');
+    }
+  }, []);
+
+  React.useEffect(() => {
+    calculateCacheSize();
+  }, [calculateCacheSize]);
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      "Xóa Cache",
+      "Xóa toàn bộ ảnh/video đã lưu tạm? Thao tác này không ảnh hưởng đến lịch sử nhận diện.",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsClearing(true);
+              const cacheDir = `${FileSystem.cacheDirectory}captured_media/`;
+              const info = await FileSystem.getInfoAsync(cacheDir);
+              if (info.exists) {
+                await FileSystem.deleteAsync(cacheDir, { idempotent: true });
+              }
+              await calculateCacheSize();
+              triggerSuccessFeedback();
+              Alert.alert("Thành công", "Đã xóa toàn bộ cache media.");
+            } catch (e) {
+              Alert.alert("Lỗi", "Không thể xóa cache.");
+            } finally {
+              setIsClearing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleImport = async () => {
     try {
@@ -205,6 +267,53 @@ export default function SettingsScreen({ navigation }: any) {
                 titleStyle={{ color: 'red' }}
                 left={props => <List.Icon {...props} icon={() => <Database size={20} color="red" />} />}
                 onPress={confirmClearHistory}
+              />
+            </List.Accordion>
+            <Divider />
+
+            {/* 5b. Permissions */}
+            <List.Accordion
+              title="Permissions"
+              description="Camera, Microphone, Storage"
+              left={props => <List.Icon {...props} icon={() => <Shield size={24} color={theme.colors.primary} />} />}
+            >
+              <List.Item
+                title="Camera Access"
+                description={settings.permissions.camera ? 'Granted' : 'Denied'}
+                right={() => <Switch value={settings.permissions.camera} onValueChange={(val) => {
+                  updateSettings({ permissions: { ...settings.permissions, camera: val } });
+                  if (val) Linking.openSettings();
+                }} />}
+              />
+              <List.Item
+                title="Microphone Access"
+                description={settings.permissions.microphone ? 'Granted' : 'Denied'}
+                right={() => <Switch value={settings.permissions.microphone} onValueChange={(val) => {
+                  updateSettings({ permissions: { ...settings.permissions, microphone: val } });
+                  if (val) Linking.openSettings();
+                }} />}
+              />
+              <List.Item
+                title="Storage Access"
+                description={settings.permissions.storage ? 'App can save media to cache' : 'Media saving disabled'}
+                right={() => <Switch value={settings.permissions.storage} onValueChange={(val) => {
+                  updateSettings({ permissions: { ...settings.permissions, storage: val } });
+                }} />}
+              />
+              <Divider style={{ marginVertical: 8 }} />
+              <List.Subheader>Cache Management</List.Subheader>
+              <List.Item
+                title="Media Cache Size"
+                description={cacheSize || 'Calculating...'}
+                left={props => <List.Icon {...props} icon={() => <Database size={20} color={theme.colors.tertiary} />} />}
+                onPress={calculateCacheSize}
+              />
+              <List.Item
+                title={isClearing ? 'Clearing...' : 'Clear Media Cache'}
+                titleStyle={{ color: theme.colors.error }}
+                left={props => <List.Icon {...props} icon={() => <Trash2 size={20} color={theme.colors.error} />} />}
+                onPress={handleClearCache}
+                disabled={isClearing}
               />
             </List.Accordion>
             <Divider />

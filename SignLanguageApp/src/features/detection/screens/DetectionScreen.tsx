@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Linking, Animated, ScrollView, TouchableOpacity, Alert, Image, SafeAreaView } from 'react-native';
-import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator, Dialog, Portal, Menu, Divider } from 'react-native-paper';
+import { Text, Button, useTheme, IconButton, Card, Badge, ActivityIndicator, Dialog, Portal, Menu, Divider, Snackbar } from 'react-native-paper';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { useSignLanguageModel } from '../hooks/useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
@@ -14,6 +14,32 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
+  try {
+    const mediaDir = `${FileSystem.cacheDirectory}captured_media/`;
+    const dirInfo = await FileSystem.getInfoAsync(mediaDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(mediaDir, { intermediates: true });
+    }
+    
+    const cleanUri = sourceUri.split('?')[0];
+    const ext = cleanUri.split('.').pop() || 'jpg';
+    const fileName = `media_${Date.now()}.${ext}`;
+    const destUri = `${mediaDir}${fileName}`;
+    
+    await FileSystem.copyAsync({
+      from: sourceUri,
+      to: destUri
+    });
+    
+    return destUri;
+  } catch (error) {
+    console.error("Failed to save media to app storage", error);
+    return sourceUri;
+  }
+};
 
 export default function DetectionScreen({ navigation }: any) {
   const theme = useTheme();
@@ -63,17 +89,21 @@ export default function DetectionScreen({ navigation }: any) {
 
   const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
   const developerDebugMode = useSettingsStore(state => state.developerDebugMode);
-  const [debugData, setDebugData] = useState<{ queueLength: number, isProcessing: boolean, queue: string[] } | null>(null);
+  const [debugData, setDebugData] = useState<{ queueLength: number, isProcessing: boolean, processingItem: string | null, queue: string[] } | null>(null);
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
   const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
+  const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
+  const updateSettings = useSettingsStore(state => state.updateSettings);
   const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState("");
 
   const player = useVideoPlayer(detectionMode === 'video' ? selectedMedia : null, player => {
     if (player) {
@@ -94,9 +124,9 @@ export default function DetectionScreen({ navigation }: any) {
 
   const getInterval = () => {
     switch (detectionSpeed) {
-      case 'slow': return 3000;
+      case 'slow': return 2000;
       case 'normal': return 1000;
-      case 'fast': return 100;
+      case 'fast': return 500;
       case 'off': return -1;
       default: return 1000;
     }
@@ -122,7 +152,8 @@ export default function DetectionScreen({ navigation }: any) {
         }
       };
       
-      loop();
+      // Delay the first scan by 1.5 seconds to let the camera warm up
+      timerId = setTimeout(loop, 1500);
     } else {
       setDetectedWord(null);
       setConfidence(0);
@@ -135,46 +166,93 @@ export default function DetectionScreen({ navigation }: any) {
   }, [hasPermission, detectionSpeed, activePackId, detectionMode, isModelReady]);
 
   useEffect(() => {
-    if (!developerDebugMode) {
-      setDebugData(null);
+    if (!isDebugDialogOpen) {
       return;
     }
+    
+    if (getDebugInfo) {
+      setDebugData(getDebugInfo());
+    }
+
     const interval = setInterval(() => {
       if (getDebugInfo) {
         setDebugData(getDebugInfo());
       }
     }, 200);
     return () => clearInterval(interval);
-  }, [developerDebugMode, getDebugInfo]);
+  }, [isDebugDialogOpen]);
 
-  const handleManualScan = async () => {
+  const handleManualScan = async (overrideUri?: string | null, isManualClick: boolean = false) => {
     if (!activePackId) {
-      Alert.alert("Model Required", "Please select a model pack first.");
-      setIsModelMenuOpen(true);
+      if (isManualClick) Alert.alert("Lỗi", "Vui lòng chọn bộ từ vựng (Model) trước.");
+      else setIsModelMenuOpen(true);
       return;
     }
     if (!isModelReady) {
+      if (isManualClick) Alert.alert("Chưa sẵn sàng", "Model chưa được tải xong, vui lòng đợi thêm chút...");
       return;
     }
     setIsProcessing(true);
     triggerImpactFeedback();
     
+    const actualMedia = typeof overrideUri === 'string' ? overrideUri : selectedMedia;
+    let result: { success: boolean, message: string } | undefined;
+    
     try {
       if (detectionMode === 'live') {
         if (camera.current) {
-          const photo = await camera.current.takeSnapshot({
-            quality: 85
-          });
-          await runDetection(photo.path);
+          try {
+            const photo = await camera.current.takeSnapshot({
+              quality: 85
+            });
+            let imagePath = photo?.path || (photo as any)?.uri || (typeof photo === 'string' ? photo : undefined);
+            if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
+              imagePath = `file://${imagePath}`;
+            }
+            if (imagePath && isManualClick && storagePermission) {
+              imagePath = await saveMediaToAppStorage(imagePath);
+            }
+            result = runDetection(imagePath);
+          } catch (cameraError: any) {
+            if (cameraError?.message?.includes("isn't ready") || cameraError?.message?.includes("not ready")) {
+              console.log("Camera đang khởi động, bỏ qua frame này...");
+              result = undefined;
+            } else {
+              throw cameraError;
+            }
+          }
+        } else {
+          result = { success: false, message: "Camera chưa sẵn sàng." };
         }
-      } else if (selectedMedia && detectionMode === 'picture') {
-        await runDetection(selectedMedia);
+      } else if (actualMedia && (detectionMode === 'picture' || detectionMode === 'video')) {
+        let finalMedia = actualMedia;
+        if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
+          finalMedia = `file://${finalMedia}`;
+        }
+        result = runDetection(finalMedia);
+      } else {
+        result = { success: false, message: "Chưa có file ảnh/video nào được chọn." };
       }
-    } catch (e) {
+
+      if (isManualClick && result) {
+        if (result.success) {
+          setSnackbarMsg(result.message);
+        } else {
+          Alert.alert("Từ chối", result.message);
+        }
+      }
+    } catch (e: any) {
       console.error(e);
+      if (isManualClick) {
+        Alert.alert("Lỗi quá trình quét", e.message || String(e));
+      }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const onPressManualScan = async () => {
+    await handleManualScan(null, true);
   };
 
   const pickImage = async () => {
@@ -185,8 +263,10 @@ export default function DetectionScreen({ navigation }: any) {
     });
 
     if (!result.canceled) {
-      setSelectedMedia(result.assets[0].uri);
-      handleManualScan();
+      const uri = result.assets[0].uri;
+      const savedUri = storagePermission ? await saveMediaToAppStorage(uri) : uri;
+      setSelectedMedia(savedUri);
+      handleManualScan(savedUri, true);
     }
   };
 
@@ -198,8 +278,10 @@ export default function DetectionScreen({ navigation }: any) {
     });
 
     if (!result.canceled) {
-      setSelectedMedia(result.assets[0].uri);
-      handleManualScan();
+      const uri = result.assets[0].uri;
+      const savedUri = storagePermission ? await saveMediaToAppStorage(uri) : uri;
+      setSelectedMedia(savedUri);
+      handleManualScan(savedUri, true);
     }
   };
 
@@ -355,6 +437,28 @@ export default function DetectionScreen({ navigation }: any) {
         <View style={styles.verticalSidebar}>
           {detectionMode === 'live' ? (
             <>
+              <Menu
+                visible={isSpeedMenuOpen}
+                onDismiss={() => setIsSpeedMenuOpen(false)}
+                anchor={
+                  <IconButton 
+                    icon={
+                      detectionSpeed === 'slow' ? 'turtle' :
+                      detectionSpeed === 'fast' ? 'rabbit' :
+                      detectionSpeed === 'off' ? 'motion-pause-outline' : 'walk'
+                    } 
+                    iconColor="white" 
+                    size={24} 
+                    style={styles.sideBtn} 
+                    onPress={() => setIsSpeedMenuOpen(true)} 
+                  />
+                }
+              >
+                <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'slow' } }); setIsSpeedMenuOpen(false); }} title="Slow (2.0s)" leadingIcon="turtle" />
+                <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'normal' } }); setIsSpeedMenuOpen(false); }} title="Normal (1.0s)" leadingIcon="walk" />
+                <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'fast' } }); setIsSpeedMenuOpen(false); }} title="Fast (0.5s)" leadingIcon="rabbit" />
+                <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'off' } }); setIsSpeedMenuOpen(false); }} title="Off (Manual)" leadingIcon="motion-pause-outline" />
+              </Menu>
               <IconButton icon={() => <RotateCcw color="white" size={24} />} style={styles.sideBtn} onPress={toggleCameraFacing} />
               <IconButton icon={() => (flash ? <Zap color="#FFD600" size={24} /> : <ZapOff color="white" size={24} />)} style={styles.sideBtn} onPress={toggleFlash} />
               <IconButton icon={() => <Timer color="white" size={24} />} style={styles.sideBtn} onPress={() => Alert.alert('Countdown', 'Feature coming soon!')} />
@@ -364,16 +468,14 @@ export default function DetectionScreen({ navigation }: any) {
           )}
           
           {/* Manual Analyze Button */}
-          {(detectionSpeed === 'off' || detectionMode !== 'live') && (
-            <IconButton 
-              icon="scan-helper" 
-              containerColor={theme.colors.primary} 
-              iconColor="white" 
-              style={[styles.sideBtn, { marginTop: 20 }]} 
-              onPress={handleManualScan} 
-              disabled={isProcessing || !activePackId || (detectionMode !== 'live' && !selectedMedia)}
-            />
-          )}
+          <IconButton 
+            icon="scan-helper" 
+            containerColor={theme.colors.primary} 
+            iconColor="white" 
+            style={[styles.sideBtn, { marginTop: 20 }]} 
+            onPress={onPressManualScan} 
+            disabled={isProcessing || !activePackId || (detectionMode !== 'live' && !selectedMedia)}
+          />
         </View>
       </View>
 
@@ -444,28 +546,45 @@ export default function DetectionScreen({ navigation }: any) {
 
         {/* Pending Queue Dialog */}
         <Dialog visible={isDebugDialogOpen} onDismiss={() => setIsDebugDialogOpen(false)} style={{ maxHeight: '80%' }}>
-          <Dialog.Title>Pending Queue</Dialog.Title>
+          <Dialog.Title>Hàng Đợi Xử Lý (Queue)</Dialog.Title>
           <Dialog.Content>
             {debugData ? (
               <ScrollView>
-                <Text variant="titleMedium" style={{ marginBottom: 4 }}>Worker Status: <Text style={{ color: debugData.isProcessing ? 'red' : 'green', fontWeight: 'bold' }}>{debugData.isProcessing ? 'BUSY' : 'IDLE'}</Text></Text>
-                <Text variant="bodyMedium" style={{ marginBottom: 12 }}>Queue Capacity: {debugData.queueLength} / 10</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                  <Badge size={12} style={{ backgroundColor: debugData.isProcessing ? theme.colors.error : theme.colors.primary, marginRight: 8 }} />
+                  <Text variant="titleMedium">Trạng thái: <Text style={{ fontWeight: 'bold' }}>{debugData.isProcessing ? 'ĐANG XỬ LÝ' : 'RẢNH RỖI'}</Text></Text>
+                </View>
+
+                {debugData.isProcessing && debugData.processingItem && (
+                  <View style={{ padding: 12, backgroundColor: theme.colors.primaryContainer, borderRadius: 8, marginBottom: 16 }}>
+                    <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, marginBottom: 4 }}>► Đang tính toán:</Text>
+                    <Text variant="bodySmall" style={{ fontFamily: 'monospace' }} numberOfLines={1}>
+                      {debugData.processingItem.split('/').pop()}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text variant="labelLarge">Đang chờ (Pending):</Text>
+                  <Text variant="labelMedium">{debugData.queueLength} / 10</Text>
+                </View>
                 
-                <Text variant="labelLarge" style={{ marginBottom: 4 }}>Pending Requests:</Text>
+                <Divider style={{ marginBottom: 8 }} />
+
                 {debugData.queue.length > 0 ? (
                   debugData.queue.map((q, i) => (
-                    <View key={i} style={{ padding: 4, backgroundColor: theme.colors.surfaceVariant, marginBottom: 4, borderRadius: 4 }}>
-                      <Text variant="labelSmall" style={{ fontFamily: 'monospace' }}>
-                        {i+1}. {q.split('/').pop()?.substring(0, 30)}...
+                    <View key={i} style={{ padding: 8, backgroundColor: theme.colors.surfaceVariant, marginBottom: 4, borderRadius: 8 }}>
+                      <Text variant="bodySmall" style={{ fontFamily: 'monospace' }} numberOfLines={1}>
+                        #{i+1} - {q.split('/').pop()}
                       </Text>
                     </View>
                   ))
                 ) : (
-                  <Text variant="bodyMedium" style={{ opacity: 0.5, fontStyle: 'italic' }}>Queue is currently empty.</Text>
+                  <Text variant="bodyMedium" style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>Không có ảnh nào chờ.</Text>
                 )}
               </ScrollView>
             ) : (
-              <Text>Waiting for data...</Text>
+              <ActivityIndicator size="large" style={{ margin: 20 }} />
             )}
           </Dialog.Content>
           <Dialog.Actions>
@@ -474,6 +593,14 @@ export default function DetectionScreen({ navigation }: any) {
         </Dialog>
       </Portal>
 
+      <Snackbar
+        visible={!!snackbarMsg}
+        onDismiss={() => setSnackbarMsg("")}
+        duration={2000}
+        style={{ marginBottom: 20 }}
+      >
+        {snackbarMsg}
+      </Snackbar>
     </SafeAreaView>
   );
 }
