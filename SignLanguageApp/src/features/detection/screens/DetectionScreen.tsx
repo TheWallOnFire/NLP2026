@@ -15,6 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 // Import components
 import TopOptionsBar from '../components/TopOptionsBar';
@@ -94,7 +95,11 @@ export default function DetectionScreen({ navigation }: any) {
   }, [activePackId, packWords, ttsSettings, addHistoryItem]);
   const lastDetectionTime = useRef(0);
 
-  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
+  const handleModelError = useCallback((errorMsg: string) => {
+    setSnackbarMsg(errorMsg);
+  }, []);
+
+  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection, handleModelError);
   const [debugData, setDebugData] = useState<{ queueLength: number, isProcessing: boolean, processingItem: string | null, queue: string[] } | null>(null);
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -140,7 +145,7 @@ export default function DetectionScreen({ navigation }: any) {
     let isActive = true;
     let timerId: NodeJS.Timeout;
 
-    if (hasPermission && detectionSpeed !== 'off' && activePackId && detectionMode === 'live' && isLiveScanning) {
+    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
       Animated.loop(
         Animated.sequence([
           Animated.timing(scanAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
@@ -157,7 +162,7 @@ export default function DetectionScreen({ navigation }: any) {
       };
       
       // Delay the first scan by 1.5 seconds to let the camera warm up
-      timerId = setTimeout(loop, 1500);
+      timerId = setTimeout(loop, detectionMode === 'live' ? 1500 : 0);
     } else {
       scanAnim.stopAnimation();
       setDetectedWord(null);
@@ -215,6 +220,9 @@ export default function DetectionScreen({ navigation }: any) {
             }
             if (imagePath && isManualClick && storagePermission) {
               imagePath = await saveMediaToAppStorage(imagePath);
+              // Tự động chuyển sang chế độ Picture để người dùng xem lại ảnh vừa chụp
+              setDetectionMode('picture');
+              setSelectedMedia(imagePath);
             }
             result = runDetection(imagePath, true); // bypassDuplicateCheck = true
           } catch (cameraError: any) {
@@ -228,12 +236,28 @@ export default function DetectionScreen({ navigation }: any) {
         } else {
           result = { success: false, message: "Camera chưa sẵn sàng." };
         }
-      } else if (actualMedia && (detectionMode === 'picture' || detectionMode === 'video')) {
+      } else if (actualMedia && detectionMode === 'picture') {
         let finalMedia = actualMedia;
         if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
           finalMedia = `file://${finalMedia}`;
         }
         result = runDetection(finalMedia);
+      } else if (actualMedia && detectionMode === 'video') {
+        try {
+          const timeToCapture = player.currentTime * 1000;
+          const { uri } = await VideoThumbnails.getThumbnailAsync(actualMedia, {
+            time: timeToCapture,
+            quality: 0.8,
+          });
+          
+          let finalMedia = uri;
+          if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
+            finalMedia = `file://${finalMedia}`;
+          }
+          result = runDetection(finalMedia);
+        } catch (thumbErr: any) {
+          result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
+        }
       } else {
         result = { success: false, message: "Chưa có file ảnh/video nào được chọn." };
       }
@@ -256,7 +280,11 @@ export default function DetectionScreen({ navigation }: any) {
   };
 
   const onPressManualScan = async () => {
-    if (detectionMode === 'live' && detectionSpeed !== 'off') {
+    if ((detectionMode === 'live' || detectionMode === 'video') && detectionSpeed !== 'off') {
+      if (detectionMode === 'video' && !selectedMedia) {
+        Alert.alert("Lỗi", "Vui lòng chọn video trước khi quét.");
+        return;
+      }
       setIsLiveScanning(prev => !prev);
     } else {
       await handleManualScan(null, true);

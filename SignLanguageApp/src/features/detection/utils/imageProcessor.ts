@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export async function prepareImageForModel(uri: string, shape: number[] | undefined) {
   const { loadImage } = require('react-native-nitro-image');
@@ -11,10 +12,25 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   }
 
   let image;
-  if (uri.startsWith('http://') || uri.startsWith('https://')) {
-    image = await loadImage({ url: uri });
+  let finalUriToLoad = uri;
+  
+  // Chuẩn hoá ảnh bằng Expo Image Manipulator trước để tránh lỗi Nitro Image không đọc được (trả về ma trận 0)
+  try {
+    const manipResult = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width, height } }],
+      { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
+    );
+    finalUriToLoad = manipResult.uri;
+    console.log(`[ML Debug] Đã chuẩn hoá ảnh qua ImageManipulator: ${finalUriToLoad}`);
+  } catch (manipErr) {
+    console.warn(`[ML Debug] Không thể dùng ImageManipulator, fallback về ảnh gốc. Lỗi:`, manipErr);
+  }
+
+  if (finalUriToLoad.startsWith('http://') || finalUriToLoad.startsWith('https://')) {
+    image = await loadImage({ url: finalUriToLoad });
   } else {
-    const cleanPath = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+    const cleanPath = finalUriToLoad.startsWith('file://') ? finalUriToLoad.replace('file://', '') : finalUriToLoad;
     const fileUri = `file://${cleanPath}`;
     
     try {
@@ -36,18 +52,28 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   const pixelBuffer = await resized.toRawPixelData();
   const uint8Array = new Uint8Array(pixelBuffer);
 
+  let hasData = false;
+  for (let i = 0; i < 100 && i < uint8Array.length; i++) {
+    if (uint8Array[i] > 0) {
+      hasData = true; break;
+    }
+  }
+  console.log(`[ML Debug] Pixel buffer extracted. Length: ${uint8Array.length}. Has Non-Zero Data: ${hasData}`);
+
   const expectedElements = shape?.reduce((a: number, b: number) => a * b, 1) || (width * height * 3);
   const isRGBA = uint8Array.length === width * height * 4;
-  const channels = shape?.[3] || 3;
+  
+  // Tự động suy luận số lượng channels model cần (dựa trên expectedElements)
+  const expectedChannels = expectedElements / (width * height);
 
-  return { uint8Array, expectedElements, isRGBA, channels };
+  return { uint8Array, expectedElements, isRGBA, expectedChannels };
 }
 
 export async function convertPixelsToInputData(
   uint8Array: Uint8Array, 
   expectedElements: number, 
   isRGBA: boolean, 
-  channels: number, 
+  expectedChannels: number, 
   dataType: string | undefined
 ): Promise<Float32Array | Uint8Array> {
   // Yield to the JS thread to prevent UI freezing before heavy array loop
@@ -58,7 +84,7 @@ export async function convertPixelsToInputData(
   if (dataType === 'float32') {
     const float32Array = new Float32Array(expectedElements);
     
-    if (isRGBA && channels === 3) {
+    if (isRGBA && expectedChannels === 3) {
       let floatIdx = 0;
       const chunkSize = 40000; // 10,000 pixels = 40,000 bytes
       
@@ -71,7 +97,18 @@ export async function convertPixelsToInputData(
         }
         await new Promise(resolve => setImmediate(resolve));
       }
+    } else if (!isRGBA && expectedChannels === 3) {
+      // Đầu vào là RGB (không có Alpha) và Model cần RGB
+      const chunkSize = 10000;
+      for (let start = 0; start < uint8Array.length && start < expectedElements; start += chunkSize) {
+        const end = Math.min(start + chunkSize, uint8Array.length, expectedElements);
+        for (let i = start; i < end; i++) {
+          float32Array[i] = uint8Array[i] * INV_255;
+        }
+        await new Promise(resolve => setImmediate(resolve));
+      }
     } else {
+      // Các trường hợp khác (Grayscale, v.v.)
       const chunkSize = 10000;
       for (let start = 0; start < uint8Array.length && start < expectedElements; start += chunkSize) {
         const end = Math.min(start + chunkSize, uint8Array.length, expectedElements);
@@ -83,7 +120,7 @@ export async function convertPixelsToInputData(
     }
     return float32Array;
   } else {
-    if (isRGBA && channels === 3) {
+    if (isRGBA && expectedChannels === 3) {
       const rgbArray = new Uint8Array(expectedElements);
       let idx = 0;
       const chunkSize = 40000;

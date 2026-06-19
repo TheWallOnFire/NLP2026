@@ -3,6 +3,7 @@ import { View, StyleSheet, Animated, Image } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Camera } from 'react-native-vision-camera';
 import { VideoView } from 'expo-video';
+import VideoController from './VideoController';
 
 interface MediaScannerProps {
   detectionMode: 'live' | 'picture' | 'video';
@@ -62,7 +63,10 @@ export default function MediaScanner({
             detectionMode === 'picture' ? (
               <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} resizeMode="contain" />
             ) : (
-              <VideoView player={player} style={styles.mediaPreview} allowsPictureInPicture />
+              <View style={{ flex: 1, position: 'relative' }}>
+                <VideoView player={player} style={styles.mediaPreview} allowsPictureInPicture />
+                <VideoController player={player} />
+              </View>
             )
           ) : (
             <View style={styles.emptyMedia}>

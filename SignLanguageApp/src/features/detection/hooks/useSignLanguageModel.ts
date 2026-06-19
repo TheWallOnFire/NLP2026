@@ -8,7 +8,8 @@ import { prepareImageForModel, convertPixelsToInputData } from '../utils/imagePr
 import { parseInferenceOutput } from '../utils/modelOutputParser';
 
 export function useSignLanguageModel(
-  onDetection: (index: number, confidence: number) => void
+  onDetection: (index: number, confidence: number) => void,
+  onError?: (errorMessage: string) => void
 ) {
   const { customModelUri, activePackId } = useModelStore();
   const { developerDebugMode } = useSettingsStore();
@@ -67,9 +68,9 @@ export function useSignLanguageModel(
       const shape = tfliteModel.inputs?.[0]?.shape;
       const dataType = tfliteModel.inputs?.[0]?.dataType;
       
-      const { uint8Array, expectedElements, isRGBA, channels } = await prepareImageForModel(uri, shape);
+      const { uint8Array, expectedElements, isRGBA, expectedChannels } = await prepareImageForModel(uri, shape);
       
-      const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, channels, dataType);
+      const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, expectedChannels, dataType);
 
       const outputs = await tfliteModel.run([inputData.buffer]);
       
@@ -85,9 +86,11 @@ export function useSignLanguageModel(
         }
       }
     } catch (e: any) {
-      console.error("TFLite inference error:", e);
+      const errMsg = e?.message || String(e);
+      console.error("TFLite inference error:", errMsg);
+      if (onError) onError(`Lỗi Model: ${errMsg}`);
       if (developerDebugMode) {
-        Alert.alert("ML Inference Error", e?.message || String(e));
+        Alert.alert("ML Inference Error", errMsg);
       }
     } finally {
       if (developerDebugMode) {
