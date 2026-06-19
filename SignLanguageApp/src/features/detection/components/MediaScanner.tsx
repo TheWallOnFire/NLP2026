@@ -1,0 +1,125 @@
+import React from 'react';
+import { View, StyleSheet, Animated, Image } from 'react-native';
+import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Camera } from 'react-native-vision-camera';
+import { VideoView } from 'expo-video';
+
+interface MediaScannerProps {
+  detectionMode: 'live' | 'picture' | 'video';
+  device: any;
+  cameraRef: React.RefObject<any>;
+  flash: boolean;
+  activePackId: string | null;
+  detectionSpeed: string;
+  isLiveScanning: boolean;
+  scanAnim: Animated.Value;
+  translateY: Animated.AnimatedInterpolation<number | string>;
+  selectedMedia: string | null;
+  player: any;
+  pickImage: () => void;
+  pickVideo: () => void;
+}
+
+export default function MediaScanner({
+  detectionMode,
+  device,
+  cameraRef,
+  flash,
+  activePackId,
+  detectionSpeed,
+  isLiveScanning,
+  translateY,
+  selectedMedia,
+  player,
+  pickImage,
+  pickVideo
+}: MediaScannerProps) {
+  return (
+    <>
+      {detectionMode === 'live' ? (
+        <View style={styles.cameraWrapper}>
+          {device != null ? (
+            <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} torchMode={flash ? 'on' : 'off'} />
+          ) : (
+            <ActivityIndicator size="large" style={{ marginTop: 50 }} />
+          )}
+          {/* Scanning Reticle */}
+          <View style={styles.reticleContainer} pointerEvents="none">
+            <View style={styles.reticle}>
+              <View style={[styles.corner, styles.topLeft]} />
+              <View style={[styles.corner, styles.topRight]} />
+              <View style={[styles.corner, styles.bottomLeft]} />
+              <View style={[styles.corner, styles.bottomRight]} />
+              {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
+                <Animated.View style={[styles.scanLine, { transform: [{ translateY }] }]} />
+              )}
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.uploadWrapper}>
+          {selectedMedia ? (
+            detectionMode === 'picture' ? (
+              <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} resizeMode="contain" />
+            ) : (
+              <VideoView player={player} style={styles.mediaPreview} allowsPictureInPicture />
+            )
+          ) : (
+            <View style={styles.emptyMedia}>
+              <IconButton icon={detectionMode === 'picture' ? "image-plus" : "video-plus"} size={64} onPress={detectionMode === 'picture' ? pickImage : pickVideo} />
+              <Text variant="bodyLarge">No Media Selected</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  cameraWrapper: {
+    flex: 1,
+  },
+  uploadWrapper: {
+    flex: 1,
+  },
+  mediaPreview: {
+    flex: 1,
+  },
+  emptyMedia: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reticleContainer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reticle: {
+    width: 200,
+    height: 200,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderColor: 'white',
+    borderWidth: 3,
+  },
+  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
+  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
+  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
+  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
+  scanLine: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: '100%',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+});

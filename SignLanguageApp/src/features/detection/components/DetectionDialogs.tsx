@@ -1,0 +1,123 @@
+import React from 'react';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text, Button, Dialog, Portal, Badge, Divider, ActivityIndicator, Snackbar } from 'react-native-paper';
+
+interface DetectionDialogsProps {
+  theme: any;
+  isHistoryDialogOpen: boolean;
+  setIsHistoryDialogOpen: (open: boolean) => void;
+  history: any[];
+  isDebugDialogOpen: boolean;
+  setIsDebugDialogOpen: (open: boolean) => void;
+  debugData: { queueLength: number, isProcessing: boolean, processingItem: string | null, queue: string[] } | null;
+  snackbarMsg: string;
+  setSnackbarMsg: (msg: string) => void;
+}
+
+export default function DetectionDialogs({
+  theme,
+  isHistoryDialogOpen,
+  setIsHistoryDialogOpen,
+  history,
+  isDebugDialogOpen,
+  setIsDebugDialogOpen,
+  debugData,
+  snackbarMsg,
+  setSnackbarMsg
+}: DetectionDialogsProps) {
+  return (
+    <>
+      <Portal>
+        {/* History Dialog */}
+        <Dialog visible={isHistoryDialogOpen} onDismiss={() => setIsHistoryDialogOpen(false)} style={{ maxHeight: '80%' }}>
+          <Dialog.Title>Detection History</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView>
+              {history.length > 0 ? (
+                history.map((item, i) => (
+                  <View key={item.id || i} style={styles.historyListItem}>
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{item.sign}</Text>
+                    <Text variant="bodySmall" style={{ opacity: 0.6 }}>{item.date} • {item.time}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 20 }}>No history recorded yet.</Text>
+              )}
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsHistoryDialogOpen(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Pending Queue Dialog */}
+        <Dialog visible={isDebugDialogOpen} onDismiss={() => setIsDebugDialogOpen(false)} style={{ maxHeight: '80%' }}>
+          <Dialog.Title>Hàng Đợi Xử Lý (Queue)</Dialog.Title>
+          <Dialog.Content>
+            {debugData ? (
+              <ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                  <Badge size={12} style={{ backgroundColor: debugData.isProcessing ? theme.colors.error : theme.colors.primary, marginRight: 8 }} />
+                  <Text variant="titleMedium">Trạng thái: <Text style={{ fontWeight: 'bold' }}>{debugData.isProcessing ? 'ĐANG XỬ LÝ' : 'RẢNH RỖI'}</Text></Text>
+                </View>
+
+                {debugData.isProcessing && debugData.processingItem && (
+                  <View style={{ padding: 12, backgroundColor: theme.colors.primaryContainer, borderRadius: 8, marginBottom: 16 }}>
+                    <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, marginBottom: 4 }}>► Đang tính toán:</Text>
+                    <Text variant="bodySmall" style={{ fontFamily: 'monospace' }} numberOfLines={1}>
+                      {debugData.processingItem.split('/').pop()}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text variant="labelLarge">Đang chờ (Pending):</Text>
+                  <Text variant="labelMedium">{debugData.queueLength} / 10</Text>
+                </View>
+                
+                <Divider style={{ marginBottom: 8 }} />
+
+                {debugData.queue.length > 0 ? (
+                  debugData.queue.map((q, i) => (
+                    <View key={i} style={{ padding: 8, backgroundColor: theme.colors.surfaceVariant, marginBottom: 4, borderRadius: 8 }}>
+                      <Text variant="bodySmall" style={{ fontFamily: 'monospace' }} numberOfLines={1}>
+                        #{i+1} - {q.split('/').pop()}
+                      </Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text variant="bodyMedium" style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>Không có ảnh nào chờ.</Text>
+                )}
+              </ScrollView>
+            ) : (
+              <ActivityIndicator size="large" style={{ margin: 20 }} />
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsDebugDialogOpen(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Snackbar
+        visible={!!snackbarMsg}
+        onDismiss={() => setSnackbarMsg("")}
+        duration={2000}
+        style={{ marginBottom: 20 }}
+      >
+        {snackbarMsg}
+      </Snackbar>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  historyListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+});
