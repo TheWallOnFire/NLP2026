@@ -3,6 +3,7 @@
     "name": "SignLanguageApp_ExpoGo",
     "slug": "SignLanguageApp_ExpoGo",
     "version": "1.0.0",
+    "scheme": "signlang",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

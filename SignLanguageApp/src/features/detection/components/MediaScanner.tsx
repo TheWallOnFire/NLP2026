@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Animated, Image } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Camera } from 'react-native-vision-camera';
 import { VideoView } from 'expo-video';
@@ -13,12 +14,12 @@ interface MediaScannerProps {
   activePackId: string | null;
   detectionSpeed: string;
   isLiveScanning: boolean;
-  scanAnim: Animated.Value;
-  translateY: Animated.AnimatedInterpolation<number | string>;
+  scanAnimStyle?: any;
   selectedMedia: string | null;
   player: any;
   pickImage: () => void;
   pickVideo: () => void;
+  isAppActive?: boolean;
 }
 
 export default function MediaScanner({
@@ -29,20 +30,23 @@ export default function MediaScanner({
   activePackId,
   detectionSpeed,
   isLiveScanning,
-  translateY,
+  scanAnimStyle,
   selectedMedia,
   player,
   pickImage,
-  pickVideo
+  pickVideo,
+  isAppActive = true
 }: MediaScannerProps) {
   return (
     <>
       {detectionMode === 'live' ? (
         <View style={styles.cameraWrapper}>
-          {device != null ? (
+          {device != null && isAppActive ? (
             <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} torchMode={flash ? 'on' : 'off'} />
           ) : (
-            <ActivityIndicator size="large" style={{ marginTop: 50 }} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }]}>
+              {device == null ? <ActivityIndicator size="large" /> : <Text style={{ color: 'white' }}>Camera Paused</Text>}
+            </View>
           )}
           {/* Scanning Reticle */}
           <View style={styles.reticleContainer} pointerEvents="none">
@@ -52,7 +56,7 @@ export default function MediaScanner({
               <View style={[styles.corner, styles.bottomLeft]} />
               <View style={[styles.corner, styles.bottomRight]} />
               {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
-                <Animated.View style={[styles.scanLine, { transform: [{ translateY }] }]} />
+                <Animated.View style={[styles.scanLine, scanAnimStyle]} />
               )}
             </View>
           </View>
@@ -70,7 +74,12 @@ export default function MediaScanner({
             )
           ) : (
             <View style={styles.emptyMedia}>
-              <IconButton icon={detectionMode === 'picture' ? "image-plus" : "video-plus"} size={64} onPress={detectionMode === 'picture' ? pickImage : pickVideo} />
+              <IconButton 
+                icon={detectionMode === 'picture' ? "image-plus" : "video-plus"} 
+                size={64} 
+                onPress={detectionMode === 'picture' ? pickImage : pickVideo}
+                accessibilityLabel={detectionMode === 'picture' ? "Chọn ảnh từ thư viện" : "Chọn video từ thư viện"}
+              />
               <Text variant="bodyLarge">No Media Selected</Text>
             </View>
           )}

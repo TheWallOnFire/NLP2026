@@ -80,8 +80,8 @@ export default function TestScreen({ route, navigation }: any) {
       
       addHistoryItem({
         sign: `${pack?.name || 'Test'} Score: ${score}`,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
+        date: new Date().toISOString(),
+        time: new Date().toISOString(),
         type: 'test',
       });
     }

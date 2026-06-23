@@ -27,6 +27,7 @@ export interface SettingsState {
   };
   detection: {
     speed: 'slow' | 'normal' | 'fast' | 'off';
+    threshold?: number;
   };
   systemAlerts: {
     dailyReminders: boolean;
@@ -64,6 +65,7 @@ const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> =
   },
   detection: {
     speed: 'normal',
+    threshold: 0.5,
   },
   systemAlerts: {
     dailyReminders: true,

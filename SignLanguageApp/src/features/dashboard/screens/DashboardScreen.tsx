@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, BackHandler, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, BackHandler, Alert, FlatList, RefreshControl, Platform } from 'react-native';
 import { Text, Card, Button, useTheme, Avatar, List, IconButton } from 'react-native-paper';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useShallow } from 'zustand/react/shallow';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -9,32 +10,39 @@ import { useUserStore } from '../../profile/store/useUserStore';
 import { ROUTES } from '../../../constants/routes';
 import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 
 export default function DashboardScreen({ navigation }: any) {
   const theme = useTheme();
   const packs = useModelStore(state => state.packs);
-  const packWords = useLearningStore(state => state.packWords);
+  const packWords = useLearningStore(useShallow(state => state.packWords));
   const history = useHistoryStore(state => state.history);
   const { profile } = useUserStore();
+  const isFocused = useIsFocused();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const downloadedPacks = React.useMemo(() => packs.filter(p => p.isDownloaded), [packs]);
   
   const stats = React.useMemo(() => {
-    const allWords = Object.values(packWords).flat();
-    const total = allWords.length;
-    const learned = allWords.filter(w => w.learned).length;
-    return {
-      total,
-      learned,
-      progress: total > 0 ? learned / total : 0
-    };
+    let total = 0;
+    let learned = 0;
+    for (const packKey in packWords) {
+      const words = packWords[packKey] || [];
+      total += words.length;
+      for (const w of words) {
+        if (w.learned) learned++;
+      }
+    }
+    const progress = total > 0 ? Number((learned / total).toFixed(4)) : 0;
+    return { total, learned, progress };
   }, [packWords]);
 
-  const recentHistory = React.useMemo(() => history.slice(0, 3), [history]);
+  const recentHistory = React.useMemo(() => Array.isArray(history) ? history.slice(0, 3) : [], [history]);
 
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
+        if (!isFocused) return false;
         Alert.alert(
           'Exit App',
           'Are you sure you want to exit?',
@@ -50,24 +58,30 @@ export default function DashboardScreen({ navigation }: any) {
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
       return () => subscription.remove();
-    }, [])
+    }, [isFocused])
   );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ErrorBoundary>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }} />}
+    >
       {/* Header Profile Section */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text variant="headlineMedium" style={styles.welcomeText}>Hello, {profile.name.split(' ')[0]}!</Text>
+          <Text variant="headlineMedium" style={styles.welcomeText}>Hello, {profile?.name?.split(' ')[0] || 'User'}!</Text>
           <Text variant="bodyLarge" style={{ opacity: 0.7 }}>Ready to master some new signs today?</Text>
         </View>
-        <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer }} />
+        <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
       </View>
 
       {/* Progress Banner */}
       <View style={{ paddingHorizontal: 16 }}>
         <LinearGradient 
-          colors={['#4facfe', '#00f2fe']} 
+          key={theme.dark ? 'dark' : 'light'}
+          colors={theme.dark ? [theme.colors.primary, theme.colors.secondary] : ['#4facfe', '#00f2fe']} 
           start={{ x: 0, y: 0 }} 
           end={{ x: 1, y: 1 }} 
           style={styles.progressCard}
@@ -101,6 +115,8 @@ export default function DashboardScreen({ navigation }: any) {
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.secondaryContainer }]}
             onPress={() => navigation.navigate(ROUTES.DETECTION)}
+            accessibilityLabel="Mở tính năng nhận diện"
+            accessibilityRole="button"
           >
             <Camera color={theme.colors.onSecondaryContainer} size={28} />
             <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSecondaryContainer }}>Detection</Text>
@@ -109,6 +125,8 @@ export default function DashboardScreen({ navigation }: any) {
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.tertiaryContainer }]}
             onPress={() => navigation.navigate(ROUTES.LEARNING_TAB)}
+            accessibilityLabel="Mở thư viện từ vựng"
+            accessibilityRole="button"
           >
             <GraduationCap color={theme.colors.onTertiaryContainer} size={28} />
             <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onTertiaryContainer }}>Learn</Text>
@@ -117,6 +135,8 @@ export default function DashboardScreen({ navigation }: any) {
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.surfaceVariant }]}
             onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}
+            accessibilityLabel="Mở lịch sử học tập"
+            accessibilityRole="button"
           >
             <HistoryIcon color={theme.colors.onSurfaceVariant} size={28} />
             <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>History</Text>
@@ -132,16 +152,25 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
         
         {recentHistory.length > 0 ? (
-          recentHistory.map((item, index) => (
-            <Card key={item.id} style={styles.activityCard} mode="outlined">
-              <List.Item
-                title={item.sign}
-                description={`${item.date} • ${item.time}`}
-                left={props => <List.Icon {...props} icon={item.type === 'test' ? 'clipboard-text' : 'camera'} />}
-                right={props => item.type === 'test' && <View style={styles.testBadgeContainer}><Text style={styles.testBadge}>Test</Text></View>}
-              />
-            </Card>
-          ))
+          <FlatList
+            data={recentHistory}
+            keyExtractor={item => item.id}
+            scrollEnabled={false}
+            renderItem={({ item }) => {
+              const formattedDate = !isNaN(Date.parse(item.date)) ? new Date(item.date).toLocaleDateString() : item.date;
+              const formattedTime = !isNaN(Date.parse(item.time)) ? new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : item.time;
+              return (
+                <Card style={styles.activityCard} mode="outlined">
+                  <List.Item
+                    title={item.sign}
+                    description={`${formattedDate} • ${formattedTime}`}
+                    left={props => <List.Icon {...props} icon={item.type === 'test' ? 'clipboard-text' : 'camera'} />}
+                    right={props => item.type === 'test' && <View style={styles.testBadgeContainer}><Text style={styles.testBadge}>Test</Text></View>}
+                  />
+                </Card>
+              );
+            }}
+          />
         ) : (
           <Card mode="contained" style={styles.emptyCard}>
             <Card.Content>
@@ -168,7 +197,7 @@ export default function DashboardScreen({ navigation }: any) {
                 <Card 
                   key={pack.id} 
                   style={styles.packCard} 
-                  onPress={() => navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.PACK_DETAIL, params: { packId: pack.id } })}
+                  onPress={() => navigation.navigate(ROUTES.LEARNING_TAB, { screen: ROUTES.PACK_DETAIL, params: { packId: pack?.id || '' } })}
                 >
                   <Card.Content style={styles.packCardContent}>
                     <Avatar.Text size={32} label={pack.name[0]} style={{ backgroundColor: theme.colors.primaryContainer }} />
@@ -193,6 +222,7 @@ export default function DashboardScreen({ navigation }: any) {
         )}
       </View>
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 
@@ -215,10 +245,10 @@ const styles = StyleSheet.create({
     padding: 24,
     marginBottom: 8,
     shadowColor: '#4facfe',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: Platform.OS === 'android' ? 4 : 8,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -275,7 +305,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 8,
     color: '#1976D2',
-    overflow: 'hidden',
   },
   emptyText: {
     textAlign: 'center',

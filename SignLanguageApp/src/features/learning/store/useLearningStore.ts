@@ -19,6 +19,7 @@ interface LearningState {
   initializePackWords: (packId: string, words: Word[]) => void;
   clearPackProgress: (packId: string) => void;
   resetAllProgress: () => void;
+  removePackWords: (packId: string) => void;
 }
 
 const defaultPacksWords: Record<string, Word[]> = {
@@ -49,9 +50,10 @@ export const useLearningStore = create<LearningState>()(
       
       getPackWords: (packId) => get().packWords[packId] || [],
       
-      initializePackWords: (packId, words) => set((state) => ({
-        packWords: { ...state.packWords, [packId]: words }
-      })),
+      initializePackWords: (packId, words) => set((state) => {
+        if (state.packWords[packId]) return state; // Không đè mảng mới nếu bộ từ vựng đã tồn tại để bảo toàn điểm số
+        return { packWords: { ...state.packWords, [packId]: words } };
+      }),
       
       getPackProgress: (packId) => {
         const words = get().packWords[packId] || [];
@@ -82,7 +84,18 @@ export const useLearningStore = create<LearningState>()(
           packWords: { ...state.packWords, [packId]: resetWords }
         };
       }),
-      resetAllProgress: () => set({ packWords: defaultPacksWords }),
+      resetAllProgress: () => set((state) => {
+        const resetPackWords: Record<string, Word[]> = {};
+        for (const [packId, words] of Object.entries(state.packWords)) {
+          resetPackWords[packId] = words.map(w => ({ ...w, learned: false, favorite: false }));
+        }
+        return { packWords: resetPackWords };
+      }),
+      removePackWords: (packId) => set((state) => {
+        const newPackWords = { ...state.packWords };
+        delete newPackWords[packId];
+        return { packWords: newPackWords };
+      }),
     }),
     {
       name: 'learning-storage',

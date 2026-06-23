@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Menu, IconButton } from 'react-native-paper';
-import { RotateCcw, Zap, ZapOff, Timer, FolderOpen } from 'lucide-react-native';
+import { RotateCcw, Zap, ZapOff, Timer, FolderOpen, Link } from 'lucide-react-native';
 
 interface DetectionSidebarProps {
   theme: any;
@@ -18,6 +18,7 @@ interface DetectionSidebarProps {
   activePackId: string | null;
   selectedMedia: string | null;
   onPressManualScan: () => void;
+  setIsUrlDialogOpen?: (val: boolean) => void;
 }
 
 export default function DetectionSidebar({
@@ -34,7 +35,8 @@ export default function DetectionSidebar({
   isProcessing,
   activePackId,
   selectedMedia,
-  onPressManualScan
+  onPressManualScan,
+  setIsUrlDialogOpen
 }: DetectionSidebarProps) {
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
 
@@ -69,7 +71,12 @@ export default function DetectionSidebar({
           <IconButton icon={() => <Timer color="white" size={24} />} style={styles.sideBtn} onPress={() => Alert.alert('Countdown', 'Feature coming soon!')} />
         </>
       ) : (
-        <IconButton icon={() => <FolderOpen color="white" size={24} />} style={styles.sideBtn} onPress={detectionMode === 'picture' ? pickImage : pickVideo} />
+        <>
+          <IconButton icon={() => <FolderOpen color="white" size={24} />} style={styles.sideBtn} onPress={detectionMode === 'picture' ? pickImage : pickVideo} />
+          {detectionMode === 'picture' && setIsUrlDialogOpen && (
+            <IconButton icon={() => <Link color="white" size={24} />} style={styles.sideBtn} onPress={() => setIsUrlDialogOpen(true)} />
+          )}
+        </>
       )}
       
       {/* Manual Analyze Button */}

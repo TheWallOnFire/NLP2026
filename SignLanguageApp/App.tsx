@@ -9,6 +9,8 @@ import { Platform, LogBox, useColorScheme } from 'react-native';
 
 import LoadingScreen from './src/features/common/screens/LoadingScreen';
 
+import * as FileSystem from 'expo-file-system/legacy';
+
 export default function App() {
   const [isLoading, setIsLoading] = React.useState(true);
   const systemColorScheme = useColorScheme();
@@ -33,13 +35,34 @@ export default function App() {
       });
     }
 
-    // Simulate AI Engine loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2500);
+    // Clean cache and Simulate AI Engine loading
+    const initApp = async () => {
+      try {
+        const cacheDir = FileSystem.cacheDirectory;
+        if (cacheDir) {
+          const files = await FileSystem.readDirectoryAsync(cacheDir);
+          for (const file of files) {
+            if (file.startsWith('crop_') || file.startsWith('media_')) {
+              await FileSystem.deleteAsync(`${cacheDir}${file}`, { idempotent: true });
+            }
+          }
+        }
+        
+        // Dọn dẹp Image Cache (Fresco) tránh OOM Heap (Bug 2)
+        // @ts-ignore
+        import('expo-image').then(({ Image }) => {
+          Image.clearMemoryCache();
+          Image.clearDiskCache();
+        }).catch(() => {});
+        
+      } catch (e) {
+        console.warn("Failed to clean cache", e);
+      }
+      setTimeout(() => setIsLoading(false), 2500);
+    };
+    initApp();
 
     return () => {
-      clearTimeout(timer);
       if (listener) {
         listener.remove();
       }

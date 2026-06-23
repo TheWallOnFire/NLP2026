@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Linking, Animated, Alert, SafeAreaView } from 'react-native';
+import { View, StyleSheet, Linking, Animated, Alert, SafeAreaView, AppState } from 'react-native';
+import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation } from 'react-native-reanimated';
+import { useIsFocused } from '@react-navigation/native';
+import { Audio } from 'expo-av';
 import { Text, Button, useTheme, IconButton } from 'react-native-paper';
 import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { useSignLanguageModel } from '../hooks/useSignLanguageModel';
@@ -23,6 +26,7 @@ import MediaScanner from '../components/MediaScanner';
 import DetectionSidebar from '../components/DetectionSidebar';
 import DetectionResultBanner from '../components/DetectionResultBanner';
 import DetectionDialogs from '../components/DetectionDialogs';
+import DebugOverlay from '../components/DebugOverlay';
 
 const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
   try {
@@ -54,6 +58,7 @@ export default function DetectionScreen({ navigation }: any) {
 
   const defaultFacing = useSettingsStore(state => state.camera?.defaultFacing || 'back');
   const ttsSettings = useSettingsStore(state => state.sound);
+  const developerDebugMode = useSettingsStore(state => state.developerDebugMode);
 
   const [facing, setFacing] = useState<'back' | 'front'>(defaultFacing);
   const [flash, setFlash] = useState(false);
@@ -80,14 +85,19 @@ export default function DetectionScreen({ navigation }: any) {
 
         if (conf > 0.8) {
           triggerImpactFeedback();
-          if (ttsSettings?.systemSounds !== false) {
-            Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+          if (ttsSettings?.systemSounds !== false && word && word.trim() !== '') {
+            try {
+              Speech.stop();
+              Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+            } catch (e) {
+              console.warn("Speech API failed", e);
+            }
           }
           addHistoryItem({
             sign: word,
             type: 'detection',
-            date: 'Today',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            date: new Date().toISOString(),
+            time: new Date().toISOString(),
           });
         }
       }
@@ -99,8 +109,20 @@ export default function DetectionScreen({ navigation }: any) {
     setSnackbarMsg(errorMsg);
   }, []);
 
-  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection, handleModelError);
-  const [debugData, setDebugData] = useState<{ queueLength: number, isProcessing: boolean, processingItem: string | null, queue: string[] } | null>(null);
+  const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
+  const [debugData, setDebugData] = useState<any>(null);
+  
+  const appState = useRef(AppState.currentState);
+  const [isAppActive, setIsAppActive] = useState(appState.current === 'active');
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      setIsAppActive(nextAppState === 'active');
+      appState.current = nextAppState;
+    });
+    return () => subscription.remove();
+  }, []);
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
@@ -113,6 +135,9 @@ export default function DetectionScreen({ navigation }: any) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
+  
+  const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
 
   const player = useVideoPlayer(detectionMode === 'video' ? selectedMedia : null, player => {
     if (player) {
@@ -121,7 +146,25 @@ export default function DetectionScreen({ navigation }: any) {
     }
   });
 
-  const scanAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isAppActive) {
+      if (player && player.playing) player.pause();
+      if (clearQueue) clearQueue(); // Ngăn tràn JNI Global Ref (Lỗi 4)
+    }
+  }, [isAppActive, player, clearQueue]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (flash) {
+      timeout = setTimeout(() => setFlash(false), 180000);
+    }
+    return () => clearTimeout(timeout);
+  }, [flash]);
+
+  const scanAnimValue = useSharedValue(0);
+  const scanAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: scanAnimValue.value * 200 }]
+  }));
   const camera = useRef<any>(null);
 
   useEffect(() => {
@@ -142,29 +185,53 @@ export default function DetectionScreen({ navigation }: any) {
   };
 
   useEffect(() => {
+    const setupAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({ 
+          playsInSilentModeIOS: true,
+          interruptionModeAndroid: 1, // DoNotMix
+          interruptionModeIOS: 1      // DoNotMix
+        });
+      } catch (e) {}
+    };
+    setupAudio();
+  }, []);
+
+  const scannerState = useRef({ hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning });
+  scannerState.current = { hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning };
+
+  useEffect(() => {
     let isActive = true;
     let timerId: NodeJS.Timeout;
 
     if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(scanAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-          Animated.timing(scanAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
-        ])
-      ).start();
+      scanAnimValue.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 2000 }),
+          withTiming(0, { duration: 2000 })
+        ),
+        -1,
+        false
+      );
 
       const loop = async () => {
         if (!isActive) return;
+        const state = scannerState.current;
+        
+        // Cập nhật lại logic quét nếu trạng thái thay đổi thay vì hủy toàn bộ useEffect
+        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission || (state.detectionMode !== 'live' && state.detectionMode !== 'video')) {
+          return;
+        }
+
         await handleManualScan();
         if (isActive) {
            timerId = setTimeout(loop, getInterval());
         }
       };
       
-      // Delay the first scan by 1.5 seconds to let the camera warm up
       timerId = setTimeout(loop, detectionMode === 'live' ? 1500 : 0);
     } else {
-      scanAnim.stopAnimation();
+      cancelAnimation(scanAnimValue);
       setDetectedWord(null);
       setConfidence(0);
     }
@@ -173,10 +240,10 @@ export default function DetectionScreen({ navigation }: any) {
       isActive = false;
       clearTimeout(timerId);
     };
-  }, [hasPermission, detectionSpeed, activePackId, detectionMode, isModelReady, isLiveScanning]);
+  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive]); // Thêm isAppActive để restart Animation sau Doze Mode (Lỗi 18)
 
   useEffect(() => {
-    if (!isDebugDialogOpen) {
+    if (!isDebugDialogOpen && !developerDebugMode) {
       return;
     }
     
@@ -190,7 +257,7 @@ export default function DetectionScreen({ navigation }: any) {
       }
     }, 200);
     return () => clearInterval(interval);
-  }, [isDebugDialogOpen]);
+  }, [isDebugDialogOpen, developerDebugMode, getDebugInfo]);
 
   const handleManualScan = async (overrideUri?: string | null, isManualClick: boolean = false) => {
     if (!activePackId) {
@@ -224,7 +291,7 @@ export default function DetectionScreen({ navigation }: any) {
               setDetectionMode('picture');
               setSelectedMedia(imagePath);
             }
-            result = runDetection(imagePath, true); // bypassDuplicateCheck = true
+            result = runDetection(imagePath, facing, true); // bypassDuplicateCheck = true
           } catch (cameraError: any) {
             if (cameraError?.message?.includes("isn't ready") || cameraError?.message?.includes("not ready")) {
               console.log("Camera đang khởi động, bỏ qua frame này...");
@@ -241,7 +308,7 @@ export default function DetectionScreen({ navigation }: any) {
         if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
           finalMedia = `file://${finalMedia}`;
         }
-        result = runDetection(finalMedia);
+        result = runDetection(finalMedia, undefined);
       } else if (actualMedia && detectionMode === 'video') {
         try {
           const timeToCapture = player.currentTime * 1000;
@@ -254,7 +321,7 @@ export default function DetectionScreen({ navigation }: any) {
           if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
             finalMedia = `file://${finalMedia}`;
           }
-          result = runDetection(finalMedia);
+          result = runDetection(finalMedia, undefined);
         } catch (thumbErr: any) {
           result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
         }
@@ -323,16 +390,128 @@ export default function DetectionScreen({ navigation }: any) {
     }
   };
 
+  const handleUrlImage = async (url: string) => {
+    if (!url) return;
+    try {
+      setIsProcessing(true);
+      const cleanUrl = url.trim();
+
+      // 1. Kiểm tra định dạng URL
+      try {
+        new URL(cleanUrl);
+      } catch (e) {
+        throw new Error("Đường dẫn URL không hợp lệ. Vui lòng nhập link đúng chuẩn bắt đầu bằng http:// hoặc https://");
+      }
+
+      setSnackbarMsg("Đang kiểm tra kết nối mạng và ảnh...");
+
+      // 2. Pre-flight check: Kiểm tra mạng và loại file (Timeout 5s)
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(cleanUrl, { method: 'HEAD', signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Server từ chối truy cập (HTTP ${response.status}). Link ảnh có thể đã chết hoặc yêu cầu quyền.`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && !contentType.startsWith('image/')) {
+          throw new Error("Đường dẫn này không trỏ tới một file ảnh hợp lệ (Content-Type không phải là ảnh).");
+        }
+      } catch (e: any) {
+        if (e.name === 'AbortError') {
+          throw new Error("Mạng quá yếu hoặc không có kết nối Internet.");
+        }
+        // Nếu lỗi do server chặn HEAD request, ta vẫn tiếp tục thử tải qua FileSystem
+        if (e.message.includes("Server từ chối") || e.message.includes("không trỏ tới một file ảnh")) {
+          throw e; 
+        }
+      }
+
+      const ext = cleanUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      // Sử dụng tên file cố định để ghi đè, tránh rò rỉ bộ nhớ (Storage Leak)
+      const fileName = `downloaded_image_temp.${ext}`;
+      const destUri = `${FileSystem.cacheDirectory}${fileName}`;
+      
+      // Xóa file cũ nếu tồn tại để chắc chắn ghi đè
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(destUri);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(destUri, { idempotent: true });
+        }
+      } catch (e) {}
+
+      setSnackbarMsg("Đang tải ảnh...");
+      
+      const downloadWithRetry = async (url: string, dest: string, retries = 2, timeoutMs = 15000): Promise<any> => {
+        for (let i = 0; i <= retries; i++) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            const downloadPromise = FileSystem.downloadAsync(url, dest);
+            
+            // Promise.race with a manual timeout rejection if AbortController isn't fully supported
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+            );
+            
+            const result = await Promise.race([downloadPromise, timeoutPromise]) as FileSystem.FileSystemDownloadResult;
+            clearTimeout(timeoutId);
+            
+            if (result.status === 200) return result;
+            if (i === retries) throw new Error(`Tải ảnh thất bại. Server trả về trạng thái: ${result.status}`);
+          } catch (error) {
+            if (i === retries) throw error;
+            console.log(`[Network] Thử tải lại ảnh lần ${i + 1}...`);
+          }
+        }
+      };
+
+      const { uri, status, headers } = await downloadWithRetry(cleanUrl, destUri);
+
+      // Kiểm tra lại Content-Type sau khi tải (đề phòng link chuyển hướng sang trang HTML)
+      const downloadedType = headers['content-type'] || headers['Content-Type'];
+      if (downloadedType && !downloadedType.toLowerCase().includes('image/')) {
+        throw new Error("File tải về bị lỗi định dạng (không phải ảnh thực sự).");
+      }
+
+      const finalUri = uri;
+      
+      if (appState.current !== 'active') return; // Chặn cập nhật state nếu OS đã đưa app vào background
+
+      setSelectedMedia(finalUri);
+      setIsLiveScanning(false);
+      setUrlInput("");
+      setIsUrlDialogOpen(false);
+      setSnackbarMsg("Tải thành công! Bắt đầu quét...");
+      await handleManualScan(finalUri, true);
+    } catch (err: any) {
+      Alert.alert("Lỗi tải ảnh", err.message || "Không thể tải ảnh. Vui lòng kiểm tra lại mạng hoặc link ảnh.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const pickModelFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
-        if (result.assets[0].name.endsWith('.tflite')) {
+        const fileName = result.assets[0].name;
+        
+        if (fileName.includes('..') || fileName.includes('/')) {
+          Alert.alert("Security Error", "Invalid file name detected.");
+          return;
+        }
+
+        if (fileName.endsWith('.tflite')) {
           setCustomModelUri(fileUri);
           Alert.alert("Success", "Custom TFLite model loaded successfully!");
         } else {
@@ -344,10 +523,7 @@ export default function DetectionScreen({ navigation }: any) {
     }
   };
 
-  const translateY = scanAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 200],
-  });
+  const translateY = 0; // Not used anymore
 
   if (!hasPermission) {
     return (
@@ -360,7 +536,16 @@ export default function DetectionScreen({ navigation }: any) {
           </Text>
           <Button mode="contained" onPress={async () => {
               const granted = await requestPermission();
-              if (!granted) Linking.openSettings();
+              if (!granted) {
+                Alert.alert(
+                  "Yêu cầu Quyền Camera",
+                  "Vui lòng vào Cài đặt của hệ thống để cấp quyền Máy ảnh cho ứng dụng.",
+                  [
+                    { text: "Hủy", style: "cancel" },
+                    { text: "Mở Cài đặt", onPress: () => Linking.openSettings() }
+                  ]
+                );
+              }
             }} style={{ borderRadius: 24 }}>
             Grant Permission / Open Settings
           </Button>
@@ -371,12 +556,24 @@ export default function DetectionScreen({ navigation }: any) {
 
   const toggleCameraFacing = () => {
     triggerSelectionFeedback();
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    setFacing(current => {
+      const nextFacing = current === 'back' ? 'front' : 'back';
+      if (nextFacing === 'front') {
+        setFlash(false); // Vô hiệu hóa/tắt flash khi dùng camera trước
+      }
+      return nextFacing;
+    });
   };
 
   const toggleFlash = () => {
+    if (facing === 'front') return; // Không cho bật flash camera trước
     triggerSelectionFeedback();
     setFlash(!flash);
+  };
+
+  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video') => {
+    clearQueue();
+    setDetectionMode(mode);
   };
 
   return (
@@ -385,7 +582,7 @@ export default function DetectionScreen({ navigation }: any) {
       <TopOptionsBar 
         theme={theme}
         detectionMode={detectionMode}
-        setDetectionMode={setDetectionMode}
+        setDetectionMode={handleDetectionModeChange}
         setSelectedMedia={setSelectedMedia}
         setIsLiveScanning={setIsLiveScanning}
         activePackId={activePackId}
@@ -398,6 +595,13 @@ export default function DetectionScreen({ navigation }: any) {
       />
 
       <View style={styles.mediaContainer}>
+        {developerDebugMode && (
+          <DebugOverlay 
+            debugData={debugData} 
+            activePackWords={packWords[activePackId || '']?.map(w => w.word) || []}
+          />
+        )}
+        
         <MediaScanner 
           detectionMode={detectionMode}
           device={device}
@@ -406,12 +610,12 @@ export default function DetectionScreen({ navigation }: any) {
           activePackId={activePackId}
           detectionSpeed={detectionSpeed}
           isLiveScanning={isLiveScanning}
-          scanAnim={scanAnim}
-          translateY={translateY}
+          scanAnimStyle={scanAnimStyle}
           selectedMedia={selectedMedia}
           player={player}
           pickImage={pickImage}
           pickVideo={pickVideo}
+          isAppActive={isAppActive && isFocused}
         />
 
         <DetectionSidebar 
@@ -429,6 +633,7 @@ export default function DetectionScreen({ navigation }: any) {
           activePackId={activePackId}
           selectedMedia={selectedMedia}
           onPressManualScan={onPressManualScan}
+          setIsUrlDialogOpen={setIsUrlDialogOpen}
         />
       </View>
 
@@ -468,6 +673,11 @@ export default function DetectionScreen({ navigation }: any) {
         debugData={debugData}
         snackbarMsg={snackbarMsg}
         setSnackbarMsg={setSnackbarMsg}
+        isUrlDialogOpen={isUrlDialogOpen}
+        setIsUrlDialogOpen={setIsUrlDialogOpen}
+        handleUrlImage={handleUrlImage}
+        urlInput={urlInput}
+        setUrlInput={setUrlInput}
       />
 
     </SafeAreaView>

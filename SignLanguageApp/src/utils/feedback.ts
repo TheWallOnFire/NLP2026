@@ -6,7 +6,9 @@ export const triggerSuccessFeedback = async (wordToSpeak?: string) => {
   const { haptics, sound } = useSettingsStore.getState();
 
   if (haptics) {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {}
   }
 
   if (sound.systemSounds) {
@@ -22,7 +24,9 @@ export const triggerErrorFeedback = async () => {
   const { haptics, sound } = useSettingsStore.getState();
 
   if (haptics) {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (e) {}
   }
 
   if (sound.systemSounds) {
@@ -34,12 +38,17 @@ export const triggerSelectionFeedback = () => {
   const { haptics } = useSettingsStore.getState();
 
   if (haptics) {
-    Haptics.selectionAsync();
+    try {
+      Haptics.selectionAsync();
+    } catch (e) {}
   }
 };
+
 export const triggerImpactFeedback = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium) => {
   const { haptics } = useSettingsStore.getState();
   if (haptics) {
-    Haptics.impactAsync(style);
+    try {
+      Haptics.impactAsync(style);
+    } catch (e) {}
   }
 };

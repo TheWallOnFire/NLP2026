@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text, Button, Dialog, Portal, Badge, Divider, ActivityIndicator, Snackbar } from 'react-native-paper';
+import React, { useEffect } from 'react';
+import { View, ScrollView, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Alert, BackHandler } from 'react-native';
+import { Text, Button, Dialog, Portal, Badge, Divider, ActivityIndicator, Snackbar, TextInput } from 'react-native-paper';
 
 interface DetectionDialogsProps {
   theme: any;
@@ -9,9 +9,14 @@ interface DetectionDialogsProps {
   history: any[];
   isDebugDialogOpen: boolean;
   setIsDebugDialogOpen: (open: boolean) => void;
-  debugData: { queueLength: number, isProcessing: boolean, processingItem: string | null, queue: string[] } | null;
+  debugData: any;
   snackbarMsg: string;
   setSnackbarMsg: (msg: string) => void;
+  isUrlDialogOpen?: boolean;
+  setIsUrlDialogOpen?: (open: boolean) => void;
+  handleUrlImage?: (url: string) => void;
+  urlInput?: string;
+  setUrlInput?: (url: string) => void;
 }
 
 export default function DetectionDialogs({
@@ -23,11 +28,70 @@ export default function DetectionDialogs({
   setIsDebugDialogOpen,
   debugData,
   snackbarMsg,
-  setSnackbarMsg
+  setSnackbarMsg,
+  isUrlDialogOpen,
+  setIsUrlDialogOpen,
+  handleUrlImage,
+  urlInput,
+  setUrlInput
 }: DetectionDialogsProps) {
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isUrlDialogOpen) {
+        setIsUrlDialogOpen?.(false);
+        return true;
+      }
+      if (isHistoryDialogOpen) {
+        setIsHistoryDialogOpen(false);
+        return true;
+      }
+      if (isDebugDialogOpen) {
+        setIsDebugDialogOpen(false);
+        return true;
+      }
+      return false; // Cho phép OS xử lý (thoát app)
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [isUrlDialogOpen, isHistoryDialogOpen, isDebugDialogOpen]);
+
   return (
     <>
       <Portal>
+        <SafeAreaView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          {/* URL Input Dialog */}
+          {setIsUrlDialogOpen && handleUrlImage && setUrlInput && (
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center' }}>
+              <Dialog visible={!!isUrlDialogOpen} onDismiss={() => setIsUrlDialogOpen(false)}>
+              <Dialog.Title>Nhập Link Ảnh (URL)</Dialog.Title>
+            <Dialog.Content>
+              <TextInput
+                label="Đường dẫn ảnh (http://...)"
+                value={urlInput || ''}
+                onChangeText={setUrlInput}
+                mode="outlined"
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <Text variant="bodySmall" style={{ marginTop: 8, opacity: 0.6 }}>
+                Ảnh sẽ được tải về tạm thời để nhận diện.
+              </Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setIsUrlDialogOpen(false)}>Hủy</Button>
+              <Button mode="contained" onPress={() => {
+                const urlPattern = /^https?:\/\/.+/i;
+                if (!urlInput || !urlPattern.test(urlInput)) {
+                  Alert.alert("Lỗi", "Vui lòng nhập một đường dẫn hợp lệ bắt đầu bằng http:// hoặc https://");
+                  return;
+                }
+                handleUrlImage(urlInput);
+              }} disabled={!urlInput}>Tải & Quét</Button>
+            </Dialog.Actions>
+            </Dialog>
+            </KeyboardAvoidingView>
+          )}
         {/* History Dialog */}
         <Dialog visible={isHistoryDialogOpen} onDismiss={() => setIsHistoryDialogOpen(false)} style={{ maxHeight: '80%' }}>
           <Dialog.Title>Detection History</Dialog.Title>
@@ -78,10 +142,10 @@ export default function DetectionDialogs({
                 <Divider style={{ marginBottom: 8 }} />
 
                 {debugData.queue.length > 0 ? (
-                  debugData.queue.map((q, i) => (
+                  debugData.queue.map((q: any, i: number) => (
                     <View key={i} style={{ padding: 8, backgroundColor: theme.colors.surfaceVariant, marginBottom: 4, borderRadius: 8 }}>
                       <Text variant="bodySmall" style={{ fontFamily: 'monospace' }} numberOfLines={1}>
-                        #{i+1} - {q.split('/').pop()}
+                        #{i+1} - {typeof q === 'string' ? q.split('/').pop() : q?.uri?.split('/').pop()}
                       </Text>
                     </View>
                   ))
@@ -97,6 +161,7 @@ export default function DetectionDialogs({
             <Button onPress={() => setIsDebugDialogOpen(false)}>Close</Button>
           </Dialog.Actions>
         </Dialog>
+        </SafeAreaView>
       </Portal>
 
       <Snackbar

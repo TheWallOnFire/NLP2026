@@ -16,18 +16,46 @@ interface HistoryState {
   clearHistory: () => void;
 }
 
+const safeStorage = {
+  getItem: async (name: string) => {
+    try {
+      return await AsyncStorage.getItem(name);
+    } catch (e) {
+      console.warn("Storage Get Error:", e);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string) => {
+    try {
+      await AsyncStorage.setItem(name, value);
+    } catch (e) {
+      console.error("Storage Set Error (Possible 0 Bytes Free):", e);
+    }
+  },
+  removeItem: async (name: string) => {
+    try {
+      await AsyncStorage.removeItem(name);
+    } catch (e) {}
+  },
+};
+
 export const useHistoryStore = create<HistoryState>()(
   persist(
     (set) => ({
       history: [],
       addHistoryItem: (item) => set((state) => ({
-        history: [{ ...item, id: Date.now().toString() }, ...state.history].slice(0, 100),
+        history: [{ ...item, id: crypto.randomUUID() }, ...state.history].slice(0, 50),
       })),
       clearHistory: () => set({ history: [] }),
     }),
     {
       name: 'history-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeStorage),
+      merge: (persistedState: any, currentState) => ({
+        ...currentState,
+        ...persistedState,
+        history: persistedState?.history ? persistedState.history.slice(0, 50) : currentState.history,
+      }),
     }
   )
 );
