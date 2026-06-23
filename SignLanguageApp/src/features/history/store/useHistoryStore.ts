@@ -44,7 +44,8 @@ export const useHistoryStore = create<HistoryState>()(
     (set) => ({
       history: [],
       addHistoryItem: (item) => set((state) => ({
-        history: [{ ...item, id: crypto.randomUUID() }, ...state.history].slice(0, 50),
+        // Use Math.random() for ID generation instead of crypto.randomUUID() which is not supported natively in Hermes
+        history: [{ ...item, id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString() }, ...state.history].slice(0, 50),
       })),
       clearHistory: () => set({ history: [] }),
     }),

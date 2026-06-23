@@ -7,10 +7,17 @@ export function parseInferenceOutput(outputs: any[], dataType: string | undefine
 
   let outputArray: number[] | Float32Array | Uint8Array;
   
-  if (dataType === 'float32' && outputs[0]?.buffer) {
-    outputArray = new Float32Array(outputs[0].buffer, outputs[0].byteOffset, outputs[0].byteLength / 4);
+  if (outputs[0] instanceof ArrayBuffer) {
+    outputArray = dataType === 'float32' ? new Float32Array(outputs[0]) : new Uint8Array(outputs[0]);
+  } else if (outputs[0]?.buffer) {
+    // If it's already a Float32Array, just use it
+    if (dataType === 'float32' && !(outputs[0] instanceof Float32Array)) {
+      outputArray = new Float32Array(outputs[0].buffer, outputs[0].byteOffset, outputs[0].byteLength / 4);
+    } else {
+      outputArray = outputs[0];
+    }
   } else {
-    outputArray = outputs[0] as unknown as number[] | Uint8Array;
+    outputArray = outputs[0] as any;
   }
 
   if (!outputArray || outputArray.length === 0) {
@@ -33,11 +40,19 @@ export function parseInferenceOutput(outputs: any[], dataType: string | undefine
 
   // Sort by value descending and take top 3
   indexedValues.sort((a, b) => b.val - a.val);
-  const top3 = indexedValues.slice(0, 3).map(v => ({
-    idx: v.idx,
-    val: Math.round(v.val * 1000) / 1000 // Tối ưu Float JSON (Bug 25)
-  }));
+  const top3 = indexedValues
+    .slice(0, 3)
+    .filter(v => typeof v.val === 'number' && isFinite(v.val) && !isNaN(v.val))
+    .map(v => ({
+      idx: v.idx,
+      val: Math.round(v.val * 1000) / 1000 // Tối ưu Float JSON (Bug 25)
+    }));
 
-  const safeMaxVal = typeof maxVal === 'number' ? Math.round(maxVal * 1000) / 1000 : 0;
+  let safeMaxVal = typeof maxVal === 'number' && isFinite(maxVal) && !isNaN(maxVal) ? Math.round(maxVal * 1000) / 1000 : 0;
+  
+  if (safeMaxVal === 0 && top3.length > 0) {
+    safeMaxVal = top3[0].val; // Đề phòng lỗi làm tròn
+  }
+
   return { maxIdx, maxVal: safeMaxVal, top3 };
 }

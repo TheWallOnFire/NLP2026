@@ -37,17 +37,17 @@ const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(mediaDir, { intermediates: true });
     }
-    
+
     const cleanUri = sourceUri.split('?')[0];
     const ext = cleanUri.split('.').pop() || 'jpg';
     const fileName = `media_${Date.now()}.${ext}`;
     const destUri = `${mediaDir}${fileName}`;
-    
+
     await FileSystem.copyAsync({
       from: sourceUri,
       to: destUri
     });
-    
+
     return destUri;
   } catch (error) {
     console.error("Failed to save media to app storage", error);
@@ -113,7 +113,7 @@ export default function DetectionScreen({ navigation }: any) {
 
   const { isModelReady, boxedModel, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
   const [debugData, setDebugData] = useState<any>(null);
-  
+
   const appState = useRef(AppState.currentState);
   const [isAppActive, setIsAppActive] = useState(appState.current === 'active');
   const isFocused = useIsFocused();
@@ -137,7 +137,7 @@ export default function DetectionScreen({ navigation }: any) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
-  
+
   const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
 
   const { resizer } = useResizer({
@@ -152,6 +152,9 @@ export default function DetectionScreen({ navigation }: any) {
     handleDetection(maxIdx, maxVal);
   });
 
+  const lastProcessTime = useSharedValue(0);
+  const currentInterval = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
+
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
       'worklet';
@@ -160,34 +163,49 @@ export default function DetectionScreen({ navigation }: any) {
         return;
       }
 
+      const now = Date.now();
+      if (now - lastProcessTime.value < currentInterval) {
+        frame.dispose();
+        return;
+      }
+      lastProcessTime.value = now;
+
       try {
         const tflite = boxedModel.unbox();
-        
+
         if (!resizer) {
           frame.dispose();
           return;
         }
 
         const resized = resizer.resize(frame);
-        const buffer = resized.getPixelBuffer();
-        const outputs = tflite.runSync([buffer]);
-        resized.dispose();
-
-        const outputArray = outputs[0] as number[] | Float32Array | undefined;
         
-        if (outputArray && outputArray.length > 0) {
-          let maxIdx = 0;
-          let maxVal = outputArray[0];
-          for (let i = 1; i < outputArray.length; i++) {
-            if (outputArray[i] > maxVal) {
-              maxVal = outputArray[i];
-              maxIdx = i;
+        try {
+          const buffer = resized.getPixelBuffer();
+          const outputs = tflite.runSync([(buffer as any).buffer || buffer]);
+          
+          const rawOut = outputs[0] as any;
+          let outputArray = rawOut;
+          if (rawOut && rawOut.byteLength && !rawOut.length) {
+            outputArray = new Float32Array(rawOut);
+          }
+          if (outputArray && outputArray.length > 0) {
+            let maxIdx = 0;
+            let maxVal = outputArray[0];
+            for (let i = 1; i < outputArray.length; i++) {
+              if (outputArray[i] > maxVal) {
+                maxVal = outputArray[i];
+                maxIdx = i;
+              }
+            }
+
+            // Đảm bảo không xử lý kết quả nhiễu (NaN, vô cực hoặc toàn 0)
+            if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal) && !isNaN(maxVal)) {
+              onDetectionJS(maxIdx, maxVal);
             }
           }
-          
-          if (maxVal > thresholdValue) {
-            onDetectionJS(maxIdx, maxVal);
-          }
+        } finally {
+          resized.dispose(); // Đảm bảo luôn được giải phóng ngay cả khi runSync throw error
         }
       } catch (e) {
         // Bỏ qua lỗi trong worklet để không crash app
@@ -196,7 +214,7 @@ export default function DetectionScreen({ navigation }: any) {
       }
     }
   });
-  
+
   const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
 
@@ -248,12 +266,12 @@ export default function DetectionScreen({ navigation }: any) {
   useEffect(() => {
     const setupAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({ 
+        await Audio.setAudioModeAsync({
           playsInSilentModeIOS: true,
           interruptionModeAndroid: 1, // DoNotMix
           interruptionModeIOS: 1      // DoNotMix
         });
-      } catch (e) {}
+      } catch (e) { }
     };
     setupAudio();
   }, []);
@@ -279,17 +297,17 @@ export default function DetectionScreen({ navigation }: any) {
       const loop = async () => {
         if (!isActive) return;
         const state = scannerState.current;
-        
+
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission || state.detectionMode !== 'video') {
           return;
         }
 
         await handleManualScan();
         if (isActive) {
-           timerId = setTimeout(loop, getInterval());
+          timerId = setTimeout(loop, getInterval());
         }
       };
-      
+
       if (detectionMode === 'video') {
         timerId = setTimeout(loop, 500);
       }
@@ -309,7 +327,7 @@ export default function DetectionScreen({ navigation }: any) {
     if (!isDebugDialogOpen && !developerDebugMode) {
       return;
     }
-    
+
     if (getDebugInfo) {
       setDebugData(getDebugInfo());
     }
@@ -333,10 +351,10 @@ export default function DetectionScreen({ navigation }: any) {
     }
     setIsProcessing(true);
     triggerImpactFeedback();
-    
+
     const actualMedia = typeof overrideUri === 'string' ? overrideUri : selectedMedia;
     let result: { success: boolean, message: string } | undefined;
-    
+
     try {
       if (detectionMode === 'live') {
         if (isLiveScanning) {
@@ -375,7 +393,7 @@ export default function DetectionScreen({ navigation }: any) {
             time: timeToCapture,
             quality: 0.8,
           });
-          
+
           let finalMedia = uri;
           if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
             finalMedia = `file://${finalMedia}`;
@@ -411,9 +429,31 @@ export default function DetectionScreen({ navigation }: any) {
         Alert.alert("Lỗi", "Vui lòng chọn video trước khi quét.");
         return;
       }
+      if (detectionMode === 'video' && !isLiveScanning) {
+        Alert.alert(
+          "Xác nhận phân tích Video",
+          "Hệ thống sẽ trích xuất khung hình từ video để nhận dạng.\nThời gian xử lý: ~500ms - 2s.\nBạn có muốn bắt đầu không?",
+          [
+            { text: "Hủy", style: "cancel" },
+            { text: "Bắt đầu", onPress: () => setIsLiveScanning(true) }
+          ]
+        );
+        return;
+      }
       setIsLiveScanning(prev => !prev);
     } else {
-      await handleManualScan(null, true);
+      if (detectionMode === 'picture' && selectedMedia) {
+        Alert.alert(
+          "Xác nhận phân tích Ảnh",
+          "Hình ảnh đã được chọn.\nKích thước chuẩn: 224x224 RGB.\nThời gian xử lý: ~500ms - 2s.\nBạn có muốn phân tích không?",
+          [
+            { text: "Hủy", style: "cancel" },
+            { text: "Nhận dạng", onPress: () => handleManualScan(null, true) }
+          ]
+        );
+      } else {
+        await handleManualScan(null, true);
+      }
     }
   };
 
@@ -428,9 +468,10 @@ export default function DetectionScreen({ navigation }: any) {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       const savedUri = storagePermission ? await saveMediaToAppStorage(uri) : uri;
+
       setSelectedMedia(savedUri);
+      setDetectionMode('picture');
       setIsLiveScanning(false);
-      handleManualScan(savedUri, true);
     }
   };
 
@@ -445,9 +486,10 @@ export default function DetectionScreen({ navigation }: any) {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       const savedUri = storagePermission ? await saveMediaToAppStorage(uri) : uri;
+
       setSelectedMedia(savedUri);
+      setDetectionMode('video');
       setIsLiveScanning(false);
-      handleManualScan(savedUri, true);
     }
   };
 
@@ -470,7 +512,7 @@ export default function DetectionScreen({ navigation }: any) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
+
         const response = await fetch(cleanUrl, { method: 'HEAD', signal: controller.signal });
         clearTimeout(timeoutId);
 
@@ -488,7 +530,7 @@ export default function DetectionScreen({ navigation }: any) {
         }
         // Nếu lỗi do server chặn HEAD request, ta vẫn tiếp tục thử tải qua FileSystem
         if (e.message.includes("Server từ chối") || e.message.includes("không trỏ tới một file ảnh")) {
-          throw e; 
+          throw e;
         }
       }
 
@@ -496,32 +538,32 @@ export default function DetectionScreen({ navigation }: any) {
       // Sử dụng tên file cố định để ghi đè, tránh rò rỉ bộ nhớ (Storage Leak)
       const fileName = `downloaded_image_temp.${ext}`;
       const destUri = `${FileSystem.cacheDirectory}${fileName}`;
-      
+
       // Xóa file cũ nếu tồn tại để chắc chắn ghi đè
       try {
         const fileInfo = await FileSystem.getInfoAsync(destUri);
         if (fileInfo.exists) {
           await FileSystem.deleteAsync(destUri, { idempotent: true });
         }
-      } catch (e) {}
+      } catch (e) { }
 
       setSnackbarMsg("Đang tải ảnh...");
-      
+
       const downloadWithRetry = async (url: string, dest: string, retries = 2, timeoutMs = 15000): Promise<any> => {
         for (let i = 0; i <= retries; i++) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
             const downloadPromise = FileSystem.downloadAsync(url, dest);
-            
+
             // Promise.race with a manual timeout rejection if AbortController isn't fully supported
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error("Timeout")), timeoutMs)
             );
-            
+
             const result = await Promise.race([downloadPromise, timeoutPromise]) as FileSystem.FileSystemDownloadResult;
             clearTimeout(timeoutId);
-            
+
             if (result.status === 200) return result;
             if (i === retries) throw new Error(`Tải ảnh thất bại. Server trả về trạng thái: ${result.status}`);
           } catch (error) {
@@ -540,7 +582,7 @@ export default function DetectionScreen({ navigation }: any) {
       }
 
       const finalUri = uri;
-      
+
       if (appState.current !== 'active') return; // Chặn cập nhật state nếu OS đã đưa app vào background
 
       setSelectedMedia(finalUri);
@@ -566,7 +608,7 @@ export default function DetectionScreen({ navigation }: any) {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = result.assets[0].name;
-        
+
         if (fileName.includes('..') || fileName.includes('/')) {
           Alert.alert("Security Error", "Invalid file name detected.");
           return;
@@ -596,18 +638,18 @@ export default function DetectionScreen({ navigation }: any) {
             We need your permission to access the camera for real-time sign language detection. If you have denied it previously, you may need to open system settings.
           </Text>
           <Button mode="contained" onPress={async () => {
-              const granted = await requestPermission();
-              if (!granted) {
-                Alert.alert(
-                  "Yêu cầu Quyền Camera",
-                  "Vui lòng vào Cài đặt của hệ thống để cấp quyền Máy ảnh cho ứng dụng.",
-                  [
-                    { text: "Hủy", style: "cancel" },
-                    { text: "Mở Cài đặt", onPress: () => Linking.openSettings() }
-                  ]
-                );
-              }
-            }} style={{ borderRadius: 24 }}>
+            const granted = await requestPermission();
+            if (!granted) {
+              Alert.alert(
+                "Yêu cầu Quyền Camera",
+                "Vui lòng vào Cài đặt của hệ thống để cấp quyền Máy ảnh cho ứng dụng.",
+                [
+                  { text: "Hủy", style: "cancel" },
+                  { text: "Mở Cài đặt", onPress: () => Linking.openSettings() }
+                ]
+              );
+            }
+          }} style={{ borderRadius: 24 }}>
             Grant Permission / Open Settings
           </Button>
         </View>
@@ -639,8 +681,8 @@ export default function DetectionScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      
-      <TopOptionsBar 
+
+      <TopOptionsBar
         theme={theme}
         detectionMode={detectionMode}
         setDetectionMode={handleDetectionModeChange}
@@ -657,13 +699,13 @@ export default function DetectionScreen({ navigation }: any) {
 
       <View style={styles.mediaContainer}>
         {developerDebugMode && (
-          <DebugOverlay 
-            debugData={debugData} 
+          <DebugOverlay
+            debugData={debugData}
             activePackWords={packWords[activePackId || '']?.map(w => w.word) || []}
           />
         )}
-        
-        <MediaScanner 
+
+        <MediaScanner
           detectionMode={detectionMode}
           device={device}
           cameraRef={camera}
@@ -680,7 +722,7 @@ export default function DetectionScreen({ navigation }: any) {
           frameOutput={frameOutput}
         />
 
-        <DetectionSidebar 
+        <DetectionSidebar
           theme={theme}
           detectionMode={detectionMode}
           detectionSpeed={detectionSpeed}
@@ -699,7 +741,7 @@ export default function DetectionScreen({ navigation }: any) {
         />
       </View>
 
-      <DetectionResultBanner 
+      <DetectionResultBanner
         theme={theme}
         activePack={activePack}
         detectedWord={detectedWord}
@@ -707,17 +749,17 @@ export default function DetectionScreen({ navigation }: any) {
       />
 
       <View style={styles.actionButtonsRow}>
-        <Button 
-          mode="contained-tonal" 
-          icon={() => <HistoryIcon color={theme.colors.primary} size={20} />} 
+        <Button
+          mode="contained-tonal"
+          icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
           onPress={() => setIsHistoryDialogOpen(true)}
           style={styles.actionBtn}
         >
           History
         </Button>
-        <Button 
-          mode="contained-tonal" 
-          icon={() => <ListTodo color={theme.colors.primary} size={20} />} 
+        <Button
+          mode="contained-tonal"
+          icon={() => <ListTodo color={theme.colors.primary} size={20} />}
           onPress={() => setIsDebugDialogOpen(true)}
           style={styles.actionBtn}
         >
@@ -725,7 +767,7 @@ export default function DetectionScreen({ navigation }: any) {
         </Button>
       </View>
 
-      <DetectionDialogs 
+      <DetectionDialogs
         theme={theme}
         isHistoryDialogOpen={isHistoryDialogOpen}
         setIsHistoryDialogOpen={setIsHistoryDialogOpen}

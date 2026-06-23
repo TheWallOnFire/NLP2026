@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     zIndex: 10,
+    elevation: 10,
   },
   dropdownBtn: {
     flexDirection: 'row',

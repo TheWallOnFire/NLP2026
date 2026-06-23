@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     zIndex: 20,
+    elevation: 20,
   },
   sideBtn: {
     marginVertical: 4,

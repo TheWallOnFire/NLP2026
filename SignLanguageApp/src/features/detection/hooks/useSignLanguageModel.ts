@@ -112,7 +112,7 @@ export function useSignLanguageModel(
       const preprocessTime = Date.now() - preStartTime;
 
       const infStartTime = Date.now();
-      const outputs = await tfliteModel.run([inputData]); // Truyền trực tiếp TypedArray, không phải .buffer
+      const outputs = await tfliteModel.run([inputData.buffer || inputData]);
       const inferenceTime = Date.now() - infStartTime;
       
       const outDataType = tfliteModel.outputs?.[0]?.dataType;
