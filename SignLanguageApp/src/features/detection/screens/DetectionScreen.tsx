@@ -4,7 +4,9 @@ import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming,
 import { useIsFocused } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import { Text, Button, useTheme, IconButton } from 'react-native-paper';
-import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
+import { useResizer } from 'react-native-vision-camera-resizer';
+import { runOnJS } from 'react-native-worklets';
 import { useSignLanguageModel } from '../hooks/useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -109,7 +111,7 @@ export default function DetectionScreen({ navigation }: any) {
     setSnackbarMsg(errorMsg);
   }, []);
 
-  const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
+  const { isModelReady, boxedModel, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
   const [debugData, setDebugData] = useState<any>(null);
   
   const appState = useRef(AppState.currentState);
@@ -135,6 +137,65 @@ export default function DetectionScreen({ navigation }: any) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
+  
+  const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
+
+  const { resizer } = useResizer({
+    width: 224,
+    height: 224,
+    channelOrder: 'rgb',
+    dataType: 'float32',
+    scaleMode: 'cover',
+    pixelLayout: 'interleaved',
+  });
+  const onDetectionJS = runOnJS((maxIdx: number, maxVal: number) => {
+    handleDetection(maxIdx, maxVal);
+  });
+
+  const frameOutput = useFrameOutput({
+    onFrame: (frame) => {
+      'worklet';
+      if (!boxedModel || !isLiveScanning || detectionMode !== 'live' || detectionSpeed === 'off') {
+        frame.dispose();
+        return;
+      }
+
+      try {
+        const tflite = boxedModel.unbox();
+        
+        if (!resizer) {
+          frame.dispose();
+          return;
+        }
+
+        const resized = resizer.resize(frame);
+        const buffer = resized.getPixelBuffer();
+        const outputs = tflite.runSync([buffer]);
+        resized.dispose();
+
+        const outputArray = outputs[0] as number[] | Float32Array | undefined;
+        
+        if (outputArray && outputArray.length > 0) {
+          let maxIdx = 0;
+          let maxVal = outputArray[0];
+          for (let i = 1; i < outputArray.length; i++) {
+            if (outputArray[i] > maxVal) {
+              maxVal = outputArray[i];
+              maxIdx = i;
+            }
+          }
+          
+          if (maxVal > thresholdValue) {
+            onDetectionJS(maxIdx, maxVal);
+          }
+        }
+      } catch (e) {
+        // Bỏ qua lỗi trong worklet để không crash app
+      } finally {
+        frame.dispose();
+      }
+    }
+  });
   
   const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -214,12 +275,12 @@ export default function DetectionScreen({ navigation }: any) {
         false
       );
 
+      // Cho phép xử lý Video (tĩnh) sử dụng JS Thread cũ do Frame Processor không truy xuất Video trực tiếp
       const loop = async () => {
         if (!isActive) return;
         const state = scannerState.current;
         
-        // Cập nhật lại logic quét nếu trạng thái thay đổi thay vì hủy toàn bộ useEffect
-        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission || (state.detectionMode !== 'live' && state.detectionMode !== 'video')) {
+        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission || state.detectionMode !== 'video') {
           return;
         }
 
@@ -229,7 +290,9 @@ export default function DetectionScreen({ navigation }: any) {
         }
       };
       
-      timerId = setTimeout(loop, detectionMode === 'live' ? 1500 : 0);
+      if (detectionMode === 'video') {
+        timerId = setTimeout(loop, 500);
+      }
     } else {
       cancelAnimation(scanAnimValue);
       setDetectedWord(null);
@@ -240,7 +303,7 @@ export default function DetectionScreen({ navigation }: any) {
       isActive = false;
       clearTimeout(timerId);
     };
-  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive]); // Thêm isAppActive để restart Animation sau Doze Mode (Lỗi 18)
+  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning]);
 
   useEffect(() => {
     if (!isDebugDialogOpen && !developerDebugMode) {
@@ -276,7 +339,11 @@ export default function DetectionScreen({ navigation }: any) {
     
     try {
       if (detectionMode === 'live') {
-        if (camera.current) {
+        if (isLiveScanning) {
+          result = undefined;
+          // Frame Processor đã chạy tự động, không cần chụp thủ công trừ khi user ấn nút bằng tay (isManualClick)
+        }
+        if (camera.current && isManualClick) {
           try {
             const photo = await camera.current.takeSnapshot({
               quality: 85
@@ -287,21 +354,13 @@ export default function DetectionScreen({ navigation }: any) {
             }
             if (imagePath && isManualClick && storagePermission) {
               imagePath = await saveMediaToAppStorage(imagePath);
-              // Tự động chuyển sang chế độ Picture để người dùng xem lại ảnh vừa chụp
               setDetectionMode('picture');
               setSelectedMedia(imagePath);
             }
-            result = runDetection(imagePath, facing, true); // bypassDuplicateCheck = true
+            result = runDetection(imagePath, facing, true);
           } catch (cameraError: any) {
-            if (cameraError?.message?.includes("isn't ready") || cameraError?.message?.includes("not ready")) {
-              console.log("Camera đang khởi động, bỏ qua frame này...");
-              result = undefined;
-            } else {
-              throw cameraError;
-            }
+            console.log("Camera chụp lỗi:", cameraError);
           }
-        } else {
-          result = { success: false, message: "Camera chưa sẵn sàng." };
         }
       } else if (actualMedia && detectionMode === 'picture') {
         let finalMedia = actualMedia;
@@ -362,6 +421,7 @@ export default function DetectionScreen({ navigation }: any) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -378,6 +438,7 @@ export default function DetectionScreen({ navigation }: any) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsEditing: true,
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -616,6 +677,7 @@ export default function DetectionScreen({ navigation }: any) {
           pickImage={pickImage}
           pickVideo={pickVideo}
           isAppActive={isAppActive && isFocused}
+          frameOutput={frameOutput}
         />
 
         <DetectionSidebar 

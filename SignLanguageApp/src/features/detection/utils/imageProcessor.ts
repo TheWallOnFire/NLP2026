@@ -108,9 +108,6 @@ export async function convertPixelsToInputData(
   dataType: string | undefined,
   pixelFormat: string = 'unknown'
 ): Promise<Float32Array | Uint8Array> {
-  // Yield to the JS thread to prevent UI freezing before heavy array loop
-  await new Promise(resolve => setTimeout(resolve, 0));
-
   const INV_255 = 0.003921568627451; 
   
   if (dataType === 'float32') {
@@ -118,52 +115,35 @@ export async function convertPixelsToInputData(
     
     if (isRGBA && expectedChannels === 3) {
       let floatIdx = 0;
-      const chunkSize = 40000; // 10,000 pixels = 40,000 bytes
       const format = pixelFormat.toLowerCase();
       
-      for (let start = 0; start < uint8Array.length && floatIdx < expectedElements; start += chunkSize) {
-        const end = Math.min(start + chunkSize, uint8Array.length);
-        for (let i = start; i < end && floatIdx < expectedElements; i += 4) {
-          let r = 0, g = 0, b = 0;
-          if (format === 'bgra') {
-            b = uint8Array[i];
-            g = uint8Array[i+1];
-            r = uint8Array[i+2];
-          } else if (format === 'argb') {
-            r = uint8Array[i+1];
-            g = uint8Array[i+2];
-            b = uint8Array[i+3];
-          } else { // rgba, xrgb, etc.
-            r = uint8Array[i];
-            g = uint8Array[i+1];
-            b = uint8Array[i+2];
-          }
-
-          float32Array[floatIdx++] = r * INV_255;
-          float32Array[floatIdx++] = g * INV_255;
-          float32Array[floatIdx++] = b * INV_255;
+      for (let i = 0; i < uint8Array.length && floatIdx < expectedElements; i += 4) {
+        let r = 0, g = 0, b = 0;
+        if (format === 'bgra') {
+          b = uint8Array[i];
+          g = uint8Array[i+1];
+          r = uint8Array[i+2];
+        } else if (format === 'argb') {
+          r = uint8Array[i+1];
+          g = uint8Array[i+2];
+          b = uint8Array[i+3];
+        } else { // rgba, xrgb, etc.
+          r = uint8Array[i];
+          g = uint8Array[i+1];
+          b = uint8Array[i+2];
         }
-        await new Promise(resolve => setTimeout(resolve, 1));
+
+        float32Array[floatIdx++] = r * INV_255;
+        float32Array[floatIdx++] = g * INV_255;
+        float32Array[floatIdx++] = b * INV_255;
       }
     } else if (!isRGBA && expectedChannels === 3) {
-      // Đầu vào là RGB (không có Alpha) và Model cần RGB
-      const chunkSize = 10000;
-      for (let start = 0; start < uint8Array.length && start < expectedElements; start += chunkSize) {
-        const end = Math.min(start + chunkSize, uint8Array.length, expectedElements);
-        for (let i = start; i < end; i++) {
-          float32Array[i] = uint8Array[i] * INV_255;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1));
+      for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
+        float32Array[i] = uint8Array[i] * INV_255;
       }
     } else {
-      // Các trường hợp khác (Grayscale, v.v.)
-      const chunkSize = 10000;
-      for (let start = 0; start < uint8Array.length && start < expectedElements; start += chunkSize) {
-        const end = Math.min(start + chunkSize, uint8Array.length, expectedElements);
-        for (let i = start; i < end; i++) {
-          float32Array[i] = uint8Array[i] * INV_255;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1));
+      for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
+        float32Array[i] = uint8Array[i] * INV_255;
       }
     }
     return float32Array;
@@ -171,16 +151,11 @@ export async function convertPixelsToInputData(
     if (isRGBA && expectedChannels === 3) {
       const rgbArray = new Uint8Array(expectedElements);
       let idx = 0;
-      const chunkSize = 40000;
       
-      for (let start = 0; start < uint8Array.length && idx < expectedElements; start += chunkSize) {
-        const end = Math.min(start + chunkSize, uint8Array.length);
-        for (let i = start; i < end && idx < expectedElements; i += 4) {
-          rgbArray[idx++] = uint8Array[i];
-          rgbArray[idx++] = uint8Array[i+1];
-          rgbArray[idx++] = uint8Array[i+2];
-        }
-        await new Promise(resolve => setTimeout(resolve, 1));
+      for (let i = 0; i < uint8Array.length && idx < expectedElements; i += 4) {
+        rgbArray[idx++] = uint8Array[i];
+        rgbArray[idx++] = uint8Array[i+1];
+        rgbArray[idx++] = uint8Array[i+2];
       }
       return rgbArray;
     } else {

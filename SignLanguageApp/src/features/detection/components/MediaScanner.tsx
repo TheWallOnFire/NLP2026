@@ -20,6 +20,7 @@ interface MediaScannerProps {
   pickImage: () => void;
   pickVideo: () => void;
   isAppActive?: boolean;
+  frameOutput?: any;
 }
 
 export default function MediaScanner({
@@ -35,14 +36,22 @@ export default function MediaScanner({
   player,
   pickImage,
   pickVideo,
-  isAppActive = true
+  isAppActive = true,
+  frameOutput
 }: MediaScannerProps) {
   return (
     <>
       {detectionMode === 'live' ? (
         <View style={styles.cameraWrapper}>
           {device != null && isAppActive ? (
-            <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} torchMode={flash ? 'on' : 'off'} />
+            <Camera 
+              ref={cameraRef} 
+              style={StyleSheet.absoluteFill} 
+              device={device} 
+              isActive={true} 
+              torchMode={flash ? 'on' : 'off'} 
+              outputs={frameOutput ? [frameOutput] : []}
+            />
           ) : (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }]}>
               {device == null ? <ActivityIndicator size="large" /> : <Text style={{ color: 'white' }}>Camera Paused</Text>}

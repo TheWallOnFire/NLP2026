@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Alert, Platform } from 'react-native';
 import { loadTensorflowModel } from 'react-native-fast-tflite';
+import { NitroModules } from 'react-native-nitro-modules';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -188,9 +189,17 @@ export function useSignLanguageModel(
     frameQueue.current = [];
   }, []);
 
+  const boxedModel = useMemo(() => {
+    if (tfliteModel && typeof tfliteModel.runSync === 'function') {
+      return NitroModules.box(tfliteModel);
+    }
+    return undefined;
+  }, [tfliteModel]);
+
   return { 
     runDetection, 
     isModelReady: tfliteModel != null,
+    boxedModel,
     getDebugInfo,
     clearQueue
   };

@@ -17,7 +17,7 @@ To achieve real-time, on-device ASL translation, we must transition to an archit
 ### 3.1. Required Libraries
 - **`react-native-vision-camera`**: Replaces `expo-camera`. Provides robust frame processing capabilities, allowing us to hook into the camera feed frame-by-frame.
 - **`react-native-fast-tflite`**: A high-performance TFLite library designed to work perfectly alongside Vision Camera frame processors.
-- **`react-native-worklets-core`**: Required for executing frame processing logic synchronously on a separate UI/Vision thread.
+- **`react-native-worklets`**: Required for executing frame processing logic synchronously on a separate UI/Vision thread.
 
 ### 3.2. Transition Strategy
 1. **Create an Expo Custom Development Client:** We will no longer be able to use the standard Expo Go app. We will configure an Expo prebuild step (`npx expo run:android` / `npx expo run:ios`).
