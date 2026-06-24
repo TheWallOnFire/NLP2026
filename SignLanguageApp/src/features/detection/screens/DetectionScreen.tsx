@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Linking, Animated, Alert, SafeAreaView, AppState } from 'react-native';
+import { View, StyleSheet, Linking, Animated, Alert, AppState } from 'react-native';
 import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation } from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
-import { Audio } from 'expo-av';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+
 import { Text, Button, useTheme, IconButton } from 'react-native-paper';
 import { useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
 import { useResizer } from 'react-native-vision-camera-resizer';
@@ -21,6 +22,7 @@ import { useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import * as Haptics from 'expo-haptics';
 
 // Import components
 import TopOptionsBar from '../components/TopOptionsBar';
@@ -109,9 +111,10 @@ export default function DetectionScreen({ navigation }: any) {
 
   const handleModelError = useCallback((errorMsg: string) => {
     setSnackbarMsg(errorMsg);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
   }, []);
 
-  const { isModelReady, boxedModel, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
+  const { isModelReady, boxedModel, modelShape, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
   const [debugData, setDebugData] = useState<any>(null);
 
   const appState = useRef(AppState.currentState);
@@ -140,11 +143,15 @@ export default function DetectionScreen({ navigation }: any) {
 
   const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
 
+  // Fix NCHW vs NHWC mismatch
+  const modelWidth = modelShape && modelShape.length >= 3 ? (modelShape[1] > 10 ? modelShape[1] : modelShape[2]) : 224;
+  const modelHeight = modelShape && modelShape.length >= 3 ? (modelShape[2] > 10 ? modelShape[2] : (modelShape[1] > 10 ? modelShape[1] : 224)) : 224;
+
   const { resizer } = useResizer({
-    width: 224,
-    height: 224,
+    width: modelWidth,
+    height: modelHeight,
     channelOrder: 'rgb',
-    dataType: 'float32',
+    dataType: 'uint8',
     scaleMode: 'cover',
     pixelLayout: 'interleaved',
   });
@@ -153,17 +160,46 @@ export default function DetectionScreen({ navigation }: any) {
   });
 
   const lastProcessTime = useSharedValue(0);
+  const lastDetectTimeSV = useSharedValue(0);
+  const isLiveScanningSV = useSharedValue(false);
+  const isAppActiveSV = useSharedValue(true);
+  const facingSV = useSharedValue(facing);
+  
+  useEffect(() => {
+    isLiveScanningSV.value = isLiveScanning;
+  }, [isLiveScanning]);
+  
+  useEffect(() => {
+    isAppActiveSV.value = isAppActive;
+  }, [isAppActive]);
+
+  useEffect(() => {
+    facingSV.value = facing;
+  }, [facing]);
+
   const currentInterval = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
+
+  const handleModelErrorJS = runOnJS((msg: string) => {
+    handleModelError(msg);
+  });
 
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
       'worklet';
-      if (!boxedModel || !isLiveScanning || detectionMode !== 'live' || detectionSpeed === 'off') {
+      if (!boxedModel || !isLiveScanningSV.value || !isAppActiveSV.value || detectionMode !== 'live' || detectionSpeed === 'off') {
         frame.dispose();
         return;
       }
 
-      const now = Date.now();
+      // Sửa lỗi: Lấy thời gian thực từ frame thay vì Date.now() UI Thread
+      const now = frame.timestamp ? frame.timestamp : Date.now();
+      
+      // Debounce trực tiếp tại Worklet: Nếu vừa phát hiện xong (dưới 1000ms), bỏ qua chạy AI
+      if (now - lastDetectTimeSV.value < 1000) {
+        frame.dispose();
+        return;
+      }
+
       if (now - lastProcessTime.value < currentInterval) {
         frame.dispose();
         return;
@@ -178,16 +214,57 @@ export default function DetectionScreen({ navigation }: any) {
           return;
         }
 
-        const resized = resizer.resize(frame);
-        
+        let resized: any = null;
         try {
-          const buffer = resized.getPixelBuffer();
-          const outputs = tflite.runSync([(buffer as any).buffer || buffer]);
+          resized = resizer.resize(frame);
+          const rawBuffer = resized.getPixelBuffer();
+          const inputDataType = tflite.inputs[0].dataType;
+          
+          let inputBuffer: ArrayBuffer;
+          const uint8 = new Uint8Array((rawBuffer as any).buffer || rawBuffer);
+          const isFront = facingSV.value === 'front';
+
+          if (inputDataType === 'float32') {
+             const float32 = new Float32Array(uint8.length);
+             // Xử lý Lật Ảnh (Mirroring) và chuẩn hóa Float32
+             for (let y = 0; y < modelHeight; y++) {
+               for (let x = 0; x < modelWidth; x++) {
+                 const srcX = isFront ? (modelWidth - 1 - x) : x;
+                 const srcIdx = (y * modelWidth + srcX) * 3;
+                 const dstIdx = (y * modelWidth + x) * 3;
+                 
+                 float32[dstIdx]     = Math.fround(uint8[srcIdx] / 255.0);
+                 float32[dstIdx + 1] = Math.fround(uint8[srcIdx + 1] / 255.0);
+                 float32[dstIdx + 2] = Math.fround(uint8[srcIdx + 2] / 255.0);
+               }
+             }
+             inputBuffer = float32.buffer;
+          } else {
+             // Hỗ trợ Model INT8/UINT8: Ép kiểu nguyên và lật ảnh y hệt Float32
+             const int8Out = new Uint8Array(uint8.length);
+             for (let y = 0; y < modelHeight; y++) {
+               for (let x = 0; x < modelWidth; x++) {
+                 const srcX = isFront ? (modelWidth - 1 - x) : x;
+                 const srcIdx = (y * modelWidth + srcX) * 3;
+                 const dstIdx = (y * modelWidth + x) * 3;
+                 
+                 int8Out[dstIdx]     = uint8[srcIdx];
+                 int8Out[dstIdx + 1] = uint8[srcIdx + 1];
+                 int8Out[dstIdx + 2] = uint8[srcIdx + 2];
+               }
+             }
+             inputBuffer = int8Out.buffer;
+          }
+          
+          const outputs = tflite.runSync([inputBuffer]);
           
           const rawOut = outputs[0] as any;
-          let outputArray = rawOut;
-          if (rawOut && rawOut.byteLength && !rawOut.length) {
-            outputArray = new Float32Array(rawOut);
+          // Xử lý Output dạng Ma trận 3D/2D bằng cách Flatten (làm phẳng)
+          const outputData = Array.isArray(rawOut) ? rawOut.flat(Infinity) : rawOut;
+          
+          let outputArray = outputData;
+          if (outputData && outputData.byteLength && !outputData.length) {
+            outputArray = new Float32Array(outputData);
           }
           if (outputArray && outputArray.length > 0) {
             let maxIdx = 0;
@@ -199,16 +276,20 @@ export default function DetectionScreen({ navigation }: any) {
               }
             }
 
-            // Đảm bảo không xử lý kết quả nhiễu (NaN, vô cực hoặc toàn 0)
-            if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal) && !isNaN(maxVal)) {
+            // Báo lỗi nếu Tensor hỏng
+            if (isNaN(maxVal)) {
+              handleModelErrorJS("Lỗi: Kết quả model trả về NaN.");
+            } else if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal)) {
+              lastDetectTimeSV.value = now; // Cập nhật thời gian nhận diện tại Worklet
               onDetectionJS(maxIdx, maxVal);
             }
           }
         } finally {
           resized.dispose(); // Đảm bảo luôn được giải phóng ngay cả khi runSync throw error
         }
-      } catch (e) {
-        // Bỏ qua lỗi trong worklet để không crash app
+      } catch (e: any) {
+        console.log("[ML Live Mode Error]", e.message || e);
+        handleModelErrorJS(`Lỗi Camera Worklet: ${e.message || 'Unknown'}`);
       } finally {
         frame.dispose();
       }
@@ -263,18 +344,7 @@ export default function DetectionScreen({ navigation }: any) {
     }
   };
 
-  useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          interruptionModeAndroid: 1, // DoNotMix
-          interruptionModeIOS: 1      // DoNotMix
-        });
-      } catch (e) { }
-    };
-    setupAudio();
-  }, []);
+
 
   const scannerState = useRef({ hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning });
   scannerState.current = { hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning };
@@ -286,8 +356,8 @@ export default function DetectionScreen({ navigation }: any) {
     if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
       scanAnimValue.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: 2000 }),
-          withTiming(0, { duration: 2000 })
+          withTiming(1, { duration: getInterval() === -1 ? 1000 : getInterval() }),
+          withTiming(0, { duration: getInterval() === -1 ? 1000 : getInterval() })
         ),
         -1,
         false
@@ -321,7 +391,7 @@ export default function DetectionScreen({ navigation }: any) {
       isActive = false;
       clearTimeout(timerId);
     };
-  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning]);
+  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning, detectionSpeed]);
 
   useEffect(() => {
     if (!isDebugDialogOpen && !developerDebugMode) {
@@ -366,7 +436,15 @@ export default function DetectionScreen({ navigation }: any) {
             const photo = await camera.current.takeSnapshot({
               quality: 85
             });
-            let imagePath = photo?.path || (photo as any)?.uri || (typeof photo === 'string' ? photo : undefined);
+            
+            // Xử lý lấy đường dẫn ảnh từ object Photo (VisionCamera V5)
+            let imagePath: string | undefined = undefined;
+            if (photo && typeof photo.saveToTemporaryFileAsync === 'function') {
+              imagePath = await photo.saveToTemporaryFileAsync('jpg', 85);
+            } else {
+              imagePath = photo?.path || (photo as any)?.uri || (typeof photo === 'string' ? photo : undefined);
+            }
+            
             if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
               imagePath = `file://${imagePath}`;
             }
@@ -375,9 +453,14 @@ export default function DetectionScreen({ navigation }: any) {
               setDetectionMode('picture');
               setSelectedMedia(imagePath);
             }
-            result = runDetection(imagePath, facing, true);
+            if (imagePath) {
+              result = runDetection(imagePath, facing, true);
+            } else {
+              result = { success: false, message: "Lỗi Camera: Không thể lưu file ảnh tạm." };
+            }
           } catch (cameraError: any) {
             console.log("Camera chụp lỗi:", cameraError);
+            result = { success: false, message: `Lỗi chụp ảnh: ${cameraError.message || cameraError}` };
           }
         }
       } else if (actualMedia && detectionMode === 'picture') {
@@ -661,8 +744,10 @@ export default function DetectionScreen({ navigation }: any) {
     triggerSelectionFeedback();
     setFacing(current => {
       const nextFacing = current === 'back' ? 'front' : 'back';
+      // Sửa lỗi logic Flashlight Sync: Khi lật Camera trước, tạm thời tắt flash trên state.
+      // Tuy nhiên nếu người dùng quay lại Camera sau, ta vẫn nên cho phép bật lại thủ công.
       if (nextFacing === 'front') {
-        setFlash(false); // Vô hiệu hóa/tắt flash khi dùng camera trước
+        setFlash(false);
       }
       return nextFacing;
     });
@@ -706,6 +791,7 @@ export default function DetectionScreen({ navigation }: any) {
         )}
 
         <MediaScanner
+          key={`scanner-${modelWidth}-${detectionSpeed}`}
           detectionMode={detectionMode}
           device={device}
           cameraRef={camera}

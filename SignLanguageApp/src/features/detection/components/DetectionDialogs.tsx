@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, ScrollView, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Alert, BackHandler } from 'react-native';
+import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Alert, BackHandler } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Dialog, Portal, Badge, Divider, ActivityIndicator, Snackbar, TextInput } from 'react-native-paper';
 
 interface DetectionDialogsProps {

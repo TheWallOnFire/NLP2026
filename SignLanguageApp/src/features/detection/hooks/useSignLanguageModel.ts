@@ -200,6 +200,7 @@ export function useSignLanguageModel(
     runDetection, 
     isModelReady: tfliteModel != null,
     boxedModel,
+    modelShape: tfliteModel?.inputs?.[0]?.shape,
     getDebugInfo,
     clearQueue
   };

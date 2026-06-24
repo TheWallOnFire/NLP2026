@@ -39,6 +39,8 @@ export default function MediaScanner({
   isAppActive = true,
   frameOutput
 }: MediaScannerProps) {
+
+
   return (
     <>
       {detectionMode === 'live' ? (
@@ -48,6 +50,7 @@ export default function MediaScanner({
               ref={cameraRef} 
               style={StyleSheet.absoluteFill} 
               device={device} 
+              constraints={[{ fps: 30 }]}
               isActive={true} 
               torchMode={flash ? 'on' : 'off'} 
               outputs={frameOutput ? [frameOutput] : []}
