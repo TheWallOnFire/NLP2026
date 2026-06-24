@@ -20,7 +20,7 @@ export default function DetectionScreen({ navigation }: any) {
   const {
     theme, developerDebugMode, facing, flash, hasPermission, requestPermission, device,
     activePackId, activePack, setActivePack, customModelUri, setCustomModelUri, downloadedPacks,
-    sessionHistory, setSessionHistory, onSaveSession,
+    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
     detectedWord, confidence, detectionSpeed, updateSettings,
@@ -157,7 +157,9 @@ export default function DetectionScreen({ navigation }: any) {
         setIsHistoryDialogOpen={setIsHistoryDialogOpen}
         history={sessionHistory}
         onSaveSession={onSaveSession}
+        onSaveMediaSession={onSaveMediaSession}
         setSessionHistory={setSessionHistory}
+        detectionMode={detectionMode}
         isDebugDialogOpen={isDebugDialogOpen}
         setIsDebugDialogOpen={setIsDebugDialogOpen}
         debugData={debugData}

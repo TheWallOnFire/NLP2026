@@ -12,8 +12,10 @@ interface DetectionDialogsProps {
   isHistoryDialogOpen: boolean;
   setIsHistoryDialogOpen: (open: boolean) => void;
   history: any[];
-  onSaveSession?: (editedText: string) => void;
+  onSaveSession?: (editedText: string, sessionId?: string | null) => void;
+  onSaveMediaSession?: () => void;
   setSessionHistory?: (history: any[]) => void;
+  detectionMode?: 'live' | 'picture' | 'video';
   isDebugDialogOpen: boolean;
   setIsDebugDialogOpen: (open: boolean) => void;
   debugData: any;
@@ -33,7 +35,9 @@ export default function DetectionDialogs({
   setIsHistoryDialogOpen,
   history,
   onSaveSession,
+  onSaveMediaSession,
   setSessionHistory,
+  detectionMode,
   isDebugDialogOpen,
   setIsDebugDialogOpen,
   debugData,
@@ -88,7 +92,9 @@ export default function DetectionDialogs({
             onDismiss={() => setIsHistoryDialogOpen(false)}
             history={history}
             onSaveSession={onSaveSession}
+            onSaveMediaSession={onSaveMediaSession}
             setSessionHistory={setSessionHistory}
+            detectionMode={detectionMode}
           />
           
           <PendingQueueDialog 

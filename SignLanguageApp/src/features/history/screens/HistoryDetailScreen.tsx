@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, BookOpen, CheckSquare, Image as ImageIcon, Video as VideoIcon, CheckCircle2, XCircle } from 'lucide-react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useHistoryStore } from '../store/useHistoryStore';
+import { Image } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export default function HistoryDetailScreen() {
   const theme = useTheme();
@@ -15,6 +17,27 @@ export default function HistoryDetailScreen() {
   const historyItem = useHistoryStore((state) => 
     state.history.find(h => h.id === historyId)
   );
+
+  const [mediaExists, setMediaExists] = React.useState(true);
+
+  React.useEffect(() => {
+    const checkMedia = async () => {
+      if (historyItem?.imageUri || historyItem?.videoUri) {
+        try {
+          const uri = historyItem.imageUri || historyItem.videoUri;
+          if (uri && uri.startsWith('file://')) {
+            const info = await FileSystem.getInfoAsync(uri);
+            setMediaExists(info.exists);
+          } else {
+            setMediaExists(true);
+          }
+        } catch {
+          setMediaExists(false);
+        }
+      }
+    };
+    checkMedia();
+  }, [historyItem]);
 
   if (!historyItem) {
     return (
@@ -70,7 +93,18 @@ export default function HistoryDetailScreen() {
               <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Bắt đầu lúc:</Text>
               <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{historyItem.time}</Text>
             </View>
-            {historyItem.type === 'test' ? (
+            {historyItem.type === 'test' && historyItem.testStats ? (
+              <>
+                <View style={styles.metricRow}>
+                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Điểm số:</Text>
+                  <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{historyItem.testStats.score} / {historyItem.testStats.total}</Text>
+                </View>
+                <View style={styles.metricRow}>
+                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Độ chính xác:</Text>
+                  <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{historyItem.testStats.total > 0 ? Math.round((historyItem.testStats.score / historyItem.testStats.total) * 100) : 0}%</Text>
+                </View>
+              </>
+            ) : historyItem.type === 'test' ? (
               <View style={styles.metricRow}>
                 <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Điểm số:</Text>
                 <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{signs.length} / {signs.length}</Text>
@@ -93,6 +127,7 @@ export default function HistoryDetailScreen() {
               {historyItem.testResults?.map((res, index) => (
                 <Card key={index} style={[styles.testResultCard, { borderColor: res.isCorrect ? '#4CAF50' : '#F44336' }]} mode="outlined">
                   <View style={styles.testResultRow}>
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold', marginRight: 12, opacity: 0.5, width: 24 }}>{index + 1}.</Text>
                     <View style={styles.testResultIcon}>
                       {res.isCorrect ? <CheckCircle2 color="#4CAF50" size={20} /> : <XCircle color="#F44336" size={20} />}
                     </View>
@@ -132,17 +167,18 @@ export default function HistoryDetailScreen() {
                 </Badge>
               ))}
             </View>
-            {historyItem.imageUri && (
-              <View style={styles.mediaContainer}>
-                {/* Normally we'd use Image component, but since it's not imported I will use View to simulate or I can import Image */}
-                <Text style={{textAlign: 'center', opacity: 0.5}}>Ảnh: {historyItem.imageUri.split('/').pop()}</Text>
-              </View>
-            )}
-             {historyItem.videoUri && (
-              <View style={styles.mediaContainer}>
-                <Text style={{textAlign: 'center', opacity: 0.5}}>Video: {historyItem.videoUri.split('/').pop()}</Text>
-              </View>
-            )}
+            <View style={{ padding: 12, alignItems: 'center' }}>
+              {mediaExists && (historyItem.imageUri || historyItem.videoUri) ? (
+                <Image 
+                  source={{ uri: historyItem.imageUri || historyItem.videoUri }} 
+                  style={{ width: '100%', height: 250, borderRadius: 8, resizeMode: 'contain' }} 
+                />
+              ) : (historyItem.imageUri || historyItem.videoUri) ? (
+                <View style={{ width: '100%', height: 150, backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text variant="bodyMedium" style={{ opacity: 0.5 }}>Ảnh/video đã xóa</Text>
+                </View>
+              ) : null}
+            </View>
           </>
         ) : (
           <>

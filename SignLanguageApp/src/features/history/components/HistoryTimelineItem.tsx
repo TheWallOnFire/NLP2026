@@ -37,6 +37,10 @@ export default function HistoryTimelineItem({ item }: Props) {
   };
 
   const getSubtitle = () => {
+    if (item.type === 'test' && item.testStats) {
+      const accuracy = item.testStats.total > 0 ? Math.round((item.testStats.score / item.testStats.total) * 100) : 0;
+      return `${item.date} ${t('history.at')} ${item.time} • ${item.testStats.score}/${item.testStats.total} (${accuracy}%)`;
+    }
     if (item.type === 'detection' && item.signs) {
       const topSigns = item.signs.slice(0, 5).join(', ');
       const moreText = item.signs.length > 5 ? '...' : '';

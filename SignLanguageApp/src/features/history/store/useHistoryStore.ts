@@ -21,12 +21,9 @@ export interface HistoryItem {
 
 interface HistoryState {
   history: HistoryItem[];
-  activeCameraSessionId: string | null;
   addHistoryItem: (item: Omit<HistoryItem, 'id'>) => void;
-  appendLiveDetectionWord: (word: string, packId?: string) => void;
-  saveCameraSession: (text: string, packId?: string, appendToExisting?: boolean) => void;
+  saveCameraSession: (text: string, packId?: string, appendToSessionId?: string | null) => void;
   addImageVideoSession: (mode: 'picture' | 'video', uri: string, resultWords: string[], packId?: string) => void;
-  clearActiveCameraSession: () => void;
   clearHistory: () => void;
 }
 
@@ -57,48 +54,16 @@ export const useHistoryStore = create<HistoryState>()(
   persist(
     (set) => ({
       history: [],
-      activeCameraSessionId: null,
       addHistoryItem: (item) => set((state) => ({
         history: [{ ...item, id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString() }, ...state.history].slice(0, 50),
       })),
-      appendLiveDetectionWord: (word, packId) => set((state) => {
-        const { activeCameraSessionId, history } = state;
-        const now = Date.now();
-        if (activeCameraSessionId) {
-          const index = history.findIndex(h => h.id === activeCameraSessionId);
-          if (index !== -1) {
-            const newHistory = [...history];
-            const item = newHistory[index];
-            if (!item.signs?.includes(word)) {
-               newHistory[index] = { ...item, signs: [...(item.signs || []), word] };
-            }
-            return { history: newHistory };
-          }
-        }
-        const newId = now.toString() + '-' + Math.floor(Math.random() * 1000000).toString();
-        const newItem: HistoryItem = {
-          id: newId,
-          sign: 'Camera Detection Session',
-          signs: [word],
-          packId,
-          mode: 'live',
-          type: 'detection',
-          date: new Date().toLocaleDateString('vi-VN'),
-          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-          timestamp: now,
-        };
-        return { 
-          history: [newItem, ...history].slice(0, 50),
-          activeCameraSessionId: newId
-        };
-      }),
-      saveCameraSession: (text, packId, appendToExisting) => set((state) => {
-        const { activeCameraSessionId, history } = state;
+      saveCameraSession: (text, packId, appendToSessionId) => set((state) => {
+        const { history } = state;
         const now = Date.now();
         const words = text.split('\n').filter(w => w.trim().length > 0);
         
-        if (appendToExisting && activeCameraSessionId) {
-          const index = history.findIndex(h => h.id === activeCameraSessionId);
+        if (appendToSessionId) {
+          const index = history.findIndex(h => h.id === appendToSessionId);
           if (index !== -1) {
             const newHistory = [...history];
             const item = newHistory[index];
@@ -121,8 +86,7 @@ export const useHistoryStore = create<HistoryState>()(
           timestamp: now,
         };
         return { 
-          history: [newItem, ...history].slice(0, 50),
-          activeCameraSessionId: newId
+          history: [newItem, ...history].slice(0, 50)
         };
       }),
       addImageVideoSession: (mode, uri, resultWords, packId) => set((state) => {
@@ -141,8 +105,7 @@ export const useHistoryStore = create<HistoryState>()(
         };
         return { history: [newItem, ...state.history].slice(0, 50) };
       }),
-      clearActiveCameraSession: () => set({ activeCameraSessionId: null }),
-      clearHistory: () => set({ history: [], activeCameraSessionId: null }),
+      clearHistory: () => set({ history: [] }),
     }),
     {
       name: 'history-storage',
@@ -151,7 +114,6 @@ export const useHistoryStore = create<HistoryState>()(
         ...currentState,
         ...persistedState,
         history: persistedState?.history ? persistedState.history.slice(0, 50) : currentState.history,
-        activeCameraSessionId: null, // do not persist the active camera session across restarts
       }),
     }
   )

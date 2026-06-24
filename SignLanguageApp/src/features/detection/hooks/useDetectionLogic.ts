@@ -59,37 +59,24 @@ export function useDetectionLogic(navigation: any) {
 
   const saveCameraSession = useHistoryStore(state => state.saveCameraSession);
   const addImageVideoSession = useHistoryStore(state => state.addImageVideoSession);
-  const clearActiveCameraSession = useHistoryStore(state => state.clearActiveCameraSession);
-  const activeCameraSessionId = useHistoryStore(state => state.activeCameraSessionId);
   const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string }[]>([]);
+  const [pendingMediaUri, setPendingMediaUri] = useState<string | null>(null);
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
-  const onSaveSession = (editedText: string) => {
+  const onSaveSession = (editedText: string, sessionId?: string | null) => {
     if (editedText.trim().length === 0) return;
     
-    if (activeCameraSessionId) {
-      Alert.alert(
-        "Lưu phiên nhận diện",
-        "Bạn muốn lưu thêm vào phiên hiện tại hay tạo phiên mới?",
-        [
-          { text: "Tạo phiên mới", onPress: () => {
-              clearActiveCameraSession();
-              saveCameraSession(editedText, activePackId || undefined, false);
-              setSnackbarMsg("Đã tạo phiên lịch sử mới!");
-            }
-          },
-          { text: "Lưu vào phiên cũ", onPress: () => {
-              saveCameraSession(editedText, activePackId || undefined, true);
-              setSnackbarMsg("Đã lưu vào phiên hiện hành!");
-            } 
-          },
-          { text: "Hủy", style: "cancel" }
-        ]
-      );
-    } else {
-      saveCameraSession(editedText, activePackId || undefined, false);
-      setSnackbarMsg("Đã tạo phiên lịch sử mới!");
+    saveCameraSession(editedText, activePackId || undefined, sessionId);
+    setSnackbarMsg(sessionId ? "Đã lưu vào phiên lịch sử!" : "Đã tạo phiên lịch sử mới!");
+  };
+
+  const onSaveMediaSession = () => {
+    if (sessionHistory.length > 0 && pendingMediaUri && detectionMode !== 'live') {
+      addImageVideoSession(detectionMode as 'picture' | 'video', pendingMediaUri, [sessionHistory[0].sign], activePackId || undefined);
+      setSnackbarMsg("Đã lưu kết quả!");
+      setSessionHistory([]);
+      setPendingMediaUri(null);
     }
   };
 
@@ -393,7 +380,11 @@ export function useDetectionLogic(navigation: any) {
         result = runDetection(finalMedia, undefined);
         if (result.success && result.message) {
           const detectedWord = result.message.split(' ').pop();
-          if (detectedWord) addImageVideoSession('picture', finalMedia, [detectedWord], activePackId);
+          if (detectedWord) {
+            setSessionHistory([{ id: Date.now().toString(), sign: detectedWord }]);
+            setPendingMediaUri(finalMedia);
+            setIsHistoryDialogOpen(true);
+          }
         }
       } else if (actualMedia && detectionMode === 'video') {
         try {
@@ -406,7 +397,11 @@ export function useDetectionLogic(navigation: any) {
           result = runDetection(finalMedia, undefined);
           if (result.success && result.message) {
             const detectedWord = result.message.split(' ').pop();
-            if (detectedWord) addImageVideoSession('video', actualMedia, [detectedWord], activePackId);
+            if (detectedWord) {
+              setSessionHistory([{ id: Date.now().toString(), sign: detectedWord }]);
+              setPendingMediaUri(actualMedia);
+              setIsHistoryDialogOpen(true);
+            }
           }
         } catch (thumbErr: any) {
           result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
@@ -639,15 +634,12 @@ export function useDetectionLogic(navigation: any) {
   const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video') => {
     clearQueue();
     setDetectionMode(mode);
-    if (mode !== 'live') {
-      clearActiveCameraSession();
-    }
   };
 
   return {
     theme, developerDebugMode, facing, flash, hasPermission, requestPermission, device,
     activePackId, activePack, setActivePack, customModelUri, setCustomModelUri, downloadedPacks,
-    sessionHistory, setSessionHistory, onSaveSession,
+    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
     detectedWord, confidence, detectionSpeed, updateSettings,
