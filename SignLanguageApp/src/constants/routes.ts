@@ -8,6 +8,7 @@ export const ROUTES = {
   PRACTICE: 'Practice',
   TEST: 'Test',
   HISTORY: 'History',
+  HISTORY_DETAIL: 'HistoryDetail',
   PROFILE_TAB: 'ProfileTab',
   PROFILE: 'Profile',
   SETTINGS: 'Settings',

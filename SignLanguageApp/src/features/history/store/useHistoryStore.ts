@@ -5,14 +5,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export interface HistoryItem {
   id: string;
   sign: string;
+  signs?: string[];
+  packId?: string;
+  sessionId?: string;
   time: string;
   date: string;
+  timestamp?: number;
   type: 'detection' | 'learning' | 'test';
 }
 
 interface HistoryState {
   history: HistoryItem[];
   addHistoryItem: (item: Omit<HistoryItem, 'id'>) => void;
+  addWordToDetectionSession: (word: string, packId: string, sessionId: string) => void;
   clearHistory: () => void;
 }
 
@@ -44,9 +49,32 @@ export const useHistoryStore = create<HistoryState>()(
     (set) => ({
       history: [],
       addHistoryItem: (item) => set((state) => ({
-        // Use Math.random() for ID generation instead of crypto.randomUUID() which is not supported natively in Hermes
         history: [{ ...item, id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString() }, ...state.history].slice(0, 50),
       })),
+      addWordToDetectionSession: (word, packId, sessionId) => set((state) => {
+        const newHistory = [...state.history];
+        const lastItem = newHistory[0];
+        const now = Date.now();
+        
+        if (lastItem && lastItem.type === 'detection' && lastItem.sessionId === sessionId) {
+          lastItem.signs = [...(lastItem.signs || []), word];
+          lastItem.timestamp = now;
+          return { history: newHistory };
+        } else {
+          const newItem: HistoryItem = {
+            id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString(),
+            sign: `Phiên nhận diện`,
+            signs: [word],
+            packId,
+            sessionId,
+            type: 'detection',
+            date: new Date().toLocaleDateString('vi-VN'),
+            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: now,
+          };
+          return { history: [newItem, ...newHistory].slice(0, 50) };
+        }
+      }),
       clearHistory: () => set({ history: [] }),
     }),
     {

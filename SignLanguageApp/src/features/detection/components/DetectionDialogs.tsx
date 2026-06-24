@@ -95,23 +95,33 @@ export default function DetectionDialogs({
           )}
         {/* History Dialog */}
         <Dialog visible={isHistoryDialogOpen} onDismiss={() => setIsHistoryDialogOpen(false)} style={{ maxHeight: '80%' }}>
-          <Dialog.Title>Detection History</Dialog.Title>
+          <Dialog.Title>Lịch sử nhận diện</Dialog.Title>
           <Dialog.Content>
             <ScrollView>
               {history.length > 0 ? (
-                history.map((item, i) => (
-                  <View key={item.id || i} style={styles.historyListItem}>
-                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{item.sign}</Text>
-                    <Text variant="bodySmall" style={{ opacity: 0.6 }}>{item.date} • {item.time}</Text>
-                  </View>
-                ))
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {history.map((item, i) => (
+                    <Badge 
+                      key={item.id || i} 
+                      size={28} 
+                      style={{ 
+                        backgroundColor: theme.colors.elevation.level3, 
+                        color: theme.colors.onSurface, 
+                        paddingHorizontal: 12,
+                        fontSize: 14 
+                      }}
+                    >
+                      {item.sign}
+                    </Badge>
+                  ))}
+                </View>
               ) : (
-                <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 20 }}>No history recorded yet.</Text>
+                <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>Chưa có từ nào được ghi nhận.</Text>
               )}
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setIsHistoryDialogOpen(false)}>Close</Button>
+            <Button onPress={() => setIsHistoryDialogOpen(false)}>Đóng</Button>
           </Dialog.Actions>
         </Dialog>
 

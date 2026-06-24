@@ -75,8 +75,23 @@ export default function DetectionScreen({ navigation }: any) {
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
 
-  const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
-  const history = useHistoryStore(state => state.history).filter(h => h.type === 'detection');
+  const addWordToDetectionSession = useHistoryStore(state => state.addWordToDetectionSession);
+  const [sessionHistory, setSessionHistory] = useState<{id: string, sign: string}[]>([]);
+  const [globalSessionId, setGlobalSessionId] = useState<string>('');
+
+  useFocusEffect(
+    useCallback(() => {
+      // Create a new session ID every time the screen comes into focus
+      setGlobalSessionId(`session-${Date.now()}`);
+      setSessionHistory([]);
+    }, [])
+  );
+
+  useEffect(() => {
+    // Reset local session history and global session ID when model pack changes
+    setGlobalSessionId(`session-${Date.now()}`);
+    setSessionHistory([]);
+  }, [activePackId]);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     if (Date.now() - lastDetectionTime.current > 1000) {
@@ -97,16 +112,12 @@ export default function DetectionScreen({ navigation }: any) {
               console.warn("Speech API failed", e);
             }
           }
-          addHistoryItem({
-            sign: word,
-            type: 'detection',
-            date: new Date().toISOString(),
-            time: new Date().toISOString(),
-          });
+          addWordToDetectionSession(word, activePackId || 'unknown', globalSessionId);
+          setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
         }
       }
     }
-  }, [activePackId, packWords, ttsSettings, addHistoryItem]);
+  }, [activePackId, packWords, ttsSettings, addWordToDetectionSession, globalSessionId]);
   const lastDetectionTime = useRef(0);
 
   const handleModelError = useCallback((errorMsg: string) => {
@@ -882,7 +893,7 @@ export default function DetectionScreen({ navigation }: any) {
         theme={theme}
         isHistoryDialogOpen={isHistoryDialogOpen}
         setIsHistoryDialogOpen={setIsHistoryDialogOpen}
-        history={history}
+        history={sessionHistory}
         isDebugDialogOpen={isDebugDialogOpen}
         setIsDebugDialogOpen={setIsDebugDialogOpen}
         debugData={debugData}

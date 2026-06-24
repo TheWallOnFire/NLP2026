@@ -135,12 +135,12 @@ export default function ProfileScreen({ navigation }: any) {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Activity History</Text>
-          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>Clear</Button>
+          <Text variant="titleLarge" style={styles.sectionTitle}>Hoạt động gần đây</Text>
+          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>Xóa</Button>
         </View>
 
         {history.length > 0 ? (
-          history.slice(0, 5).map((item) => (
+          history.slice(0, 3).map((item) => (
             <HistoryTimelineItem key={item.id} item={item} />
           ))
         ) : (
@@ -150,9 +150,9 @@ export default function ProfileScreen({ navigation }: any) {
             </Card.Content>
           </Card>
         )}
-        {history.length > 5 && (
+        {history.length > 0 && (
           <Button mode="outlined" style={{ marginTop: 8 }} onPress={() => navigation.navigate(ROUTES.HISTORY)}>
-            View All History
+            Xem toàn bộ lịch sử
           </Button>
         )}
       </View>
