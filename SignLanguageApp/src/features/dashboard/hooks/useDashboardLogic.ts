@@ -60,6 +60,9 @@ export function useDashboardLogic() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const lastAccessedPackId = profile?.lastAccessedPackId;
+  const lastAccessedPack = packs.find(p => p.id === lastAccessedPackId) || downloadedPacks[0] || null;
+
   return {
     profile,
     refreshing,
@@ -67,6 +70,7 @@ export function useDashboardLogic() {
     downloadedPacks,
     stats,
     recentHistory,
-    packWords
+    packWords,
+    lastAccessedPack
   };
 }

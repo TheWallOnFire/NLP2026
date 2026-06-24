@@ -11,7 +11,21 @@ export default {
       recentActivity: "Recent Activity",
       clear: "Clear",
       noRecentActivity: "No recent activity recorded.",
-      viewFullHistory: "View full history"
+      viewFullHistory: "View full history",
+      nameTooShort: "Name must be at least 3 characters.",
+      nameTooLong: "Name must not exceed 50 characters.",
+      invalidEmail: "Invalid email format.",
+      activityStats: "Activity Statistics",
+      learnedWords: "Learned Words",
+      favoriteWords: "Favorite Words",
+      learningTime: "Learning Time",
+      streakDays: "Streak (Days)",
+      aboutMe: "About Me",
+      birth: "Date of Birth",
+      location: "Location",
+      goals: "Goals",
+      motivation: "Motivation",
+      bio: "Summaries / Bio"
     },
     learning: {
       modulesTitle: "Learning Modules",

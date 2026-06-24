@@ -11,7 +11,21 @@ export default {
       recentActivity: "Hoạt động gần đây",
       clear: "Xóa",
       noRecentActivity: "Không có hoạt động gần đây.",
-      viewFullHistory: "Xem toàn bộ lịch sử"
+      viewFullHistory: "Xem toàn bộ lịch sử",
+      nameTooShort: "Tên phải có ít nhất 3 ký tự.",
+      nameTooLong: "Tên không được vượt quá 50 ký tự.",
+      invalidEmail: "Định dạng email không hợp lệ.",
+      activityStats: "Thống kê hoạt động",
+      learnedWords: "Từ đã biết",
+      favoriteWords: "Từ yêu thích",
+      learningTime: "Thời gian học",
+      streakDays: "Chuỗi (Ngày)",
+      aboutMe: "Thông tin",
+      birth: "Ngày sinh",
+      location: "Vị trí",
+      goals: "Mục tiêu",
+      motivation: "Động lực",
+      bio: "Giới thiệu"
     },
     learning: {
       modulesTitle: "Thư viện Học tập",

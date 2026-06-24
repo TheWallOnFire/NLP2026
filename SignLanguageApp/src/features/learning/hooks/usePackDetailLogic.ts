@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useLearningStore, Word } from '../store/useLearningStore';
 import { useModelStore } from '../store/useModelStore';
+import { useUserStore } from '../../profile/store/useUserStore';
 import { triggerSelectionFeedback, triggerSuccessFeedback } from '../../../utils/feedback';
+import { useEffect } from 'react';
 
 export function usePackDetailLogic(packId: string) {
   const words = useLearningStore(state => state.packWords[packId]) || [];
@@ -10,6 +12,13 @@ export function usePackDetailLogic(packId: string) {
   
   const packs = useModelStore(state => state.packs);
   const pack = packs.find(p => p.id === packId);
+  const updateProfile = useUserStore(state => state.updateProfile);
+
+  useEffect(() => {
+    if (packId) {
+      updateProfile({ lastAccessedPackId: packId });
+    }
+  }, [packId, updateProfile]);
 
   const progress = words.length > 0 ? words.filter(w => w.learned).length / words.length : 0;
 

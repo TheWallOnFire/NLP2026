@@ -16,6 +16,10 @@ interface UserProfile {
   gender: string;
   occupation: string;
   motivation: string;
+  avatar: string;
+  birth: string;
+  learningTime: number;
+  lastAccessedPackId: string | null;
 }
 
 interface UserState {
@@ -38,6 +42,10 @@ const initialProfile: UserProfile = {
   gender: 'Non-binary',
   occupation: 'Accessibility Advocate',
   motivation: 'Communication with family members',
+  avatar: '',
+  birth: '2002-01-01',
+  learningTime: 0,
+  lastAccessedPackId: null,
 };
 
 export const useUserStore = create<UserState>()(

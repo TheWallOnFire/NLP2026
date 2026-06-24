@@ -12,7 +12,7 @@ export default function DashboardScreen({ navigation }: any) {
   const theme = useTheme();
   const { t } = useTranslation();
   const {
-    profile, refreshing, onRefresh, downloadedPacks, stats, recentHistory, packWords
+    profile, refreshing, onRefresh, downloadedPacks, stats, recentHistory, packWords, lastAccessedPack
   } = useDashboardLogic();
 
   return (
@@ -25,10 +25,14 @@ export default function DashboardScreen({ navigation }: any) {
       {/* Header Profile Section */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text variant="headlineMedium" style={styles.welcomeText}>{t('dashboard.hello')}, {profile?.name?.split(' ')[0] || t('dashboard.user')}!</Text>
+          <Text variant="headlineMedium" style={styles.welcomeText}>{t('dashboard.hello')}, {profile?.name?.split(' ').slice(0, 3).join(' ') || t('dashboard.user')}!</Text>
           <Text variant="bodyLarge" style={{ opacity: 0.7 }}>{t('dashboard.readyToMaster')}</Text>
         </View>
-        <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
+        {profile?.avatar ? (
+          <Avatar.Image size={48} source={{ uri: profile.avatar }} style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
+        ) : (
+          <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
+        )}
       </View>
 
       {/* Progress Banner */}
@@ -42,20 +46,28 @@ export default function DashboardScreen({ navigation }: any) {
         >
           <View style={styles.progressHeader}>
             <View>
-              <Text variant="titleMedium" style={{ color: 'rgba(255,255,255,0.8)' }}>{t('dashboard.overallProgress')}</Text>
+              <Text variant="titleMedium" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                {lastAccessedPack ? lastAccessedPack.name : t('dashboard.overallProgress')}
+              </Text>
               <Text variant="displaySmall" style={{ color: 'white', fontWeight: 'bold' }}>
-                {Math.round(stats.progress * 100)}%
+                {lastAccessedPack ? 
+                  Math.round((packWords[lastAccessedPack.id]?.filter((w: any) => w.learned).length || 0) / (packWords[lastAccessedPack.id]?.length || 1) * 100) 
+                  : Math.round(stats.progress * 100)}%
               </Text>
             </View>
             <Sparkles color="white" size={32} opacity={0.8} />
           </View>
           <View style={styles.statRow}>
             <View>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.learned}</Text>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                {lastAccessedPack ? (packWords[lastAccessedPack.id]?.filter((w: any) => w.learned).length || 0) : stats.learned}
+              </Text>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{t('dashboard.learned')}</Text>
             </View>
             <View>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.total}</Text>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                {lastAccessedPack ? (packWords[lastAccessedPack.id]?.length || 0) : stats.total}
+              </Text>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{t('dashboard.totalWords')}</Text>
             </View>
           </View>

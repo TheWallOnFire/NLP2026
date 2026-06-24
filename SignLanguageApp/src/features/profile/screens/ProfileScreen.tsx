@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divider, Switch } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ROUTES } from '../../../constants/routes';
@@ -13,7 +13,7 @@ export default function ProfileScreen({ navigation }: any) {
   const { t } = useTranslation();
   const {
     profile, editedProfile, setEditedProfile, isEditing, setIsEditing,
-    learnedCount, favoriteCount, history, handleSave, handleCancel, confirmClearHistory
+    learnedCount, favoriteCount, streakDays, handleSave, handleCancel, handlePickImage, errors
   } = useProfileLogic();
 
   const BulletItem = ({ label, value, icon }: { label: string, value: string, icon?: any }) => (
@@ -33,12 +33,28 @@ export default function ProfileScreen({ navigation }: any) {
         style={styles.headerGradient}
       >
         <View style={styles.avatarContainer}>
-          <Avatar.Icon size={90} icon="account" style={styles.avatar} />
-          <IconButton
-            icon={() => <Edit2 size={16} color="white" />}
-            style={[styles.editAvatarBtn, { backgroundColor: theme.colors.secondary }]}
-            onPress={() => { }}
-          />
+          {isEditing ? (
+            <TouchableOpacity onPress={handlePickImage}>
+              {editedProfile.avatar ? (
+                <Avatar.Image size={90} source={{ uri: editedProfile.avatar }} style={styles.avatar} />
+              ) : (
+                <Avatar.Icon size={90} icon="camera" style={styles.avatar} />
+              )}
+            </TouchableOpacity>
+          ) : (
+            profile.avatar ? (
+              <Avatar.Image size={90} source={{ uri: profile.avatar }} style={styles.avatar} />
+            ) : (
+              <Avatar.Icon size={90} icon="account" style={styles.avatar} />
+            )
+          )}
+          {!isEditing && (
+            <IconButton
+              icon={() => <Edit2 size={16} color="white" />}
+              style={[styles.editAvatarBtn, { backgroundColor: theme.colors.secondary }]}
+              onPress={() => setIsEditing(true)}
+            />
+          )}
         </View>
 
         {!isEditing ? (
@@ -60,72 +76,119 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
             </View>
           </>
-        ) : (
+        ) : null}
+      </LinearGradient>
+
+      <View style={styles.section}>
+        {isEditing ? (
           <View style={styles.editForm}>
             <TextInput
               label={t('profile.fullName')}
               value={editedProfile.name}
               onChangeText={text => setEditedProfile({ ...editedProfile, name: text })}
-              mode="flat"
+              mode="outlined"
               style={styles.input}
-              dense
+              error={!!errors.name}
             />
+            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
             <TextInput
               label={t('profile.email')}
               value={editedProfile.email}
               onChangeText={text => setEditedProfile({ ...editedProfile, email: text })}
-              mode="flat"
+              mode="outlined"
               style={styles.input}
-              dense
+              error={!!errors.email}
+              keyboardType="email-address"
+            />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            <TextInput
+              label={t('profile.birth')}
+              value={editedProfile.birth}
+              onChangeText={text => setEditedProfile({ ...editedProfile, birth: text })}
+              mode="outlined"
+              style={styles.input}
+            />
+            <TextInput
+              label={t('profile.location')}
+              value={editedProfile.location}
+              onChangeText={text => setEditedProfile({ ...editedProfile, location: text })}
+              mode="outlined"
+              style={styles.input}
+            />
+            <TextInput
+              label={t('profile.bio')}
+              value={editedProfile.bio}
+              onChangeText={text => setEditedProfile({ ...editedProfile, bio: text })}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              style={styles.input}
+            />
+            <TextInput
+              label={t('profile.goals')}
+              value={editedProfile.learningGoal}
+              onChangeText={text => setEditedProfile({ ...editedProfile, learningGoal: text })}
+              mode="outlined"
+              style={styles.input}
+            />
+            <TextInput
+              label={t('profile.motivation')}
+              value={editedProfile.motivation}
+              onChangeText={text => setEditedProfile({ ...editedProfile, motivation: text })}
+              mode="outlined"
+              style={styles.input}
             />
             <View style={styles.editActions}>
               <Button mode="elevated" onPress={handleCancel} style={styles.actionBtn}>{t('profile.cancel')}</Button>
               <Button mode="contained" onPress={handleSave} style={[styles.actionBtn, {backgroundColor: theme.colors.secondary}]}>{t('profile.save')}</Button>
             </View>
           </View>
-        )}
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text variant="headlineMedium" style={styles.statNumber}>{learnedCount}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.learned')}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text variant="headlineMedium" style={styles.statNumber}>{favoriteCount}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.favorites')}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text variant="headlineMedium" style={styles.statNumber}>{history.length}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.detections')}</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>{t('profile.recentActivity')}</Text>
-          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>{t('profile.clear')}</Button>
-        </View>
-
-        {history.length > 0 ? (
-          history.slice(0, 3).map((item) => (
-            <HistoryTimelineItem key={item.id} item={item} />
-          ))
         ) : (
-          <Card mode="contained" style={styles.activityCard}>
-            <Card.Content>
-              <Text style={{ textAlign: 'center', opacity: 0.5 }}>{t('profile.noRecentActivity')}</Text>
-            </Card.Content>
-          </Card>
-        )}
-        {history.length > 0 && (
-          <Button mode="outlined" style={{ marginTop: 8 }} onPress={() => navigation.navigate(ROUTES.HISTORY)}>
-            {t('profile.viewFullHistory')}
-          </Button>
+          <View style={styles.statsSection}>
+            <Text variant="titleLarge" style={styles.sectionTitle}>{t('profile.activityStats')}</Text>
+            
+            <Card style={styles.statsCard} mode="outlined">
+              <Card.Content>
+                <View style={styles.statRowInsight}>
+                  <View style={styles.statInsightItem}>
+                    <Text variant="displaySmall" style={styles.statInsightValue}>{learnedCount}</Text>
+                    <Text variant="labelMedium" style={styles.statInsightLabel}>{t('profile.learnedWords')}</Text>
+                  </View>
+                  <View style={styles.statDividerVertical} />
+                  <View style={styles.statInsightItem}>
+                    <Text variant="displaySmall" style={styles.statInsightValue}>{favoriteCount}</Text>
+                    <Text variant="labelMedium" style={styles.statInsightLabel}>{t('profile.favoriteWords')}</Text>
+                  </View>
+                </View>
+                <Divider style={{ marginVertical: 16 }} />
+                <View style={styles.statRowInsight}>
+                  <View style={styles.statInsightItem}>
+                    <Text variant="displaySmall" style={styles.statInsightValue}>{Math.round((profile.learningTime || 0) / 60)}h</Text>
+                    <Text variant="labelMedium" style={styles.statInsightLabel}>{t('profile.learningTime')}</Text>
+                  </View>
+                  <View style={styles.statDividerVertical} />
+                  <View style={styles.statInsightItem}>
+                    <Text variant="displaySmall" style={styles.statInsightValue}>{streakDays}</Text>
+                    <Text variant="labelMedium" style={styles.statInsightLabel}>{t('profile.streakDays')}</Text>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+
+            <Text variant="titleMedium" style={[styles.sectionTitle, { marginTop: 24 }]}>{t('profile.aboutMe')}</Text>
+            <Card style={styles.infoCard} mode="contained">
+              <Card.Content>
+                <BulletItem label={t('profile.birth')} value={profile.birth || 'N/A'} icon={<UserIcon size={16} color={theme.colors.primary} />} />
+                <BulletItem label={t('profile.bio')} value={profile.bio || 'N/A'} icon={<Info size={16} color={theme.colors.primary} />} />
+                <BulletItem label={t('profile.goals')} value={profile.learningGoal || 'N/A'} icon={<Briefcase size={16} color={theme.colors.primary} />} />
+                <BulletItem label={t('profile.motivation')} value={profile.motivation || 'N/A'} icon={<Heart size={16} color={theme.colors.primary} />} />
+              </Card.Content>
+            </Card>
+          </View>
         )}
       </View>
+
+
 
 
       <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
@@ -288,5 +351,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 32,
     opacity: 0.4,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  statsSection: {
+    marginBottom: 24,
+  },
+  statsCard: {
+    borderRadius: 16,
+    padding: 8,
+  },
+  statRowInsight: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statInsightItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statInsightValue: {
+    fontWeight: 'bold',
+    color: '#005bea',
+  },
+  statInsightLabel: {
+    opacity: 0.6,
+    marginTop: 4,
+  },
+  statDividerVertical: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  infoCard: {
+    borderRadius: 16,
+    paddingVertical: 8,
   },
 });
