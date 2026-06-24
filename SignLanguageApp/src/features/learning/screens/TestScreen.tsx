@@ -67,6 +67,10 @@ export default function TestScreen({ route, navigation }: any) {
         {device != null ? (
           <View style={{ flex: 1, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
             <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} />
+            <View style={styles.overlay}>
+              <View style={styles.boundingBox} />
+              <Text style={styles.overlayText}>{t('learning.alignSignHere') || 'Align sign here'}</Text>
+            </View>
             <IconButton 
               icon="camera-flip" 
               iconColor="white"
@@ -158,4 +162,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontWeight: 'bold',
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  boundingBox: {
+    width: 250,
+    height: 250,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 0, 0.6)',
+    borderRadius: 20,
+    borderStyle: 'dashed',
+  },
+  overlayText: {
+    color: 'rgba(0, 255, 0, 0.8)',
+    marginTop: 12,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden'
+  }
 });

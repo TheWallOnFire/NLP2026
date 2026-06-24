@@ -37,6 +37,7 @@ export default {
       all: "All",
       learned: "Learned",
       unlearned: "Unlearned",
+      alignSignHere: "Align sign here",
       noWordsInThisCategory: "No words in this category.",
       tapToViewHint: "Tap to view details, long press to mark as learned.",
       practiceAndTest: "Practice & Test",
@@ -97,7 +98,15 @@ export default {
       clearAction: "Clear",
       detectionSession: "Detection Session",
       words: "words",
-      at: "at"
+      at: "at",
+      cameraMode: "Camera",
+      imageMode: "Image",
+      videoMode: "Video",
+      testMode: "Test",
+      testResult: "Detailed Results",
+      correct: "Correct",
+      incorrect: "Incorrect",
+      confusedWith: "Confused with: "
     },
     dashboard: {
       hello: "Hello",

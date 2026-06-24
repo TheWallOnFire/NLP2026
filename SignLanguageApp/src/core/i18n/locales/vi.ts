@@ -37,6 +37,7 @@ export default {
       all: "Tất cả",
       learned: "Đã học",
       unlearned: "Chưa học",
+      alignSignHere: "Đưa tay vào khung hình",
       noWordsInThisCategory: "Không có từ nào trong mục này.",
       tapToViewHint: "Chạm để xem chi tiết, nhấn giữ để đánh dấu đã học.",
       practiceAndTest: "Luyện tập & Bài kiểm tra",
@@ -97,7 +98,15 @@ export default {
       clearAction: "Xóa",
       detectionSession: "Phiên nhận diện",
       words: "từ",
-      at: "lúc"
+      at: "lúc",
+      cameraMode: "Camera",
+      imageMode: "Ảnh",
+      videoMode: "Video",
+      testMode: "Bài kiểm tra",
+      testResult: "Kết quả chi tiết",
+      correct: "Đúng",
+      incorrect: "Sai",
+      confusedWith: "Nhầm với: "
     },
     dashboard: {
       hello: "Xin chào",

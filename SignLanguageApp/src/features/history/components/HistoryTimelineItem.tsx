@@ -33,9 +33,7 @@ export default function HistoryTimelineItem({ item }: Props) {
   });
 
   const handlePress = () => {
-    if (item.type === 'detection') {
-      navigation.navigate(ROUTES.HISTORY_DETAIL, { historyId: item.id });
-    }
+    navigation.navigate(ROUTES.HISTORY_DETAIL, { historyId: item.id });
   };
 
   const getSubtitle = () => {

@@ -24,11 +24,14 @@ export default function HistoryScreen() {
 
     // Sắp xếp
     result.sort((a, b) => {
+      const timeA = a.timestamp || (a.date && a.time ? new Date(`${a.date.split('/').reverse().join('-')}T${a.time}`).getTime() : 0);
+      const timeB = b.timestamp || (b.date && b.time ? new Date(`${b.date.split('/').reverse().join('-')}T${b.time}`).getTime() : 0);
+
       if (sortBy === 'time_desc') {
-        return (b.timestamp || 0) - (a.timestamp || 0);
+        return timeB - timeA;
       }
       if (sortBy === 'time_asc') {
-        return (a.timestamp || 0) - (b.timestamp || 0);
+        return timeA - timeB;
       }
       if (sortBy === 'count_desc') {
         return (b.signs?.length || 0) - (a.signs?.length || 0);

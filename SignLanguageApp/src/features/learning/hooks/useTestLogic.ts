@@ -13,7 +13,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
 
   const [timeLeft, setTimeLeft] = useState(duration || 60);
   const [score, setScore] = useState(0);
-  const [correctWords, setCorrectWords] = useState<string[]>([]);
+  const [testResults, setTestResults] = useState<{ word: string, isCorrect: boolean, correctness?: number, confusedWith?: string }[]>([]);
   const [currentWord, setCurrentWord] = useState<any>(null);
   const [testActive, setTestActive] = useState(false);
   
@@ -43,13 +43,20 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       setTestActive(false);
       addHistoryItem({
         sign: `Bài kiểm tra: ${pack?.name || 'Gói từ'}`,
-        signs: correctWords,
+        packId,
+        mode: 'test',
         date: new Date().toLocaleDateString('vi-VN'),
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         type: 'test',
+        testStats: {
+          score,
+          total: testResults.length,
+          duration: duration || 60,
+        },
+        testResults,
       });
     }
-  }, [timeLeft, testActive, score, correctWords, addHistoryItem, pack]);
+  }, [timeLeft, testActive, score, testResults, addHistoryItem, pack, packId, duration]);
 
   const nextWord = () => {
     if (words.length <= 1) return;
@@ -61,15 +68,17 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   };
 
   const handleSimulateCorrect = useCallback(() => {
-    if (!testActive) return;
+    if (!testActive || !currentWord) return;
     triggerSuccessFeedback();
     setScore(prev => prev + 1);
+    setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true }]);
     nextWord();
   }, [testActive, currentWord]);
 
   const handleSimulateSkip = () => {
-    if (!testActive) return;
+    if (!testActive || !currentWord) return;
     triggerErrorFeedback();
+    setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false }]);
     nextWord();
   };
 
@@ -90,7 +99,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
       triggerSuccessFeedback();
       setScore(prev => prev + 1);
-      setCorrectWords(prev => [...prev, currentWord.word]);
+      setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true, correctness: Math.round(det.conf * 100) }]);
       setTimeout(() => {
         nextWord();
       }, 500);
@@ -98,6 +107,10 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       setSnackbarColor("red");
       setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);
       triggerErrorFeedback();
+      setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false, correctness: Math.round((det?.conf || 0) * 100), confusedWith: det?.wordStr }]);
+      setTimeout(() => {
+        nextWord();
+      }, 500);
     }
   }, [currentWord]);
 

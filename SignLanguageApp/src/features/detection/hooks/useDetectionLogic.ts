@@ -57,14 +57,39 @@ export function useDetectionLogic(navigation: any) {
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
 
-  const addManualDetectionSession = useHistoryStore(state => state.addManualDetectionSession);
+  const saveCameraSession = useHistoryStore(state => state.saveCameraSession);
+  const addImageVideoSession = useHistoryStore(state => state.addImageVideoSession);
+  const clearActiveCameraSession = useHistoryStore(state => state.clearActiveCameraSession);
+  const activeCameraSessionId = useHistoryStore(state => state.activeCameraSessionId);
   const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string }[]>([]);
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
   const onSaveSession = (editedText: string) => {
-    if (editedText.trim().length > 0) {
-      addManualDetectionSession(editedText, activePackId || 'unknown', detectionMode);
+    if (editedText.trim().length === 0) return;
+    
+    if (activeCameraSessionId) {
+      Alert.alert(
+        "Lưu phiên nhận diện",
+        "Bạn muốn lưu thêm vào phiên hiện tại hay tạo phiên mới?",
+        [
+          { text: "Tạo phiên mới", onPress: () => {
+              clearActiveCameraSession();
+              saveCameraSession(editedText, activePackId || undefined, false);
+              setSnackbarMsg("Đã tạo phiên lịch sử mới!");
+            }
+          },
+          { text: "Lưu vào phiên cũ", onPress: () => {
+              saveCameraSession(editedText, activePackId || undefined, true);
+              setSnackbarMsg("Đã lưu vào phiên hiện hành!");
+            } 
+          },
+          { text: "Hủy", style: "cancel" }
+        ]
+      );
+    } else {
+      saveCameraSession(editedText, activePackId || undefined, false);
+      setSnackbarMsg("Đã tạo phiên lịch sử mới!");
     }
   };
 
@@ -366,6 +391,10 @@ export function useDetectionLogic(navigation: any) {
           finalMedia = `file://${finalMedia}`;
         }
         result = runDetection(finalMedia, undefined);
+        if (result.success && result.message) {
+          const detectedWord = result.message.split(' ').pop();
+          if (detectedWord) addImageVideoSession('picture', finalMedia, [detectedWord], activePackId);
+        }
       } else if (actualMedia && detectionMode === 'video') {
         try {
           const timeToCapture = player.currentTime * 1000;
@@ -375,6 +404,10 @@ export function useDetectionLogic(navigation: any) {
             finalMedia = `file://${finalMedia}`;
           }
           result = runDetection(finalMedia, undefined);
+          if (result.success && result.message) {
+            const detectedWord = result.message.split(' ').pop();
+            if (detectedWord) addImageVideoSession('video', actualMedia, [detectedWord], activePackId);
+          }
         } catch (thumbErr: any) {
           result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
         }
@@ -606,6 +639,9 @@ export function useDetectionLogic(navigation: any) {
   const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video') => {
     clearQueue();
     setDetectionMode(mode);
+    if (mode !== 'live') {
+      clearActiveCameraSession();
+    }
   };
 
   return {
