@@ -4,47 +4,15 @@ import { Text, Avatar, List, useTheme, Button, Card, TextInput, IconButton, Divi
 import { LinearGradient } from 'expo-linear-gradient';
 import { ROUTES } from '../../../constants/routes';
 import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu } from 'lucide-react-native';
-import { useLearningStore } from '../../learning/store/useLearningStore';
-import { useUserStore } from '../store/useUserStore';
-import { useHistoryStore } from '../../history/store/useHistoryStore';
 import HistoryTimelineItem from '../../history/components/HistoryTimelineItem';
+import { useProfileLogic } from '../hooks/useProfileLogic';
 
 export default function ProfileScreen({ navigation }: any) {
   const theme = useTheme();
-  const packWords = useLearningStore(state => state.packWords);
-  const { profile, updateProfile } = useUserStore();
-  const { history, clearHistory } = useHistoryStore();
-
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editedProfile, setEditedProfile] = React.useState(profile);
-
-  React.useEffect(() => {
-    setEditedProfile(profile);
-  }, [profile]);
-
-  const learnedCount = Object.values(packWords).flat().filter(w => w.learned).length;
-  const favoriteCount = Object.values(packWords).flat().filter(w => w.favorite).length;
-
-  const handleSave = () => {
-    updateProfile(editedProfile);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditedProfile(profile);
-    setIsEditing(false);
-  };
-
-  const confirmClearHistory = () => {
-    Alert.alert(
-      "Clear History",
-      "Delete all activity history?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: clearHistory }
-      ]
-    );
-  };
+  const {
+    profile, editedProfile, setEditedProfile, isEditing, setIsEditing,
+    learnedCount, favoriteCount, history, handleSave, handleCancel, confirmClearHistory
+  } = useProfileLogic();
 
   const BulletItem = ({ label, value, icon }: { label: string, value: string, icon?: any }) => (
     <View style={styles.bulletItem}>

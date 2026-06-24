@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text, Menu, Divider } from 'react-native-paper';
 import { ChevronDown, Brain, Camera as CameraIcon, Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 interface TopOptionsBarProps {
   theme: any;
@@ -34,6 +35,7 @@ export default function TopOptionsBar({
 }: TopOptionsBarProps) {
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <View style={styles.topBar}>
@@ -49,10 +51,10 @@ export default function TopOptionsBar({
             <ChevronDown color={theme.colors.onSurface} size={16} />
           </TouchableOpacity>
         }
-      >
-        <Menu.Item onPress={() => { setDetectionMode('live'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="LIVE CAMERA" />
-        <Menu.Item onPress={() => { setDetectionMode('picture'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="IMAGE UPLOAD" />
-        <Menu.Item onPress={() => { setDetectionMode('video'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="VIDEO UPLOAD" />
+        >
+        <Menu.Item onPress={() => { setDetectionMode('live'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.liveCamera')} />
+        <Menu.Item onPress={() => { setDetectionMode('picture'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.imageUpload')} />
+        <Menu.Item onPress={() => { setDetectionMode('video'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.videoUpload')} />
       </Menu>
 
       <Menu
@@ -62,7 +64,7 @@ export default function TopOptionsBar({
           <TouchableOpacity style={styles.dropdownBtn} onPress={() => setIsModelMenuOpen(true)}>
             <Brain color={activePackId ? theme.colors.primary : theme.colors.error} size={18} />
             <Text style={[styles.dropdownText, { maxWidth: 120 }]} numberOfLines={1}>
-              {activePack ? activePack.name : (customModelUri ? 'Custom Model' : 'Select Model')}
+              {activePack ? activePack.name : (customModelUri ? t('detection.customModel') : t('detection.selectModel'))}
             </Text>
             <ChevronDown color={theme.colors.onSurface} size={16} />
           </TouchableOpacity>
@@ -79,7 +81,7 @@ export default function TopOptionsBar({
         <Divider />
         <Menu.Item 
           onPress={() => { pickModelFile(); setIsModelMenuOpen(false); }}
-          title="Load .tflite File"
+          title={t('detection.loadTflite')}
           trailingIcon={customModelUri ? "check" : undefined}
         />
       </Menu>

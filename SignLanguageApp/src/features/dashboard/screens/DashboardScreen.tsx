@@ -1,72 +1,24 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, BackHandler, Alert, FlatList, RefreshControl, Platform } from 'react-native';
 import { Text, Card, Button, useTheme, Avatar, List, IconButton } from 'react-native-paper';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { useShallow } from 'zustand/react/shallow';
-import { useModelStore } from '../../learning/store/useModelStore';
-import { useLearningStore } from '../../learning/store/useLearningStore';
-import { useHistoryStore } from '../../history/store/useHistoryStore';
-import { useUserStore } from '../../profile/store/useUserStore';
 import { ROUTES } from '../../../constants/routes';
 import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
+import { useDashboardLogic } from '../hooks/useDashboardLogic';
 
 export default function DashboardScreen({ navigation }: any) {
   const theme = useTheme();
-  const packs = useModelStore(state => state.packs);
-  const packWords = useLearningStore(useShallow(state => state.packWords));
-  const history = useHistoryStore(state => state.history);
-  const { profile } = useUserStore();
-  const isFocused = useIsFocused();
-  const [refreshing, setRefreshing] = React.useState(false);
-
-  const downloadedPacks = React.useMemo(() => packs.filter(p => p.isDownloaded), [packs]);
-  
-  const stats = React.useMemo(() => {
-    let total = 0;
-    let learned = 0;
-    for (const packKey in packWords) {
-      const words = packWords[packKey] || [];
-      total += words.length;
-      for (const w of words) {
-        if (w.learned) learned++;
-      }
-    }
-    const progress = total > 0 ? Number((learned / total).toFixed(4)) : 0;
-    return { total, learned, progress };
-  }, [packWords]);
-
-  const recentHistory = React.useMemo(() => Array.isArray(history) ? history.slice(0, 3) : [], [history]);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const onBackPress = () => {
-        if (!isFocused) return false;
-        Alert.alert(
-          'Exit App',
-          'Are you sure you want to exit?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
-          ],
-          { cancelable: true }
-        );
-        return true; // prevent default behavior
-      };
-
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-      return () => subscription.remove();
-    }, [isFocused])
-  );
+  const {
+    profile, refreshing, onRefresh, downloadedPacks, stats, recentHistory, packWords
+  } = useDashboardLogic();
 
   return (
     <ErrorBoundary>
     <ScrollView 
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ paddingBottom: 100 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Header Profile Section */}
       <View style={styles.header}>

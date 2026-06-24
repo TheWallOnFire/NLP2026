@@ -4,184 +4,31 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Button, useTheme, IconButton, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { CheckCircle } from 'lucide-react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
-import { useLearningStore } from '../store/useLearningStore';
-import { useHistoryStore } from '../../history/store/useHistoryStore';
-import { useModelStore } from '../store/useModelStore';
-import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
+import { useTestLogic } from '../hooks/useTestLogic';
 
 export default function TestScreen({ route, navigation }: any) {
   const { packId, duration, mode } = route.params || {};
   const theme = useTheme();
   
-  const words = useLearningStore(state => state.packWords[packId]) || [];
-  const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
-  const packs = useModelStore(state => state.packs);
-  
-  const pack = packs.find(p => p.id === packId);
-
-  const [timeLeft, setTimeLeft] = useState(duration || 60);
-  const [score, setScore] = useState(0);
-  const [correctWords, setCorrectWords] = useState<string[]>([]);
-  const [currentWord, setCurrentWord] = useState<any>(null);
-  const [testActive, setTestActive] = useState(false);
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const [facing, setFacing] = useState<'front' | 'back'>('front');
-  const device = useCameraDevice(facing);
   const cameraRef = React.useRef<any>(null);
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [snackbarMsg, setSnackbarMsg] = useState("");
-  const [snackbarColor, setSnackbarColor] = useState<"green" | "red">("green");
-
-  const latestDetection = React.useRef<{wordStr: string, conf: number} | null>(null);
-
-  // Initialize test once words are available
-  useEffect(() => {
-    if (words.length > 0 && !currentWord) {
-      setCurrentWord(words[Math.floor(Math.random() * words.length)]);
-      setTestActive(true);
-    }
-  }, [words, currentWord]);
-
-  if (words.length === 0 && !testActive) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="headlineMedium">Loading Test...</Text>
-        <Text variant="bodyMedium">Setting up your session</Text>
-      </View>
-    );
-  }
-
-  if (words.length === 0 && testActive) {
-    // This case should theoretically not happen with the logic above, but good for safety
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="headlineMedium">No words available!</Text>
-        <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
-          Go Back
-        </Button>
-      </View>
-    );
-  }
-
-  if (!hasPermission) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="titleMedium" style={{ marginBottom: 16 }}>We need camera permission for the test.</Text>
-        <Button mode="contained" onPress={async () => await requestPermission()}>Grant Permission</Button>
-      </View>
-    );
-  }
-
-  // Timer logic
-  useEffect(() => {
-    if (timeLeft > 0 && testActive) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [timeLeft, testActive]);
-
-  // End of test logic
-  useEffect(() => {
-    if (timeLeft === 0 && testActive) {
-      setTestActive(false);
-      
-      addHistoryItem({
-        sign: `Bài kiểm tra: ${pack?.name || 'Gói từ'}`,
-        signs: correctWords,
-        date: new Date().toLocaleDateString('vi-VN'),
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-        type: 'test',
-      });
-    }
-  }, [timeLeft, testActive, score, correctWords, addHistoryItem, pack]);
-
-  const handleSimulateCorrect = React.useCallback(() => {
-    if (!testActive) return;
-    triggerSuccessFeedback();
-    setScore(prev => prev + 1);
-    nextWord();
-  }, [testActive]);
-
-  const handleSimulateSkip = () => {
-    if (!testActive) return;
-    triggerErrorFeedback();
-    nextWord();
-  };
-
-  const nextWord = () => {
-    if (words.length <= 1) return;
-    
-    let randomWord;
-    do {
-      randomWord = words[Math.floor(Math.random() * words.length)];
-    } while (currentWord && randomWord.id === currentWord.id);
-    
-    setCurrentWord(randomWord);
-  };
-
-  const handleDetection = React.useCallback((index: number, conf: number) => {
-    if (!testActive || !currentWord) return;
-    const detectedWordStr = words[index]?.word;
-    latestDetection.current = { wordStr: detectedWordStr, conf };
-  }, [testActive, currentWord, words]);
-
-  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
-
-  const evaluateDetection = React.useCallback(() => {
-    if (!currentWord) return;
-    const det = latestDetection.current;
-    
-    // Test mode requires high confidence
-    if (det && det.wordStr === currentWord.word && det.conf >= 0.7) {
-      setSnackbarColor("green");
-      setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
-      triggerSuccessFeedback();
-      setScore(prev => prev + 1);
-      setCorrectWords(prev => [...prev, currentWord.word]);
-      setTimeout(() => {
-        nextWord();
-      }, 500);
-    } else {
-      setSnackbarColor("red");
-      setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);
-      triggerErrorFeedback();
-    }
-  }, [currentWord]);
-
-  const checkFromCamera = async () => {
-    if (!cameraRef.current || !isModelReady) return;
-    setIsProcessing(true);
-    try {
-      const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
-      let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
-      
-      if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
-        imagePath = `file://${imagePath}`;
-      }
-
-      if (imagePath) {
-        latestDetection.current = null;
-        await runDetection(imagePath, facing, true);
-        
-        let attempts = 0;
-        await new Promise(r => setTimeout(r, 300)); // Wait for queue to pick up
-        while (getDebugInfo().isProcessing && attempts < 50) {
-          await new Promise(r => setTimeout(r, 100));
-          attempts++;
-        }
-        await new Promise(r => setTimeout(r, 100)); // Padding for handleDetection
-        evaluateDetection();
-      }
-    } catch (e) {
-      console.warn("Camera snapshot failed in test", e);
-      setSnackbarColor("red");
-      setSnackbarMsg("Không thể chụp ảnh từ Camera!");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const {
+    words,
+    timeLeft,
+    score,
+    currentWord,
+    testActive,
+    facing,
+    setFacing,
+    isProcessing,
+    snackbarMsg,
+    setSnackbarMsg,
+    snackbarColor,
+    isModelReady,
+    handleSimulateSkip,
+    checkFromCamera
+  } = useTestLogic(packId, duration, mode, cameraRef);
+  const device = useCameraDevice(facing);
 
 
 

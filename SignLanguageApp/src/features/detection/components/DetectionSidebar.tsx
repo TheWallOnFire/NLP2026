@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Menu, IconButton } from 'react-native-paper';
 import { RotateCcw, Zap, ZapOff, Timer, FolderOpen, Link } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 interface DetectionSidebarProps {
   theme: any;
@@ -39,6 +40,7 @@ export default function DetectionSidebar({
   setIsUrlDialogOpen
 }: DetectionSidebarProps) {
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <View style={styles.verticalSidebar}>
@@ -61,14 +63,14 @@ export default function DetectionSidebar({
               />
             }
           >
-            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'slow' } }); setIsSpeedMenuOpen(false); }} title="Slow (2.0s)" leadingIcon="turtle" />
-            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'normal' } }); setIsSpeedMenuOpen(false); }} title="Normal (1.0s)" leadingIcon="walk" />
-            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'fast' } }); setIsSpeedMenuOpen(false); }} title="Fast (0.5s)" leadingIcon="rabbit" />
-            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'off' } }); setIsSpeedMenuOpen(false); }} title="Off (Manual)" leadingIcon="motion-pause-outline" />
+            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'slow' } }); setIsSpeedMenuOpen(false); }} title={t('detection.slow')} leadingIcon="turtle" />
+            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'normal' } }); setIsSpeedMenuOpen(false); }} title={t('detection.normal')} leadingIcon="walk" />
+            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'fast' } }); setIsSpeedMenuOpen(false); }} title={t('detection.fast')} leadingIcon="rabbit" />
+            <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'off' } }); setIsSpeedMenuOpen(false); }} title={t('detection.offManual')} leadingIcon="motion-pause-outline" />
           </Menu>
           <IconButton icon={() => <RotateCcw color="white" size={24} />} style={styles.sideBtn} onPress={toggleCameraFacing} />
           <IconButton icon={() => (flash ? <Zap color="#FFD600" size={24} /> : <ZapOff color="white" size={24} />)} style={styles.sideBtn} onPress={toggleFlash} />
-          <IconButton icon={() => <Timer color="white" size={24} />} style={styles.sideBtn} onPress={() => Alert.alert('Countdown', 'Feature coming soon!')} />
+          <IconButton icon={() => <Timer color="white" size={24} />} style={styles.sideBtn} onPress={() => Alert.alert(t('detection.countdownTitle'), t('detection.comingSoon'))} />
         </>
       ) : (
         <>
