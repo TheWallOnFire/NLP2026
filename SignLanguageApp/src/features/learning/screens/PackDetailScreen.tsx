@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { Text, Button, Card, ProgressBar, useTheme, Appbar, Modal, Portal, IconButton } from 'react-native-paper';
+import { Text, Button, Card, ProgressBar, useTheme, Appbar, Modal, Portal, IconButton, SegmentedButtons } from 'react-native-paper';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLearningStore, Word } from '../store/useLearningStore';
@@ -24,6 +24,13 @@ export default function PackDetailScreen({ route, navigation }: any) {
 
   const [selectedWord, setSelectedWord] = React.useState<Word | null>(null);
   const [imageError, setImageError] = React.useState(false);
+  const [filterMode, setFilterMode] = React.useState<'all' | 'learned' | 'unlearned'>('all');
+
+  const filteredWords = React.useMemo(() => {
+    if (filterMode === 'learned') return words.filter(w => w.learned);
+    if (filterMode === 'unlearned') return words.filter(w => !w.learned);
+    return words;
+  }, [words, filterMode]);
 
   const handlePressWord = (word: Word) => {
     setImageError(false);
@@ -65,8 +72,20 @@ export default function PackDetailScreen({ route, navigation }: any) {
 
         <View style={styles.section}>
           <Text variant="titleLarge" style={styles.sectionTitle}>Vocabulary</Text>
+          
+          <SegmentedButtons
+            value={filterMode}
+            onValueChange={(val) => setFilterMode(val as any)}
+            buttons={[
+              { value: 'all', label: 'Tất cả' },
+              { value: 'learned', label: 'Đã học' },
+              { value: 'unlearned', label: 'Chưa học' },
+            ]}
+            style={{ marginBottom: 16 }}
+          />
+
           <View style={styles.chipContainer}>
-            {words.map((w) => (
+            {filteredWords.map((w) => (
               <WordChip 
                 key={w.id} 
                 word={w} 
@@ -74,8 +93,11 @@ export default function PackDetailScreen({ route, navigation }: any) {
                 onLongPressWord={(w) => handleMarkLearned(w.id, !w.learned)} 
               />
             ))}
+            {filteredWords.length === 0 && (
+              <Text style={{ color: 'gray', fontStyle: 'italic', padding: 8 }}>Không có từ nào trong mục này.</Text>
+            )}
           </View>
-          <Text variant="bodySmall" style={styles.hint}>Tap to star, long press to mark learned.</Text>
+          <Text variant="bodySmall" style={styles.hint}>Chạm để xem chi tiết, nhấn giữ để đánh dấu đã học.</Text>
         </View>
 
         <View style={styles.section}>

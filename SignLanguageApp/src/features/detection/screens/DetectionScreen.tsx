@@ -72,26 +72,23 @@ export default function DetectionScreen({ navigation }: any) {
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
 
   const packWords = useLearningStore(state => state.packWords);
+  const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
 
-  const addWordToDetectionSession = useHistoryStore(state => state.addWordToDetectionSession);
+  const addManualDetectionSession = useHistoryStore(state => state.addManualDetectionSession);
   const [sessionHistory, setSessionHistory] = useState<{id: string, sign: string}[]>([]);
-  const [globalSessionId, setGlobalSessionId] = useState<string>('');
-
-  useFocusEffect(
-    useCallback(() => {
-      // Create a new session ID every time the screen comes into focus
-      setGlobalSessionId(`session-${Date.now()}`);
-      setSessionHistory([]);
-    }, [])
-  );
-
+  
   useEffect(() => {
-    // Reset local session history and global session ID when model pack changes
-    setGlobalSessionId(`session-${Date.now()}`);
+    // Reset local session history when model pack changes
     setSessionHistory([]);
   }, [activePackId]);
+
+  const onSaveSession = (editedText: string) => {
+    if (editedText.trim().length > 0) {
+      addManualDetectionSession(editedText, activePackId || 'unknown', detectionMode);
+    }
+  };
 
   const handleDetection = useCallback((index: number, conf: number) => {
     if (Date.now() - lastDetectionTime.current > 1000) {
@@ -102,7 +99,7 @@ export default function DetectionScreen({ navigation }: any) {
         setConfidence(conf);
         lastDetectionTime.current = Date.now();
 
-        if (conf > 0.8) {
+        if (conf >= thresholdValue) {
           triggerImpactFeedback();
           if (ttsSettings?.systemSounds !== false && word && word.trim() !== '') {
             try {
@@ -112,12 +109,11 @@ export default function DetectionScreen({ navigation }: any) {
               console.warn("Speech API failed", e);
             }
           }
-          addWordToDetectionSession(word, activePackId || 'unknown', globalSessionId);
           setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
         }
       }
     }
-  }, [activePackId, packWords, ttsSettings, addWordToDetectionSession, globalSessionId]);
+  }, [activePackId, packWords, ttsSettings, thresholdValue]);
   const lastDetectionTime = useRef(0);
 
   const handleModelError = useCallback((errorMsg: string) => {
@@ -151,8 +147,6 @@ export default function DetectionScreen({ navigation }: any) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
-
-  const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
 
   // Fix NCHW vs NHWC mismatch
   const modelWidth = modelShape && modelShape.length >= 3 ? (modelShape[1] > 10 ? modelShape[1] : modelShape[2]) : 224;
@@ -877,7 +871,7 @@ export default function DetectionScreen({ navigation }: any) {
           onPress={() => setIsHistoryDialogOpen(true)}
           style={styles.actionBtn}
         >
-          History
+          Kết quả
         </Button>
         <Button
           mode="contained-tonal"
@@ -894,6 +888,8 @@ export default function DetectionScreen({ navigation }: any) {
         isHistoryDialogOpen={isHistoryDialogOpen}
         setIsHistoryDialogOpen={setIsHistoryDialogOpen}
         history={sessionHistory}
+        onSaveSession={onSaveSession}
+        setSessionHistory={setSessionHistory}
         isDebugDialogOpen={isDebugDialogOpen}
         setIsDebugDialogOpen={setIsDebugDialogOpen}
         debugData={debugData}

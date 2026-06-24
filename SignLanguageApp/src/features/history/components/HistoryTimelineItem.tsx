@@ -48,7 +48,7 @@ export default function HistoryTimelineItem({ item }: Props) {
   return (
     <Card style={styles.card} mode="outlined" onPress={handlePress}>
       <Card.Title
-        title={item.type === 'detection' ? `Model: ${getPackName} (${item.signs?.length || 0} từ)` : `Sign: ${item.sign}`}
+        title={item.type === 'detection' ? `Model: ${getPackName} (${item.signs?.length || 0} từ)${item.mode ? ` [${item.mode.toUpperCase()}]` : ''}` : `Sign: ${item.sign}`}
         subtitle={getSubtitle()}
         left={(props) => <Avatar.Icon {...props} icon={getIcon(item.type)} style={{ backgroundColor: theme.colors.primary }} />}
       />

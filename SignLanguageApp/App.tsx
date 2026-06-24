@@ -1,4 +1,5 @@
 import * as React from 'react';
+import './src/core/i18n';
 import { Provider as PaperProvider } from 'react-native-paper';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

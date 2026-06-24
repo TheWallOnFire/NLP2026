@@ -8,6 +8,8 @@ interface DetectionDialogsProps {
   isHistoryDialogOpen: boolean;
   setIsHistoryDialogOpen: (open: boolean) => void;
   history: any[];
+  onSaveSession?: (editedText: string) => void;
+  setSessionHistory?: (history: any[]) => void;
   isDebugDialogOpen: boolean;
   setIsDebugDialogOpen: (open: boolean) => void;
   debugData: any;
@@ -25,6 +27,8 @@ export default function DetectionDialogs({
   isHistoryDialogOpen,
   setIsHistoryDialogOpen,
   history,
+  onSaveSession,
+  setSessionHistory,
   isDebugDialogOpen,
   setIsDebugDialogOpen,
   debugData,
@@ -36,6 +40,17 @@ export default function DetectionDialogs({
   urlInput,
   setUrlInput
 }: DetectionDialogsProps) {
+  const [isExportingText, setIsExportingText] = React.useState(false);
+  const [editedText, setEditedText] = React.useState('');
+
+  useEffect(() => {
+    // Reset export state when dialog opens
+    if (isHistoryDialogOpen) {
+      setIsExportingText(false);
+      setEditedText('');
+    }
+  }, [isHistoryDialogOpen]);
+
   useEffect(() => {
     const onBackPress = () => {
       if (isUrlDialogOpen) {
@@ -95,33 +110,79 @@ export default function DetectionDialogs({
           )}
         {/* History Dialog */}
         <Dialog visible={isHistoryDialogOpen} onDismiss={() => setIsHistoryDialogOpen(false)} style={{ maxHeight: '80%' }}>
-          <Dialog.Title>Lịch sử nhận diện</Dialog.Title>
+          <Dialog.Title>Kết quả nhận diện</Dialog.Title>
           <Dialog.Content>
             <ScrollView>
-              {history.length > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {history.map((item, i) => (
-                    <Badge 
-                      key={item.id || i} 
-                      size={28} 
-                      style={{ 
-                        backgroundColor: theme.colors.elevation.level3, 
-                        color: theme.colors.onSurface, 
-                        paddingHorizontal: 12,
-                        fontSize: 14 
-                      }}
-                    >
-                      {item.sign}
-                    </Badge>
-                  ))}
-                </View>
+              {isExportingText ? (
+                <TextInput
+                  label="Chỉnh sửa văn bản"
+                  value={editedText}
+                  onChangeText={setEditedText}
+                  mode="outlined"
+                  multiline
+                  numberOfLines={4}
+                  autoFocus
+                  style={{ marginTop: 8 }}
+                />
               ) : (
-                <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>Chưa có từ nào được ghi nhận.</Text>
+                history.length > 0 ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {history.map((item, i) => (
+                      <Badge 
+                        key={item.id || i} 
+                        size={28} 
+                        style={{ 
+                          backgroundColor: theme.colors.elevation.level3, 
+                          color: theme.colors.onSurface, 
+                          paddingHorizontal: 12,
+                          fontSize: 14 
+                        }}
+                      >
+                        {item.sign}
+                      </Badge>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>Chưa có từ nào được ghi nhận.</Text>
+                )
               )}
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setIsHistoryDialogOpen(false)}>Đóng</Button>
+            {isExportingText && <Button onPress={() => setIsExportingText(false)}>Hủy</Button>}
+            {isExportingText && (
+              <Button mode="contained" onPress={() => {
+                if (onSaveSession && setSessionHistory) {
+                  onSaveSession(editedText);
+                  setSessionHistory([]);
+                }
+                setIsHistoryDialogOpen(false);
+              }}>Xác nhận</Button>
+            )}
+            
+            {!isExportingText && <Button onPress={() => setIsHistoryDialogOpen(false)}>Đóng</Button>}
+            {!isExportingText && (
+              <Button 
+                mode="contained" 
+                disabled={history.length === 0}
+                onPress={() => {
+                  const rawSigns = history.map(h => h.sign).reverse();
+                  let finalString = "";
+                  for (const sign of rawSigns) {
+                    const lowerSign = sign.toLowerCase();
+                    if (lowerSign === 'space' || lowerSign === '_' || lowerSign === 'dấu cách' || lowerSign === 'khoảng trắng' || lowerSign === ' ') {
+                      finalString += ' ';
+                    } else {
+                      finalString += sign;
+                    }
+                  }
+                  setEditedText(finalString);
+                  setIsExportingText(true);
+                }}
+              >
+                Xuất text
+              </Button>
+            )}
           </Dialog.Actions>
         </Dialog>
 

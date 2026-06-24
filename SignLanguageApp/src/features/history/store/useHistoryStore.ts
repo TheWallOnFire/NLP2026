@@ -8,6 +8,7 @@ export interface HistoryItem {
   signs?: string[];
   packId?: string;
   sessionId?: string;
+  mode?: string;
   time: string;
   date: string;
   timestamp?: number;
@@ -17,7 +18,7 @@ export interface HistoryItem {
 interface HistoryState {
   history: HistoryItem[];
   addHistoryItem: (item: Omit<HistoryItem, 'id'>) => void;
-  addWordToDetectionSession: (word: string, packId: string, sessionId: string) => void;
+  addManualDetectionSession: (sentence: string, packId: string, mode?: string) => void;
   clearHistory: () => void;
 }
 
@@ -51,29 +52,19 @@ export const useHistoryStore = create<HistoryState>()(
       addHistoryItem: (item) => set((state) => ({
         history: [{ ...item, id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString() }, ...state.history].slice(0, 50),
       })),
-      addWordToDetectionSession: (word, packId, sessionId) => set((state) => {
-        const newHistory = [...state.history];
-        const lastItem = newHistory[0];
-        const now = Date.now();
-        
-        if (lastItem && lastItem.type === 'detection' && lastItem.sessionId === sessionId) {
-          lastItem.signs = [...(lastItem.signs || []), word];
-          lastItem.timestamp = now;
-          return { history: newHistory };
-        } else {
-          const newItem: HistoryItem = {
-            id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString(),
-            sign: `Phiên nhận diện`,
-            signs: [word],
-            packId,
-            sessionId,
-            type: 'detection',
-            date: new Date().toLocaleDateString('vi-VN'),
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-            timestamp: now,
-          };
-          return { history: [newItem, ...newHistory].slice(0, 50) };
-        }
+      addManualDetectionSession: (sentence, packId, mode) => set((state) => {
+        const newItem: HistoryItem = {
+          id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString(),
+          sign: `Phiên nhận diện`,
+          signs: sentence.split(' '), // Split sentence into words for compatibility
+          packId,
+          mode,
+          type: 'detection',
+          date: new Date().toLocaleDateString('vi-VN'),
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+        };
+        return { history: [newItem, ...state.history].slice(0, 50) };
       }),
       clearHistory: () => set({ history: [] }),
     }),

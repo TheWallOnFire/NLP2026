@@ -1,14 +1,17 @@
 import * as React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
-import { CheckCircle, Camera as CameraIcon } from 'lucide-react-native';
+import { CheckCircle, Camera as CameraIcon, SkipForward } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Text, Button, useTheme, Card, Appbar, IconButton } from 'react-native-paper';
+import { Text, Button, useTheme, Card, Appbar, IconButton, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import { useLearningStore } from '../store/useLearningStore';
+import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
+import DebugOverlay from '../../detection/components/DebugOverlay';
 
 export default function PracticeScreen({ route, navigation }: any) {
   const { packId, wordId } = route.params || {};
@@ -22,14 +25,16 @@ export default function PracticeScreen({ route, navigation }: any) {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const device = useCameraDevice(facing);
-  const [imageError, setImageError] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState("");
+  const [snackbarColor, setSnackbarColor] = useState<"default" | "green" | "red">("default");
+  const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
+  const latestDetection = useRef<{wordStr: string, conf: number} | null>(null);
 
-  // Reset image error when word changes
-  useEffect(() => {
-    setImageError(false);
-  }, [currentIndex]);
+  const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
+  const [debugData, setDebugData] = useState<any>(null);
 
-  // Initialize practice words once they are available
+
   useEffect(() => {
     if (words.length > 0 && practiceWords.length === 0) {
       let sorted;
@@ -44,30 +49,112 @@ export default function PracticeScreen({ route, navigation }: any) {
       setPracticeWords(sorted);
     }
   }, [words, practiceWords.length, wordId]);
-  
+
   const currentWord = practiceWords[currentIndex];
 
-  const handleSimulateDetection = useCallback(() => {
-    if (!currentWord) return;
-    
-    triggerSuccessFeedback();
-    markLearned(packId, currentWord.id, true);
+  const cameraRef = useRef<any>(null);
 
-    // Go to next word or wrap around
+  const handleSkip = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % practiceWords.length);
-  }, [currentWord, markLearned, packId, practiceWords.length]);
+  }, [practiceWords.length]);
+
+  const evaluateDetection = useCallback(() => {
+    if (!currentWord) return;
+    const det = latestDetection.current;
+    
+    if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
+      setSnackbarColor("green");
+      setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
+      triggerSuccessFeedback();
+      markLearned(packId, currentWord.id, true);
+      setTimeout(() => {
+        handleSkip();
+      }, 1000);
+    } else {
+      setSnackbarColor("red");
+      setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);
+    }
+  }, [currentWord, thresholdValue, packId, markLearned, handleSkip]);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     if (!currentWord) return;
     const detectedWordStr = words[index]?.word;
-    
-    // If the detected word matches the word we are practicing, and confidence is high
-    if (detectedWordStr === currentWord.word && conf > 0.8) {
-      handleSimulateDetection();
-    }
-  }, [currentWord, words, handleSimulateDetection]);
+    latestDetection.current = { wordStr: detectedWordStr, conf };
+  }, [currentWord, words]);
 
-  const { isModelReady } = useSignLanguageModel(handleDetection);
+  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
+
+  const checkFromCamera = async () => {
+    if (!cameraRef.current || !isModelReady) return;
+    setIsProcessing(true);
+    try {
+      const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
+      let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
+      
+      if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
+        imagePath = `file://${imagePath}`;
+      }
+
+      if (imagePath) {
+        latestDetection.current = null;
+        await runDetection(imagePath, facing, true);
+        
+        let attempts = 0;
+        await new Promise(r => setTimeout(r, 300)); // wait for queue to pick up
+        while (getDebugInfo().isProcessing && attempts < 50) {
+          await new Promise(r => setTimeout(r, 100));
+          attempts++;
+        }
+        await new Promise(r => setTimeout(r, 100)); // padding for handleDetection
+        evaluateDetection();
+      }
+    } catch (e) {
+      console.warn("Camera snapshot failed", e);
+      setSnackbarColor("red");
+      setSnackbarMsg("Không thể chụp ảnh từ Camera!");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  useEffect(() => {
+    const devMode = useSettingsStore.getState().developerDebugMode;
+    if (devMode) {
+      const interval = setInterval(() => {
+        setDebugData(getDebugInfo());
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [getDebugInfo]);
+
+  const pickImageForDetection = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsProcessing(true);
+        const sourceUri = result.assets[0].uri;
+        latestDetection.current = null;
+        await runDetection(sourceUri);
+        
+        let attempts = 0;
+        await new Promise(r => setTimeout(r, 300));
+        while (getDebugInfo().isProcessing && attempts < 50) {
+          await new Promise(r => setTimeout(r, 100));
+          attempts++;
+        }
+        await new Promise(r => setTimeout(r, 100));
+        evaluateDetection();
+        setIsProcessing(false);
+      }
+    } catch (e) {
+      console.warn("Failed to pick image", e);
+      setIsProcessing(false);
+    }
+  };
 
   if (!currentWord) {
     return (
@@ -94,6 +181,7 @@ export default function PracticeScreen({ route, navigation }: any) {
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title={`Practice: ${currentWord.word}`} />
+        <Appbar.Action icon="bug" onPress={() => { setDebugData(getDebugInfo()); setIsDebugDialogOpen(true); }} />
       </Appbar.Header>
 
       <View style={styles.header}>
@@ -104,22 +192,12 @@ export default function PracticeScreen({ route, navigation }: any) {
       </View>
 
       <Card style={styles.card} mode="elevated">
-        <View style={styles.placeholderImage}>
-          {!imageError ? (
-            <Image 
-              key={currentWord.id}
-              source={{ uri: `${FileSystem.documentDirectory}packs/${packId}/word_images/${currentWord.word}.png` }} 
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="contain"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View style={{ alignItems: 'center' }}>
-              <CameraIcon size={48} color="rgba(0,0,0,0.2)" />
-              <Text variant="bodyLarge" style={{ color: 'gray', marginTop: 12 }}>Sign: "{currentWord.word}"</Text>
-            </View>
-          )}
-        </View>
+        <Image 
+          key={currentWord.id}
+          source={{ uri: `${FileSystem.documentDirectory}packs/${packId}/word_images/${currentWord.word}.png` }} 
+          style={{ width: '100%', height: 220 }}
+          resizeMode="contain"
+        />
       </Card>
 
       <View style={styles.cameraWrapper}>
@@ -131,8 +209,12 @@ export default function PracticeScreen({ route, navigation }: any) {
         />
         <View style={styles.cameraContainer}>
           {device != null && (
-            <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} />
+            <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} />
           )}
+
+          <View style={styles.boundingBoxContainer} pointerEvents="none">
+            <View style={styles.boundingBox} />
+          </View>
           
           <LinearGradient
             colors={['rgba(0,0,0,0.5)', 'transparent']}
@@ -154,17 +236,60 @@ export default function PracticeScreen({ route, navigation }: any) {
       </View>
 
       <View style={styles.footer}>
-        <Button 
-          mode="contained" 
-          onPress={handleSimulateDetection} 
-          style={styles.simulateButton}
-          contentStyle={{ paddingVertical: 8 }}
-          buttonColor={theme.colors.primary}
-          icon={() => <CheckCircle size={20} color="white" />}
-        >
-          <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>Success Detection</Text>
-        </Button>
+        <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
+          <Button 
+            mode="contained-tonal" 
+            onPress={pickImageForDetection} 
+            style={[styles.actionButton, { backgroundColor: theme.colors.secondaryContainer }]}
+            disabled={isProcessing || !isModelReady}
+            icon="image"
+          >
+            Ảnh
+          </Button>
+
+          <Button 
+            mode="contained" 
+            onPress={checkFromCamera} 
+            style={[styles.actionButton, { flex: 1 }]}
+            buttonColor={theme.colors.primary}
+            disabled={isProcessing || !isModelReady}
+            icon={() => <CheckCircle size={20} color="white" />}
+          >
+            Kiểm tra
+          </Button>
+
+          <Button 
+            mode="outlined" 
+            onPress={handleSkip} 
+            style={styles.actionButton}
+            icon={() => <SkipForward size={20} color={theme.colors.primary} />}
+          >
+            Bỏ qua
+          </Button>
+        </View>
+        {isProcessing && (
+          <View style={{ position: 'absolute', top: -50, alignSelf: 'center', backgroundColor: 'white', padding: 8, borderRadius: 20, elevation: 4 }}>
+            <ActivityIndicator size="small" />
+          </View>
+        )}
       </View>
+
+      <Snackbar
+        visible={!!snackbarMsg}
+        onDismiss={() => setSnackbarMsg("")}
+        duration={1500}
+        style={{ 
+          marginBottom: 20, 
+          backgroundColor: snackbarColor === "green" ? "#4CAF50" : snackbarColor === "red" ? "#F44336" : theme.colors.elevation.level3
+        }}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>{snackbarMsg}</Text>
+      </Snackbar>
+
+      <DebugOverlay 
+        debugData={debugData} 
+        activePackWords={words.map(w => w.word)} 
+      />
     </View>
   );
 }
@@ -238,6 +363,20 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0,
     height: 60,
   },
+  boundingBoxContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  boundingBox: {
+    width: 224,
+    height: 224,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
   flipButton: {
     position: 'absolute',
     top: 10,
@@ -267,10 +406,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 30,
   },
-  simulateButton: {
-    borderRadius: 100,
-    elevation: 4,
-
-    padding: 8,
+  actionButton: {
+    borderRadius: 16,
+    elevation: 2,
+    justifyContent: 'center',
   },
 });

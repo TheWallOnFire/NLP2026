@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
-import { Text, useTheme, Button, Chip } from 'react-native-paper';
+import { Text, useTheme, Button, Chip, Portal, Modal, IconButton } from 'react-native-paper';
+import { Filter } from 'lucide-react-native';
 import { useHistoryStore } from '../store/useHistoryStore';
 import HistoryTimelineItem from '../components/HistoryTimelineItem';
 
@@ -9,6 +10,7 @@ export default function HistoryScreen() {
   const { history, clearHistory } = useHistoryStore();
   const [filterType, setFilterType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('time_desc');
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
 
   const filteredAndSortedHistory = useMemo(() => {
     let result = [...history];
@@ -59,28 +61,39 @@ export default function HistoryScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Text variant="titleMedium">Toàn bộ lịch sử</Text>
-        <Button mode="text" onPress={confirmClearHistory} disabled={history.length === 0} textColor="red">
-          Xóa
-        </Button>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <IconButton icon={() => <Filter size={20} color={theme.colors.primary} />} onPress={() => setIsFilterVisible(true)} />
+          <Button mode="text" onPress={confirmClearHistory} disabled={history.length === 0} textColor="red">
+            Xóa
+          </Button>
+        </View>
       </View>
 
-      <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-        <Text variant="labelMedium" style={{ marginBottom: 4, opacity: 0.7 }}>Lọc theo:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-          <Chip selected={filterType === 'all'} onPress={() => setFilterType('all')} style={styles.chip}>Tất cả</Chip>
-          <Chip selected={filterType === 'detection'} onPress={() => setFilterType('detection')} style={styles.chip}>Nhận diện</Chip>
-          <Chip selected={filterType === 'learning'} onPress={() => setFilterType('learning')} style={styles.chip}>Học tập</Chip>
-          <Chip selected={filterType === 'test'} onPress={() => setFilterType('test')} style={styles.chip}>Bài tập</Chip>
-        </ScrollView>
+      <Portal>
+        <Modal visible={isFilterVisible} onDismiss={() => setIsFilterVisible(false)} contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
+          <Text variant="titleLarge" style={{ marginBottom: 16, fontWeight: 'bold' }}>Bộ lọc Lịch sử</Text>
+          
+          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>Lọc theo:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
+            <Chip selected={filterType === 'all'} onPress={() => setFilterType('all')} style={styles.chip}>Tất cả</Chip>
+            <Chip selected={filterType === 'detection'} onPress={() => setFilterType('detection')} style={styles.chip}>Nhận diện</Chip>
+            <Chip selected={filterType === 'learning'} onPress={() => setFilterType('learning')} style={styles.chip}>Học tập</Chip>
+            <Chip selected={filterType === 'test'} onPress={() => setFilterType('test')} style={styles.chip}>Bài tập</Chip>
+          </ScrollView>
 
-        <Text variant="labelMedium" style={{ marginBottom: 4, opacity: 0.7 }}>Sắp xếp:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <Chip selected={sortBy === 'time_desc'} onPress={() => setSortBy('time_desc')} style={styles.chip}>Mới nhất</Chip>
-          <Chip selected={sortBy === 'time_asc'} onPress={() => setSortBy('time_asc')} style={styles.chip}>Cũ nhất</Chip>
-          <Chip selected={sortBy === 'count_desc'} onPress={() => setSortBy('count_desc')} style={styles.chip}>Nhiều từ nhất</Chip>
-          <Chip selected={sortBy === 'name_asc'} onPress={() => setSortBy('name_asc')} style={styles.chip}>Tên A-Z</Chip>
-        </ScrollView>
-      </View>
+          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>Sắp xếp:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24, maxHeight: 40 }}>
+            <Chip selected={sortBy === 'time_desc'} onPress={() => setSortBy('time_desc')} style={styles.chip}>Mới nhất</Chip>
+            <Chip selected={sortBy === 'time_asc'} onPress={() => setSortBy('time_asc')} style={styles.chip}>Cũ nhất</Chip>
+            <Chip selected={sortBy === 'count_desc'} onPress={() => setSortBy('count_desc')} style={styles.chip}>Nhiều từ nhất</Chip>
+            <Chip selected={sortBy === 'name_asc'} onPress={() => setSortBy('name_asc')} style={styles.chip}>Tên A-Z</Chip>
+          </ScrollView>
+
+          <Button mode="contained" onPress={() => setIsFilterVisible(false)} style={{ borderRadius: 8 }}>
+            Xong
+          </Button>
+        </Modal>
+      </Portal>
 
       <FlatList
         data={filteredAndSortedHistory}
@@ -109,6 +122,11 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginRight: 8,
+  },
+  modalContainer: {
+    margin: 20,
+    padding: 24,
+    borderRadius: 16,
   }
 });
 

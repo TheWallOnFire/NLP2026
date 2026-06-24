@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface SettingsState {
   theme: 'light' | 'dark' | 'mixed';
+  language: 'en' | 'vi';
   sound: {
     systemSounds: boolean;
     learningFeedback: boolean;
@@ -42,6 +43,7 @@ export interface SettingsState {
 
 const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> = {
   theme: 'mixed',
+  language: 'en',
   sound: {
     systemSounds: true,
     learningFeedback: true,
