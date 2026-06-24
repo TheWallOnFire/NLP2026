@@ -106,7 +106,7 @@ npx expo run:ios
 |---------|-------------|
 | `npm start` | Start the Expo development server |
 | `npm run android` | Build & run on Android device/emulator |
-| `npm run ios` | Build & run on iOS Simulator *(macOS only)* |
+| `npm run ios` | Build & run on iOS Simulator *(macOS only)* |`
 | `npm run web` | Start the app in a web browser |
 
 ---

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Linking, Animated, Alert, AppState } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 import { Text, Button, useTheme, IconButton } from 'react-native-paper';
-import { useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
+import { useCameraDevice, useCameraPermission, useFrameOutput, useAsyncRunner } from 'react-native-vision-camera';
 import { useResizer } from 'react-native-vision-camera-resizer';
-import { runOnJS } from 'react-native-worklets';
+
 import { useSignLanguageModel } from '../hooks/useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
@@ -155,15 +155,39 @@ export default function DetectionScreen({ navigation }: any) {
     scaleMode: 'cover',
     pixelLayout: 'interleaved',
   });
-  const onDetectionJS = runOnJS((maxIdx: number, maxVal: number) => {
-    handleDetection(maxIdx, maxVal);
-  });
+
 
   const lastProcessTime = useSharedValue(0);
   const lastDetectTimeSV = useSharedValue(0);
   const isLiveScanningSV = useSharedValue(false);
   const isAppActiveSV = useSharedValue(true);
   const facingSV = useSharedValue(facing);
+
+  // Mailbox Pattern Shared Values
+  const detectedIdxSV = useSharedValue(-1);
+  const detectedValSV = useSharedValue(0);
+  const detectionTriggerSV = useSharedValue(0);
+  
+  const errorMsgSV = useSharedValue('');
+  const errorTriggerSV = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => detectionTriggerSV.value,
+    (currentTrigger, previousTrigger) => {
+      if (currentTrigger !== previousTrigger && currentTrigger > 0) {
+        runOnJS(handleDetection)(detectedIdxSV.value, detectedValSV.value);
+      }
+    }
+  );
+
+  useAnimatedReaction(
+    () => errorTriggerSV.value,
+    (currentTrigger, previousTrigger) => {
+      if (currentTrigger !== previousTrigger && currentTrigger > 0) {
+        runOnJS(handleModelError)(errorMsgSV.value);
+      }
+    }
+  );
   
   useEffect(() => {
     isLiveScanningSV.value = isLiveScanning;
@@ -179,22 +203,24 @@ export default function DetectionScreen({ navigation }: any) {
 
   const currentInterval = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
 
-  const handleModelErrorJS = runOnJS((msg: string) => {
-    handleModelError(msg);
-  });
+
+
+  const asyncRunner = useAsyncRunner();
 
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
       'worklet';
-      if (!boxedModel || !isLiveScanningSV.value || !isAppActiveSV.value || detectionMode !== 'live' || detectionSpeed === 'off') {
+      
+      // Disable Frame Processor if we are relying on JS takeSnapshot loop for live mode
+      // to avoid double processing and battery drain.
+      if (!isLiveScanning || !isAppActive || currentInterval === -1 || detectionMode === 'live') {
         frame.dispose();
         return;
       }
 
-      // Sửa lỗi: Lấy thời gian thực từ frame thay vì Date.now() UI Thread
-      const now = frame.timestamp ? frame.timestamp : Date.now();
+      const now = Date.now();
       
-      // Debounce trực tiếp tại Worklet: Nếu vừa phát hiện xong (dưới 1000ms), bỏ qua chạy AI
+      // Debounce trực tiếp tại Worklet
       if (now - lastDetectTimeSV.value < 1000) {
         frame.dispose();
         return;
@@ -206,91 +232,96 @@ export default function DetectionScreen({ navigation }: any) {
       }
       lastProcessTime.value = now;
 
-      try {
-        const tflite = boxedModel.unbox();
-
-        if (!resizer) {
-          frame.dispose();
-          return;
-        }
-
-        let resized: any = null;
+      // Sử dụng luồng chạy nền độc lập để không làm đơ Camera UI
+      const wasHandled = asyncRunner.runAsync(() => {
+        'worklet';
         try {
-          resized = resizer.resize(frame);
-          const rawBuffer = resized.getPixelBuffer();
-          const inputDataType = tflite.inputs[0].dataType;
-          
-          let inputBuffer: ArrayBuffer;
-          const uint8 = new Uint8Array((rawBuffer as any).buffer || rawBuffer);
-          const isFront = facingSV.value === 'front';
+          if (!boxedModel || !resizer) return;
+          const tflite = boxedModel.unbox();
 
-          if (inputDataType === 'float32') {
-             const float32 = new Float32Array(uint8.length);
-             // Xử lý Lật Ảnh (Mirroring) và chuẩn hóa Float32
-             for (let y = 0; y < modelHeight; y++) {
-               for (let x = 0; x < modelWidth; x++) {
-                 const srcX = isFront ? (modelWidth - 1 - x) : x;
-                 const srcIdx = (y * modelWidth + srcX) * 3;
-                 const dstIdx = (y * modelWidth + x) * 3;
-                 
-                 float32[dstIdx]     = Math.fround(uint8[srcIdx] / 255.0);
-                 float32[dstIdx + 1] = Math.fround(uint8[srcIdx + 1] / 255.0);
-                 float32[dstIdx + 2] = Math.fround(uint8[srcIdx + 2] / 255.0);
+          let resized: any = null;
+          try {
+            resized = resizer.resize(frame);
+            const rawBuffer = resized.getPixelBuffer();
+            const inputDataType = tflite.inputs[0].dataType;
+            
+            let inputBuffer: ArrayBuffer;
+            const uint8 = new Uint8Array((rawBuffer as any).buffer || rawBuffer);
+            const isFront = facingSV.value === 'front';
+
+            if (inputDataType === 'float32') {
+               const float32 = new Float32Array(uint8.length);
+               for (let y = 0; y < modelHeight; y++) {
+                 for (let x = 0; x < modelWidth; x++) {
+                   const srcX = isFront ? (modelWidth - 1 - x) : x;
+                   const srcIdx = (y * modelWidth + srcX) * 3;
+                   const dstIdx = (y * modelWidth + x) * 3;
+                   
+                   float32[dstIdx]     = Math.fround(uint8[srcIdx] / 255.0);
+                   float32[dstIdx + 1] = Math.fround(uint8[srcIdx + 1] / 255.0);
+                   float32[dstIdx + 2] = Math.fround(uint8[srcIdx + 2] / 255.0);
+                 }
                }
-             }
-             inputBuffer = float32.buffer;
-          } else {
-             // Hỗ trợ Model INT8/UINT8: Ép kiểu nguyên và lật ảnh y hệt Float32
-             const int8Out = new Uint8Array(uint8.length);
-             for (let y = 0; y < modelHeight; y++) {
-               for (let x = 0; x < modelWidth; x++) {
-                 const srcX = isFront ? (modelWidth - 1 - x) : x;
-                 const srcIdx = (y * modelWidth + srcX) * 3;
-                 const dstIdx = (y * modelWidth + x) * 3;
-                 
-                 int8Out[dstIdx]     = uint8[srcIdx];
-                 int8Out[dstIdx + 1] = uint8[srcIdx + 1];
-                 int8Out[dstIdx + 2] = uint8[srcIdx + 2];
+               inputBuffer = float32.buffer;
+            } else {
+               const int8Out = new Uint8Array(uint8.length);
+               for (let y = 0; y < modelHeight; y++) {
+                 for (let x = 0; x < modelWidth; x++) {
+                   const srcX = isFront ? (modelWidth - 1 - x) : x;
+                   const srcIdx = (y * modelWidth + srcX) * 3;
+                   const dstIdx = (y * modelWidth + x) * 3;
+                   
+                   int8Out[dstIdx]     = uint8[srcIdx];
+                   int8Out[dstIdx + 1] = uint8[srcIdx + 1];
+                   int8Out[dstIdx + 2] = uint8[srcIdx + 2];
+                 }
                }
-             }
-             inputBuffer = int8Out.buffer;
-          }
-          
-          const outputs = tflite.runSync([inputBuffer]);
-          
-          const rawOut = outputs[0] as any;
-          // Xử lý Output dạng Ma trận 3D/2D bằng cách Flatten (làm phẳng)
-          const outputData = Array.isArray(rawOut) ? rawOut.flat(Infinity) : rawOut;
-          
-          let outputArray = outputData;
-          if (outputData && outputData.byteLength && !outputData.length) {
-            outputArray = new Float32Array(outputData);
-          }
-          if (outputArray && outputArray.length > 0) {
-            let maxIdx = 0;
-            let maxVal = outputArray[0];
-            for (let i = 1; i < outputArray.length; i++) {
-              if (outputArray[i] > maxVal) {
-                maxVal = outputArray[i];
-                maxIdx = i;
+               inputBuffer = int8Out.buffer;
+            }
+            
+            const outputs = tflite.runSync([inputBuffer]);
+            const rawOut = outputs[0] as any;
+            const outputData = Array.isArray(rawOut) ? rawOut.flat(Infinity) : rawOut;
+            
+            let outputArray = outputData;
+            if (outputData && outputData.byteLength && !outputData.length) {
+              outputArray = new Float32Array(outputData);
+            }
+            if (outputArray && outputArray.length > 0) {
+              let maxIdx = 0;
+              let maxVal = outputArray[0];
+              for (let i = 1; i < outputArray.length; i++) {
+                if (outputArray[i] > maxVal) {
+                  maxVal = outputArray[i];
+                  maxIdx = i;
+                }
+              }
+
+              if (isNaN(maxVal)) {
+                errorMsgSV.value = "Lỗi: Kết quả model trả về NaN.";
+                errorTriggerSV.value = now;
+              } else if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal)) {
+                lastDetectTimeSV.value = now;
+                detectedIdxSV.value = maxIdx;
+                detectedValSV.value = maxVal;
+                detectionTriggerSV.value = now;
               }
             }
-
-            // Báo lỗi nếu Tensor hỏng
-            if (isNaN(maxVal)) {
-              handleModelErrorJS("Lỗi: Kết quả model trả về NaN.");
-            } else if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal)) {
-              lastDetectTimeSV.value = now; // Cập nhật thời gian nhận diện tại Worklet
-              onDetectionJS(maxIdx, maxVal);
-            }
+          } finally {
+            if (resized) resized.dispose();
           }
+        } catch (e: any) {
+          console.log("[ML Live Mode Error]", e.message || e);
+          errorMsgSV.value = `Lỗi Camera Worklet: ${e.message || 'Unknown'}`;
+          errorTriggerSV.value = Date.now();
         } finally {
-          resized.dispose(); // Đảm bảo luôn được giải phóng ngay cả khi runSync throw error
+          // Giải phóng frame sau khi quá trình nền chạy xong
+          frame.dispose();
         }
-      } catch (e: any) {
-        console.log("[ML Live Mode Error]", e.message || e);
-        handleModelErrorJS(`Lỗi Camera Worklet: ${e.message || 'Unknown'}`);
-      } finally {
+      });
+
+      if (!wasHandled) {
+        // Luồng nền đang bận xử lý ảnh trước đó, bỏ qua frame hiện tại (chống đơ lag)
         frame.dispose();
       }
     }
@@ -363,12 +394,11 @@ export default function DetectionScreen({ navigation }: any) {
         false
       );
 
-      // Cho phép xử lý Video (tĩnh) sử dụng JS Thread cũ do Frame Processor không truy xuất Video trực tiếp
       const loop = async () => {
         if (!isActive) return;
         const state = scannerState.current;
 
-        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission || state.detectionMode !== 'video') {
+        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) {
           return;
         }
 
@@ -378,8 +408,8 @@ export default function DetectionScreen({ navigation }: any) {
         }
       };
 
-      if (detectionMode === 'video') {
-        timerId = setTimeout(loop, 500);
+      if (detectionMode === 'video' || detectionMode === 'live') {
+        timerId = setTimeout(loop, detectionMode === 'live' ? getInterval() : 500);
       }
     } else {
       cancelAnimation(scanAnimValue);
@@ -427,11 +457,7 @@ export default function DetectionScreen({ navigation }: any) {
 
     try {
       if (detectionMode === 'live') {
-        if (isLiveScanning) {
-          result = undefined;
-          // Frame Processor đã chạy tự động, không cần chụp thủ công trừ khi user ấn nút bằng tay (isManualClick)
-        }
-        if (camera.current && isManualClick) {
+        if (camera.current && (isManualClick || isLiveScanning)) {
           try {
             const photo = await camera.current.takeSnapshot({
               quality: 85
@@ -448,12 +474,11 @@ export default function DetectionScreen({ navigation }: any) {
             if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
               imagePath = `file://${imagePath}`;
             }
-            if (imagePath && isManualClick && storagePermission) {
-              imagePath = await saveMediaToAppStorage(imagePath);
-              setDetectionMode('picture');
-              setSelectedMedia(imagePath);
-            }
+            
             if (imagePath) {
+              if (developerDebugMode) {
+                setSnackbarMsg("Đã tự động chụp và xử lý...");
+              }
               result = runDetection(imagePath, facing, true);
             } else {
               result = { success: false, message: "Lỗi Camera: Không thể lưu file ảnh tạm." };
