@@ -7,10 +7,12 @@ import { useLearningStore, Word } from '../store/useLearningStore';
 import WordChip from '../components/WordChip';
 import { ROUTES } from '../../../constants/routes';
 import { usePackDetailLogic } from '../hooks/usePackDetailLogic';
+import { useTranslation } from 'react-i18next';
 
 export default function PackDetailScreen({ route, navigation }: any) {
   const { packId } = route.params || {};
   const theme = useTheme();
+  const { t } = useTranslation();
   
   const {
     pack, progress, selectedWord, setSelectedWord, imageError, setImageError,
@@ -34,20 +36,20 @@ export default function PackDetailScreen({ route, navigation }: any) {
           style={styles.headerGradient}
         >
           <Text variant="headlineMedium" style={{ color: 'white', fontWeight: 'bold' }}>{pack.name}</Text>
-          <Text variant="bodyMedium" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>Progress: {Math.round((progress || 0) * 100)}%</Text>
+          <Text variant="bodyMedium" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{t('learning.progress')}: {Math.round((progress || 0) * 100)}%</Text>
           <ProgressBar progress={progress || 0} style={styles.progressBar} color="white" />
         </LinearGradient>
 
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Vocabulary</Text>
+          <Text variant="titleLarge" style={styles.sectionTitle}>{t('learning.vocabulary')}</Text>
           
           <SegmentedButtons
             value={filterMode}
             onValueChange={(val) => setFilterMode(val as any)}
             buttons={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'learned', label: 'Đã học' },
-              { value: 'unlearned', label: 'Chưa học' },
+              { value: 'all', label: t('learning.all') },
+              { value: 'learned', label: t('learning.learned') },
+              { value: 'unlearned', label: t('learning.unlearned') },
             ]}
             style={{ marginBottom: 16 }}
           />
@@ -62,28 +64,28 @@ export default function PackDetailScreen({ route, navigation }: any) {
               />
             ))}
             {filteredWords.length === 0 && (
-              <Text style={{ color: 'gray', fontStyle: 'italic', padding: 8 }}>Không có từ nào trong mục này.</Text>
+              <Text style={{ color: 'gray', fontStyle: 'italic', padding: 8 }}>{t('learning.noWordsInThisCategory')}</Text>
             )}
           </View>
-          <Text variant="bodySmall" style={styles.hint}>Chạm để xem chi tiết, nhấn giữ để đánh dấu đã học.</Text>
+          <Text variant="bodySmall" style={styles.hint}>{t('learning.tapToViewHint')}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Practice & Test</Text>
+          <Text variant="titleLarge" style={styles.sectionTitle}>{t('learning.practiceAndTest')}</Text>
           <Card style={styles.card} mode="elevated">
-            <Card.Title title="Interactive Learning" subtitle="Learn new signs step-by-step" />
+            <Card.Title title={t('learning.interactiveLearning')} subtitle={t('learning.learnNewSigns')} />
             <Card.Actions>
               <Button mode="contained" onPress={() => navigation.navigate(ROUTES.PRACTICE, { packId })}>
-                Start Learning
+                {t('learning.startLearning')}
               </Button>
             </Card.Actions>
           </Card>
 
           <Card style={styles.card} mode="elevated">
-            <Card.Title title="Time Attack" subtitle="Sign as many words as possible" />
+            <Card.Title title={t('learning.timeAttack')} subtitle={t('learning.signAsMany')} />
             <Card.Actions>
               <Button mode="outlined" onPress={() => navigation.navigate(ROUTES.TEST_CONFIG, { packId })}>
-                Setup Test
+                {t('learning.setupTest')}
               </Button>
             </Card.Actions>
           </Card>
@@ -113,7 +115,7 @@ export default function PackDetailScreen({ route, navigation }: any) {
                   />
                 ) : (
                   <View style={styles.imagePlaceholder}>
-                    <Text variant="bodyLarge" style={{ color: 'gray' }}>No demo image available</Text>
+                    <Text variant="bodyLarge" style={{ color: 'gray' }}>{t('learning.noDemoImage')}</Text>
                   </View>
                 )}
               </Card>
@@ -134,7 +136,7 @@ export default function PackDetailScreen({ route, navigation }: any) {
                     navigation.navigate(ROUTES.PRACTICE, { packId, wordId: selectedWord.id });
                   }}
                 >
-                  Practice Now
+                  {t('learning.practiceNow')}
                 </Button>
               </View>
             </View>

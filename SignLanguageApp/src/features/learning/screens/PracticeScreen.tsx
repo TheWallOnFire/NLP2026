@@ -11,10 +11,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLearningStore } from '../store/useLearningStore';
 import DebugOverlay from '../../detection/components/DebugOverlay';
 import { usePracticeLogic } from '../hooks/usePracticeLogic';
+import { useTranslation } from 'react-i18next';
 
 export default function PracticeScreen({ route, navigation }: any) {
   const { packId, wordId } = route.params || {};
   const theme = useTheme();
+  const { t } = useTranslation();
   
   const words = useLearningStore(state => state.packWords[packId]) || [];
   const markLearned = useLearningStore(state => state.markLearned);
@@ -46,9 +48,9 @@ export default function PracticeScreen({ route, navigation }: any) {
   if (!currentWord) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="headlineMedium">No words to practice!</Text>
+        <Text variant="headlineMedium">{t('learning.noWordsToPractice')}</Text>
         <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
-          Go Back
+          {t('learning.goBack')}
         </Button>
       </View>
     );
@@ -57,8 +59,8 @@ export default function PracticeScreen({ route, navigation }: any) {
   if (!hasPermission) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="titleMedium" style={{ marginBottom: 16 }}>We need camera permission to practice.</Text>
-        <Button mode="contained" onPress={async () => await requestPermission()}>Grant Permission</Button>
+        <Text variant="titleMedium" style={{ marginBottom: 16 }}>{t('learning.cameraPermissionNeeded')}</Text>
+        <Button mode="contained" onPress={async () => await requestPermission()}>{t('learning.grantPermission')}</Button>
       </View>
     );
   }
@@ -67,14 +69,14 @@ export default function PracticeScreen({ route, navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={`Practice: ${currentWord.word}`} />
+        <Appbar.Content title={t('learning.practiceTitle', { word: currentWord.word })} />
         <Appbar.Action icon="bug" onPress={() => { setDebugData(getDebugInfo()); setIsDebugDialogOpen(true); }} />
       </Appbar.Header>
 
       <View style={styles.header}>
         <Text variant="headlineLarge" style={styles.wordTitle}>{currentWord.word}</Text>
         <View style={styles.progressPill}>
-          <Text style={styles.progressText}>Word {currentIndex + 1} of {practiceWords.length}</Text>
+          <Text style={styles.progressText}>{t('learning.wordCountOf', { current: currentIndex + 1, total: practiceWords.length })}</Text>
         </View>
       </View>
 
@@ -117,7 +119,7 @@ export default function PracticeScreen({ route, navigation }: any) {
           />
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
-            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>Live Feed</Text>
+            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>{t('learning.liveFeed')}</Text>
           </View>
         </View>
       </View>
@@ -131,7 +133,7 @@ export default function PracticeScreen({ route, navigation }: any) {
             disabled={isProcessing || !isModelReady}
             icon="image"
           >
-            Ảnh
+            {t('learning.photo')}
           </Button>
 
           <Button 
@@ -142,7 +144,7 @@ export default function PracticeScreen({ route, navigation }: any) {
             disabled={isProcessing || !isModelReady}
             icon={() => <CheckCircle size={20} color="white" />}
           >
-            Kiểm tra
+            {t('learning.check')}
           </Button>
 
           <Button 
@@ -151,7 +153,7 @@ export default function PracticeScreen({ route, navigation }: any) {
             style={styles.actionButton}
             icon={() => <SkipForward size={20} color={theme.colors.primary} />}
           >
-            Bỏ qua
+            {t('learning.skip')}
           </Button>
         </View>
         {isProcessing && (

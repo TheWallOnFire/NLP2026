@@ -19,6 +19,7 @@ import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import { useTheme } from 'react-native-paper';
+import i18n from '../../../core/i18n';
 
 const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
   try {
@@ -322,11 +323,11 @@ export function useDetectionLogic(navigation: any) {
 
   const handleManualScan = async (overrideUri?: string | null, isManualClick: boolean = false) => {
     if (!activePackId) {
-      if (isManualClick) Alert.alert("Lỗi", "Vui lòng chọn bộ từ vựng (Model) trước.");
+      if (isManualClick) Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectModelFirst'));
       return;
     }
     if (!isModelReady) {
-      if (isManualClick) Alert.alert("Chưa sẵn sàng", "Model chưa được tải xong, vui lòng đợi thêm chút...");
+      if (isManualClick) Alert.alert(i18n.t('detection.modelNotReady'), i18n.t('detection.modelNotReady'));
       return;
     }
     setIsProcessing(true);
@@ -383,10 +384,10 @@ export function useDetectionLogic(navigation: any) {
 
       if (isManualClick && result) {
         if (result.success) setSnackbarMsg(result.message);
-        else Alert.alert("Từ chối", result.message);
+        else Alert.alert(i18n.t('detection.denied'), result.message);
       }
     } catch (e: any) {
-      if (isManualClick) Alert.alert("Lỗi quá trình quét", e.message || String(e));
+      if (isManualClick) Alert.alert(i18n.t('detection.scanError'), e.message || String(e));
     } finally {
       setIsProcessing(false);
     }
@@ -440,14 +441,14 @@ export function useDetectionLogic(navigation: any) {
   const onPressManualScan = async () => {
     if ((detectionMode === 'live' || detectionMode === 'video') && detectionSpeed !== 'off') {
       if (detectionMode === 'video' && !selectedMedia) {
-        Alert.alert("Lỗi", "Vui lòng chọn video trước khi quét.");
+        Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectVideoFirst'));
         return;
       }
       if (detectionMode === 'video' && !isLiveScanning) {
         Alert.alert(
-          "Xác nhận phân tích Video",
-          "Hệ thống sẽ trích xuất khung hình từ video để nhận dạng.\nThời gian xử lý: ~500ms - 2s.\nBạn có muốn bắt đầu không?",
-          [
+        i18n.t('detection.confirmVideoAnalysis'),
+        i18n.t('detection.confirmVideoAnalysisDesc'),
+        [
             { text: "Hủy", style: "cancel" },
             { text: "Bắt đầu", onPress: () => setIsLiveScanning(true) }
           ]
@@ -458,9 +459,9 @@ export function useDetectionLogic(navigation: any) {
     } else {
       if (detectionMode === 'picture' && selectedMedia) {
         Alert.alert(
-          "Xác nhận phân tích Ảnh",
-          "Hình ảnh đã được chọn.\nKích thước chuẩn: 224x224 RGB.\nThời gian xử lý: ~500ms - 2s.\nBạn có muốn phân tích không?",
-          [
+        i18n.t('detection.confirmImageAnalysis'),
+        i18n.t('detection.confirmImageAnalysisDesc'),
+        [
             { text: "Hủy", style: "cancel" },
             { text: "Nhận dạng", onPress: () => handleManualScan(null, true) }
           ]
@@ -560,7 +561,8 @@ export function useDetectionLogic(navigation: any) {
       setSnackbarMsg("Tải thành công! Bắt đầu quét...");
       await handleManualScan(uri, true);
     } catch (err: any) {
-      Alert.alert("Lỗi tải ảnh", err.message || "Không thể tải ảnh.");
+      console.warn("Lỗi chọn ảnh:", err);
+      Alert.alert(i18n.t('detection.imageLoadError'), err.message || i18n.t('detection.imageLoadError'));
     } finally {
       setIsProcessing(false);
     }
@@ -570,15 +572,18 @@ export function useDetectionLogic(navigation: any) {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: false });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const fileUri = result.assets[0].uri;
-        const fileName = result.assets[0].name;
-        if (fileName.includes('..') || fileName.includes('/')) return Alert.alert("Security Error", "Invalid file name.");
-        if (fileName.endsWith('.tflite')) {
-          setCustomModelUri(fileUri);
-          Alert.alert("Success", "Custom TFLite model loaded successfully!");
-        } else {
-          Alert.alert("Invalid File", "Please select a valid .tflite model file.");
-        }
+        try {
+        const file = result.assets[0];
+        const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
+        if (fileName.includes('..') || fileName.includes('/')) return Alert.alert(i18n.t('detection.securityError'), i18n.t('detection.invalidFileName'));
+
+        const targetPath = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.copyAsync({ from: file.uri, to: targetPath });
+        setCustomModelUri(targetPath);
+        Alert.alert(i18n.t('detection.success'), i18n.t('detection.customModelSuccess'));
+      } catch (err) {
+        Alert.alert(i18n.t('detection.invalidFile'), i18n.t('detection.invalidTflite'));
+      }
       }
     } catch (err) { console.error("Failed to pick model", err); }
   };

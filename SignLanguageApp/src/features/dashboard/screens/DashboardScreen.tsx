@@ -4,11 +4,13 @@ import { Text, Card, Button, useTheme, Avatar, List, IconButton } from 'react-na
 import { ROUTES } from '../../../constants/routes';
 import { LayoutGrid, Camera, GraduationCap, History as HistoryIcon, TrendingUp, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import { useDashboardLogic } from '../hooks/useDashboardLogic';
 
 export default function DashboardScreen({ navigation }: any) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const {
     profile, refreshing, onRefresh, downloadedPacks, stats, recentHistory, packWords
   } = useDashboardLogic();
@@ -23,8 +25,8 @@ export default function DashboardScreen({ navigation }: any) {
       {/* Header Profile Section */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text variant="headlineMedium" style={styles.welcomeText}>Hello, {profile?.name?.split(' ')[0] || 'User'}!</Text>
-          <Text variant="bodyLarge" style={{ opacity: 0.7 }}>Ready to master some new signs today?</Text>
+          <Text variant="headlineMedium" style={styles.welcomeText}>{t('dashboard.hello')}, {profile?.name?.split(' ')[0] || t('dashboard.user')}!</Text>
+          <Text variant="bodyLarge" style={{ opacity: 0.7 }}>{t('dashboard.readyToMaster')}</Text>
         </View>
         <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
       </View>
@@ -40,7 +42,7 @@ export default function DashboardScreen({ navigation }: any) {
         >
           <View style={styles.progressHeader}>
             <View>
-              <Text variant="titleMedium" style={{ color: 'rgba(255,255,255,0.8)' }}>Overall Progress</Text>
+              <Text variant="titleMedium" style={{ color: 'rgba(255,255,255,0.8)' }}>{t('dashboard.overallProgress')}</Text>
               <Text variant="displaySmall" style={{ color: 'white', fontWeight: 'bold' }}>
                 {Math.round(stats.progress * 100)}%
               </Text>
@@ -50,11 +52,11 @@ export default function DashboardScreen({ navigation }: any) {
           <View style={styles.statRow}>
             <View>
               <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.learned}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Learned</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{t('dashboard.learned')}</Text>
             </View>
             <View>
               <Text style={{ color: 'white', fontWeight: 'bold' }}>{stats.total}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Total Words</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{t('dashboard.totalWords')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -62,7 +64,7 @@ export default function DashboardScreen({ navigation }: any) {
 
       {/* Quick Actions Grid */}
       <View style={styles.section}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>Quick Actions</Text>
+        <Text variant="titleLarge" style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         <View style={styles.actionGrid}>
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.secondaryContainer }]}
@@ -71,7 +73,7 @@ export default function DashboardScreen({ navigation }: any) {
             accessibilityRole="button"
           >
             <Camera color={theme.colors.onSecondaryContainer} size={28} />
-            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSecondaryContainer }}>Detection</Text>
+            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSecondaryContainer }}>{t('dashboard.detection')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -81,7 +83,7 @@ export default function DashboardScreen({ navigation }: any) {
             accessibilityRole="button"
           >
             <GraduationCap color={theme.colors.onTertiaryContainer} size={28} />
-            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onTertiaryContainer }}>Learn</Text>
+            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onTertiaryContainer }}>{t('dashboard.learn')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -91,7 +93,7 @@ export default function DashboardScreen({ navigation }: any) {
             accessibilityRole="button"
           >
             <HistoryIcon color={theme.colors.onSurfaceVariant} size={28} />
-            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>History</Text>
+            <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>{t('dashboard.history')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -99,8 +101,8 @@ export default function DashboardScreen({ navigation }: any) {
       {/* Recent Activity */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Recent Activity</Text>
-          <Button mode="text" compact onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}>View All</Button>
+          <Text variant="titleLarge" style={styles.sectionTitle}>{t('dashboard.recentActivity')}</Text>
+          <Button mode="text" compact onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}>{t('dashboard.viewAll')}</Button>
         </View>
         
         {recentHistory.length > 0 ? (
@@ -126,9 +128,9 @@ export default function DashboardScreen({ navigation }: any) {
         ) : (
           <Card mode="contained" style={styles.emptyCard}>
             <Card.Content>
-              <Text style={styles.emptyText}>No recent activity yet. Start detection or learning to see your progress here!</Text>
+              <Text style={styles.emptyText}>{t('dashboard.noRecentActivity')}</Text>
               <Button mode="contained-tonal" onPress={() => navigation.navigate(ROUTES.DETECTION)} style={{ marginTop: 8 }}>
-                Try Detection
+                {t('dashboard.tryDetection')}
               </Button>
             </Card.Content>
           </Card>
@@ -137,7 +139,7 @@ export default function DashboardScreen({ navigation }: any) {
 
       {/* My Active Packs */}
       <View style={styles.section}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>Continue Learning</Text>
+        <Text variant="titleLarge" style={styles.sectionTitle}>{t('dashboard.continueLearning')}</Text>
         {downloadedPacks.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packsScroll}>
             {downloadedPacks.map(pack => {
@@ -165,9 +167,9 @@ export default function DashboardScreen({ navigation }: any) {
         ) : (
           <Card mode="contained" style={styles.emptyCard}>
             <Card.Content>
-              <Text style={styles.emptyText}>You haven't added any learning packs yet.</Text>
+              <Text style={styles.emptyText}>{t('dashboard.noLearningPacks')}</Text>
               <Button mode="contained-tonal" onPress={() => navigation.navigate(ROUTES.LEARNING_TAB)} style={{ marginTop: 8 }}>
-                Browse Library
+                {t('dashboard.browseLibrary')}
               </Button>
             </Card.Content>
           </Card>

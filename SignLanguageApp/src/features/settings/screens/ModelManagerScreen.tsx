@@ -3,9 +3,11 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, useTheme, SegmentedButtons, IconButton, Searchbar, ActivityIndicator } from 'react-native-paper';
 import { useModelManagerLogic } from '../hooks/useModelManagerLogic';
 import ModelPackItem from '../components/ModelPackItem';
+import { useTranslation } from 'react-i18next';
 
 export default function ModelManagerScreen({ navigation }: any) {
   const theme = useTheme();
+  const { t } = useTranslation();
   
   const {
     viewMode, setViewMode,
@@ -22,10 +24,10 @@ export default function ModelManagerScreen({ navigation }: any) {
       <View style={styles.headerToolbar}>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
-            <Text variant="titleMedium" style={{flex: 1, fontWeight: 'bold'}}>Model Manager</Text>
+            <Text variant="titleMedium" style={{flex: 1, fontWeight: 'bold'}}>{t('settings.modelManager')}</Text>
         </View>
         <Searchbar
-          placeholder="Search packs..."
+          placeholder={t('settings.searchPacks')}
           onChangeText={onChangeSearch}
           value={searchQuery}
           style={styles.searchBar}
@@ -37,8 +39,8 @@ export default function ModelManagerScreen({ navigation }: any) {
             onValueChange={(v: any) => { setMainTab(v); setCurrentPage(1); }}
             style={styles.mainTabs}
             buttons={[
-              { value: 'my-packs', icon: 'bookmark', label: 'My Packs' },
-              { value: 'explore', icon: 'compass', label: 'Explore' },
+              { value: 'my-packs', icon: 'bookmark', label: t('settings.myPacks') },
+              { value: 'explore', icon: 'compass', label: t('settings.explore') },
             ]}
           />
           {mainTab === 'explore' && (
@@ -66,21 +68,21 @@ export default function ModelManagerScreen({ navigation }: any) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="titleMedium" style={styles.sectionTitle}>
-              {mainTab === 'my-packs' ? 'Currently Learning' : 'Available Library'}
+              {mainTab === 'my-packs' ? t('learning.currentlyLearning') : t('settings.availableLibrary')}
             </Text>
             {totalPages > 1 && (
-              <Text variant="labelSmall">Page {currentPage} of {totalPages}</Text>
+              <Text variant="labelSmall">{t('learning.pageOf', { current: currentPage, total: totalPages })}</Text>
             )}
           </View>
 
           {currentPacks.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text variant="bodyLarge" style={{ opacity: 0.5 }}>
-                {mainTab === 'my-packs' ? 'No packs downloaded yet.' : 'No more packs to explore.'}
+              <Text variant="bodyLarge" style={{ opacity: 0.5, textAlign: 'center' }}>
+                {mainTab === 'my-packs' ? t('learning.noPacksDownloaded') : t('settings.noPacksExplore')}
               </Text>
               {mainTab === 'my-packs' && (
                 <Button mode="contained" onPress={() => setMainTab('explore')} style={{ marginTop: 16 }}>
-                  Explore Library
+                  {t('settings.exploreLibrary')}
                 </Button>
               )}
             </View>

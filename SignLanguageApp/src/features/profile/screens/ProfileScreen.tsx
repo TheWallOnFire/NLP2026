@@ -6,9 +6,11 @@ import { ROUTES } from '../../../constants/routes';
 import { History, ChevronRight, Edit2, Check, X, Info, MapPin, Globe, Dot, User as UserIcon, Briefcase, Heart, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu } from 'lucide-react-native';
 import HistoryTimelineItem from '../../history/components/HistoryTimelineItem';
 import { useProfileLogic } from '../hooks/useProfileLogic';
+import { useTranslation } from 'react-i18next';
 
 export default function ProfileScreen({ navigation }: any) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const {
     profile, editedProfile, setEditedProfile, isEditing, setIsEditing,
     learnedCount, favoriteCount, history, handleSave, handleCancel, confirmClearHistory
@@ -61,7 +63,7 @@ export default function ProfileScreen({ navigation }: any) {
         ) : (
           <View style={styles.editForm}>
             <TextInput
-              label="Full Name"
+              label={t('profile.fullName')}
               value={editedProfile.name}
               onChangeText={text => setEditedProfile({ ...editedProfile, name: text })}
               mode="flat"
@@ -69,7 +71,7 @@ export default function ProfileScreen({ navigation }: any) {
               dense
             />
             <TextInput
-              label="Email"
+              label={t('profile.email')}
               value={editedProfile.email}
               onChangeText={text => setEditedProfile({ ...editedProfile, email: text })}
               mode="flat"
@@ -77,8 +79,8 @@ export default function ProfileScreen({ navigation }: any) {
               dense
             />
             <View style={styles.editActions}>
-              <Button mode="elevated" onPress={handleCancel} style={styles.actionBtn}>Cancel</Button>
-              <Button mode="contained" onPress={handleSave} style={[styles.actionBtn, {backgroundColor: theme.colors.secondary}]}>Save</Button>
+              <Button mode="elevated" onPress={handleCancel} style={styles.actionBtn}>{t('profile.cancel')}</Button>
+              <Button mode="contained" onPress={handleSave} style={[styles.actionBtn, {backgroundColor: theme.colors.secondary}]}>{t('profile.save')}</Button>
             </View>
           </View>
         )}
@@ -86,25 +88,25 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={styles.statNumber}>{learnedCount}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>Learned</Text>
+            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.learned')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={styles.statNumber}>{favoriteCount}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>Favorites</Text>
+            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.favorites')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={styles.statNumber}>{history.length}</Text>
-            <Text variant="labelSmall" style={styles.statLabel}>Detections</Text>
+            <Text variant="labelSmall" style={styles.statLabel}>{t('profile.detections')}</Text>
           </View>
         </View>
       </LinearGradient>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>Hoạt động gần đây</Text>
-          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>Xóa</Button>
+          <Text variant="titleLarge" style={styles.sectionTitle}>{t('profile.recentActivity')}</Text>
+          <Button mode="text" textColor="red" onPress={confirmClearHistory} disabled={history.length === 0}>{t('profile.clear')}</Button>
         </View>
 
         {history.length > 0 ? (
@@ -114,13 +116,13 @@ export default function ProfileScreen({ navigation }: any) {
         ) : (
           <Card mode="contained" style={styles.activityCard}>
             <Card.Content>
-              <Text style={{ textAlign: 'center', opacity: 0.5 }}>No recent activity recorded.</Text>
+              <Text style={{ textAlign: 'center', opacity: 0.5 }}>{t('profile.noRecentActivity')}</Text>
             </Card.Content>
           </Card>
         )}
         {history.length > 0 && (
           <Button mode="outlined" style={{ marginTop: 8 }} onPress={() => navigation.navigate(ROUTES.HISTORY)}>
-            Xem toàn bộ lịch sử
+            {t('profile.viewFullHistory')}
           </Button>
         )}
       </View>

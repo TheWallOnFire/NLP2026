@@ -4,9 +4,11 @@ import { Text, useTheme, Button, Chip, Portal, Modal, IconButton } from 'react-n
 import { Filter } from 'lucide-react-native';
 import { useHistoryStore } from '../store/useHistoryStore';
 import HistoryTimelineItem from '../components/HistoryTimelineItem';
+import { useTranslation } from 'react-i18next';
 
 export default function HistoryScreen() {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { history, clearHistory } = useHistoryStore();
   const [filterType, setFilterType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('time_desc');
@@ -48,11 +50,11 @@ export default function HistoryScreen() {
 
   const confirmClearHistory = () => {
     Alert.alert(
-      "Xóa lịch sử",
-      "Bạn có chắc chắn muốn xóa toàn bộ lịch sử hoạt động? Hành động này không thể hoàn tác.",
+      t('history.clearConfirmTitle'),
+      t('history.clearConfirmDesc'),
       [
-        { text: "Hủy", style: "cancel" },
-        { text: "Xóa", style: "destructive", onPress: clearHistory }
+        { text: t('history.cancel'), style: "cancel" },
+        { text: t('history.clearAction'), style: "destructive", onPress: clearHistory }
       ]
     );
   };
@@ -60,37 +62,37 @@ export default function HistoryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text variant="titleMedium">Toàn bộ lịch sử</Text>
+        <Text variant="titleMedium">{t('history.title')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <IconButton icon={() => <Filter size={20} color={theme.colors.primary} />} onPress={() => setIsFilterVisible(true)} />
           <Button mode="text" onPress={confirmClearHistory} disabled={history.length === 0} textColor="red">
-            Xóa
+            {t('history.clear')}
           </Button>
         </View>
       </View>
 
       <Portal>
         <Modal visible={isFilterVisible} onDismiss={() => setIsFilterVisible(false)} contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
-          <Text variant="titleLarge" style={{ marginBottom: 16, fontWeight: 'bold' }}>Bộ lọc Lịch sử</Text>
+          <Text variant="titleLarge" style={{ marginBottom: 16, fontWeight: 'bold' }}>{t('history.filterTitle')}</Text>
           
-          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>Lọc theo:</Text>
+          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>{t('history.filterBy')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
-            <Chip selected={filterType === 'all'} onPress={() => setFilterType('all')} style={styles.chip}>Tất cả</Chip>
-            <Chip selected={filterType === 'detection'} onPress={() => setFilterType('detection')} style={styles.chip}>Nhận diện</Chip>
-            <Chip selected={filterType === 'learning'} onPress={() => setFilterType('learning')} style={styles.chip}>Học tập</Chip>
-            <Chip selected={filterType === 'test'} onPress={() => setFilterType('test')} style={styles.chip}>Bài tập</Chip>
+            <Chip selected={filterType === 'all'} onPress={() => setFilterType('all')} style={styles.chip}>{t('history.all')}</Chip>
+            <Chip selected={filterType === 'detection'} onPress={() => setFilterType('detection')} style={styles.chip}>{t('history.detection')}</Chip>
+            <Chip selected={filterType === 'learning'} onPress={() => setFilterType('learning')} style={styles.chip}>{t('history.learning')}</Chip>
+            <Chip selected={filterType === 'test'} onPress={() => setFilterType('test')} style={styles.chip}>{t('history.test')}</Chip>
           </ScrollView>
 
-          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>Sắp xếp:</Text>
+          <Text variant="labelMedium" style={{ marginBottom: 8, opacity: 0.7 }}>{t('history.sortBy')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24, maxHeight: 40 }}>
-            <Chip selected={sortBy === 'time_desc'} onPress={() => setSortBy('time_desc')} style={styles.chip}>Mới nhất</Chip>
-            <Chip selected={sortBy === 'time_asc'} onPress={() => setSortBy('time_asc')} style={styles.chip}>Cũ nhất</Chip>
-            <Chip selected={sortBy === 'count_desc'} onPress={() => setSortBy('count_desc')} style={styles.chip}>Nhiều từ nhất</Chip>
-            <Chip selected={sortBy === 'name_asc'} onPress={() => setSortBy('name_asc')} style={styles.chip}>Tên A-Z</Chip>
+            <Chip selected={sortBy === 'time_desc'} onPress={() => setSortBy('time_desc')} style={styles.chip}>{t('history.newest')}</Chip>
+            <Chip selected={sortBy === 'time_asc'} onPress={() => setSortBy('time_asc')} style={styles.chip}>{t('history.oldest')}</Chip>
+            <Chip selected={sortBy === 'count_desc'} onPress={() => setSortBy('count_desc')} style={styles.chip}>{t('history.mostWords')}</Chip>
+            <Chip selected={sortBy === 'name_asc'} onPress={() => setSortBy('name_asc')} style={styles.chip}>{t('history.nameAZ')}</Chip>
           </ScrollView>
 
           <Button mode="contained" onPress={() => setIsFilterVisible(false)} style={{ borderRadius: 8 }}>
-            Xong
+            {t('history.done')}
           </Button>
         </Modal>
       </Portal>
@@ -100,7 +102,7 @@ export default function HistoryScreen() {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20 }}>Không tìm thấy lịch sử.</Text>}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20 }}>{t('history.noHistory')}</Text>}
       />
     </View>
   );

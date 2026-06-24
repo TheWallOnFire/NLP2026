@@ -4,9 +4,11 @@ import { Text, Button, useTheme, Card, SegmentedButtons, Appbar } from 'react-na
 import { useModelStore } from '../store/useModelStore';
 import { ROUTES } from '../../../constants/routes';
 import { triggerSelectionFeedback } from '../../../utils/feedback';
+import { useTranslation } from 'react-i18next';
 
 export default function TestConfigScreen({ route, navigation }: any) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { packId: initialPackId } = route.params || {};
   const { packs } = useModelStore();
   
@@ -30,13 +32,13 @@ export default function TestConfigScreen({ route, navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Test Setup" />
+        <Appbar.Content title={t('learning.testSetup')} />
       </Appbar.Header>
 
       <View style={styles.content}>
         <Card style={styles.card} mode="outlined">
           <Card.Content>
-            <Text variant="titleMedium" style={styles.label}>Select Pack</Text>
+            <Text variant="titleMedium" style={styles.label}>{t('learning.selectPack')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packSelector}>
               {downloadedPacks.map(pack => (
                 <Button 
@@ -50,7 +52,7 @@ export default function TestConfigScreen({ route, navigation }: any) {
               ))}
             </ScrollView>
 
-            <Text variant="titleMedium" style={[styles.label, { marginTop: 20 }]}>Test Duration</Text>
+            <Text variant="titleMedium" style={[styles.label, { marginTop: 20 }]}>{t('learning.testDuration')}</Text>
             <SegmentedButtons
               value={duration}
               onValueChange={setDuration}
@@ -61,22 +63,22 @@ export default function TestConfigScreen({ route, navigation }: any) {
               ]}
             />
 
-            <Text variant="titleMedium" style={[styles.label, { marginTop: 20 }]}>Test Mode</Text>
+            <Text variant="titleMedium" style={[styles.label, { marginTop: 20 }]}>{t('learning.testMode')}</Text>
             <SegmentedButtons
               value={mode}
               onValueChange={setMode}
               buttons={[
-                { value: 'random', label: 'Random' },
-                { value: 'new', label: 'New Words' },
-                { value: 'weak', label: 'Weak Areas' },
+                { value: 'random', label: t('learning.random') },
+                { value: 'new', label: t('learning.newWords') },
+                { value: 'weak', label: t('learning.weakAreas') },
               ]}
             />
           </Card.Content>
         </Card>
 
         <View style={styles.summary}>
-          <Text variant="bodyLarge">Target: {selectedPack?.name}</Text>
-          <Text variant="bodyMedium" style={{ color: 'gray' }}>{selectedPack?.wordCount} potential signs to test</Text>
+          <Text variant="bodyLarge">{t('learning.target')}: {selectedPack?.name}</Text>
+          <Text variant="bodyMedium" style={{ color: 'gray' }}>{selectedPack?.wordCount} {t('learning.potentialSigns')}</Text>
         </View>
 
         <Button 
@@ -86,7 +88,7 @@ export default function TestConfigScreen({ route, navigation }: any) {
           contentStyle={{ height: 56 }}
           labelStyle={{ fontSize: 18 }}
         >
-          Start Test
+          {t('learning.startTestTitle')}
         </Button>
       </View>
     </View>

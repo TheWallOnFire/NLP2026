@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text, Card, Button, ProgressBar, Badge, IconButton } from 'react-native-paper';
 import { ModelPack } from '../../learning/store/useModelStore';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 16;
@@ -22,6 +23,7 @@ interface ModelPackItemProps {
 export default function ModelPackItem({
   item, mode, theme, packWords, validationMap, mainTab, onOpen, onDownload, onDelete
 }: ModelPackItemProps) {
+  const { t } = useTranslation();
   let progress = 0;
   try {
     const words = packWords[item.id] || [];
@@ -35,8 +37,8 @@ export default function ModelPackItem({
 
   const categoryInitial = item?.category ? item.category[0] : '?';
   const wordCount = item?.wordCount || 0;
-  const name = item?.name || 'Unknown Pack';
-  const description = item?.description || 'No description available.';
+  const name = item?.name || t('settings.unknownPack');
+  const description = item?.description || t('settings.noDescription');
 
   const isValidated = validationMap[item.id] !== undefined;
   const isValid = validationMap[item.id] === true;
@@ -67,7 +69,7 @@ export default function ModelPackItem({
             )}
           </View>
           <Text variant="titleSmall" numberOfLines={1} style={[styles.gridTitle, { textDecorationLine: isDisabled ? 'line-through' : 'none' }]}>{name}</Text>
-          <Text variant="bodySmall" style={styles.gridSubtitle}>{isDisabled ? 'Invalid Content' : `${wordCount} signs`}</Text>
+          <Text variant="bodySmall" style={styles.gridSubtitle}>{isDisabled ? t('settings.invalidContent') : `${wordCount} ${t('settings.signs')}`}</Text>
 
           {item.isDownloaded ? (
             <View style={styles.gridProgressContainer}>
@@ -83,7 +85,7 @@ export default function ModelPackItem({
               labelStyle={{ fontSize: 10 }}
               disabled={isDisabled}
             >
-              {isDisabled ? 'Locked' : 'Get'}
+              {isDisabled ? t('settings.locked') : t('settings.get')}
             </Button>
           )}
         </View>
@@ -102,7 +104,7 @@ export default function ModelPackItem({
         <View style={styles.listMainInfo}>
           <Text variant="titleMedium" style={{ textDecorationLine: isDisabled ? 'line-through' : 'none' }}>{name}</Text>
           <Text variant="bodySmall" numberOfLines={1} style={{ color: isDisabled ? theme.colors.error : 'gray' }}>
-            {isDisabled ? 'Error: Data structure is invalid or missing' : description}
+            {isDisabled ? t('settings.errorDataStructure') : description}
           </Text>
         </View>
 
@@ -123,7 +125,7 @@ export default function ModelPackItem({
             </View>
           ) : (
             <Button mode="contained-tonal" compact onPress={() => onDownload(item)} disabled={isDisabled}>
-              {isDisabled ? 'Locked' : 'Get'}
+              {isDisabled ? t('settings.locked') : t('settings.get')}
             </Button>
           )}
         </View>

@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import * as FileSystem from 'expo-file-system/legacy';
 import { prepareImageForModel, convertPixelsToInputData } from '../utils/imageProcessor';
 import { parseInferenceOutput } from '../utils/modelOutputParser';
+import i18n from '../../../core/i18n';
 
 export function useSignLanguageModel(
   onDetection: (index: number, confidence: number) => void,
@@ -63,7 +64,7 @@ export function useSignLanguageModel(
       } catch (cpuError: any) {
         console.error("Fast TFLite Load Error:", cpuError);
         if (isMounted && urlToLoad === customModelUri) {
-          Alert.alert("Lỗi tải Model", "Tệp Model bạn vừa chọn không đúng định dạng .tflite chuẩn hoặc bị hỏng.");
+          Alert.alert(i18n.t('detection.modelLoadError'), i18n.t('detection.corruptedModel'));
         }
       }
     };
@@ -141,7 +142,7 @@ export function useSignLanguageModel(
       if (isMountedRef.current) {
         if (onError) onError(`Lỗi Model: ${errMsg}`);
         if (developerDebugMode) {
-          Alert.alert("ML Inference Error", errMsg);
+          Alert.alert(i18n.t('detection.mlInferenceError'), errMsg);
         }
       }
     } finally {

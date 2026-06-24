@@ -6,6 +6,7 @@ import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useUserStore } from '../../profile/store/useUserStore';
+import i18n from '../../../core/i18n';
 
 export function useDashboardLogic() {
   const packs = useModelStore(state => state.packs);
@@ -38,11 +39,11 @@ export function useDashboardLogic() {
       const onBackPress = () => {
         if (!isFocused) return false;
         Alert.alert(
-          'Exit App',
-          'Are you sure you want to exit?',
+          i18n.t('dashboard.exitApp'),
+          i18n.t('dashboard.exitConfirm'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
+            { text: i18n.t('dashboard.cancel'), style: 'cancel' },
+            { text: i18n.t('dashboard.exit'), style: 'destructive', onPress: () => BackHandler.exitApp() }
           ],
           { cancelable: true }
         );

@@ -5,10 +5,12 @@ import { Text, Button, useTheme, IconButton, Snackbar, ActivityIndicator } from 
 import { CheckCircle } from 'lucide-react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { useTestLogic } from '../hooks/useTestLogic';
+import { useTranslation } from 'react-i18next';
 
 export default function TestScreen({ route, navigation }: any) {
   const { packId, duration, mode } = route.params || {};
   const theme = useTheme();
+  const { t } = useTranslation();
   
   const cameraRef = React.useRef<any>(null);
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -35,13 +37,13 @@ export default function TestScreen({ route, navigation }: any) {
   if (!testActive) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="displaySmall" style={styles.scoreText}>Test Finished!</Text>
-        <Text variant="headlineMedium">Final Score: {score}</Text>
+        <Text variant="displaySmall" style={styles.scoreText}>{t('learning.testFinished')}</Text>
+        <Text variant="headlineMedium">{t('learning.yourScore')}: {score}</Text>
         <Text variant="bodyMedium" style={{ marginTop: 8 }}>
-          Mode: {(mode || 'random').toUpperCase()} | Duration: {duration || 60}s
+          Mode: {t(`learning.${mode || 'random'}`)} | Duration: {duration || 60}s
         </Text>
         <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 32 }}>
-          Back to Pack
+          {t('learning.backToSetup')}
         </Button>
       </View>
     );
@@ -51,14 +53,14 @@ export default function TestScreen({ route, navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Text variant="headlineMedium" style={{ color: timeLeft <= 10 ? 'red' : theme.colors.onBackground }}>
-          {timeLeft}s
+          {t('learning.time', { time: timeLeft })}
         </Text>
-        <Text variant="headlineMedium">Score: {score}</Text>
+        <Text variant="headlineMedium">{t('learning.score', { score })}</Text>
       </View>
 
       <View style={styles.wordContainer}>
         <Text variant="displayLarge">{currentWord?.word}</Text>
-        <Text variant="bodyLarge">Sign this!</Text>
+        <Text variant="bodyLarge">{t('learning.signToTest', { word: currentWord?.word })}</Text>
       </View>
 
       <View style={styles.cameraPlaceholder}>
@@ -85,7 +87,7 @@ export default function TestScreen({ route, navigation }: any) {
           style={styles.actionButton}
           disabled={isProcessing}
         >
-          Bỏ qua
+          {t('learning.skip')}
         </Button>
         <Button 
           mode="contained" 
@@ -95,7 +97,7 @@ export default function TestScreen({ route, navigation }: any) {
           disabled={isProcessing || !isModelReady}
           icon={() => isProcessing ? <ActivityIndicator size={20} color="white" /> : <CheckCircle size={20} color="white" />}
         >
-          Kiểm tra
+          {t('learning.check')}
         </Button>
       </View>
 

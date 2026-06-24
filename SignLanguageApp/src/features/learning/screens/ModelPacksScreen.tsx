@@ -4,9 +4,11 @@ import { Text, useTheme, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useModelPacksLogic } from '../hooks/useModelPacksLogic';
 import LearningPackItem from '../components/LearningPackItem';
+import { useTranslation } from 'react-i18next';
 
 export default function ModelPacksScreen({ navigation }: any) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const {
     viewMode, setViewMode,
     currentPage, setCurrentPage,
@@ -22,7 +24,7 @@ export default function ModelPacksScreen({ navigation }: any) {
         end={{ x: 1, y: 1 }}
         style={styles.headerToolbar}
       >
-        <Text variant="headlineSmall" style={styles.headerTitle}>Learning Modules</Text>
+        <Text variant="headlineSmall" style={styles.headerTitle}>{t('learning.modulesTitle')}</Text>
         <View style={styles.tabActions}>
           <IconButton
             icon={viewMode === 'list' ? 'view-grid' : 'view-list'}
@@ -37,17 +39,17 @@ export default function ModelPacksScreen({ navigation }: any) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="titleMedium" style={styles.sectionTitle}>
-              Currently Learning
+              {t('learning.currentlyLearning')}
             </Text>
             {totalPages > 1 && (
-              <Text variant="labelSmall">Page {currentPage} of {totalPages}</Text>
+              <Text variant="labelSmall">{t('learning.pageOf', { current: currentPage, total: totalPages })}</Text>
             )}
           </View>
 
           {currentPacks.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text variant="bodyLarge" style={{ opacity: 0.5 }}>
-                No packs downloaded yet. Go to Settings to manage your models!
+              <Text variant="bodyLarge" style={{ opacity: 0.5, textAlign: 'center' }}>
+                {t('learning.noPacksDownloaded')}
               </Text>
             </View>
           ) : (
