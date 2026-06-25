@@ -171,6 +171,7 @@ export default function DetectionScreen({ navigation }: any) {
         urlInput={urlInput}
         setUrlInput={setUrlInput}
         clearQueue={clearQueue}
+        selectedMedia={selectedMedia}
       />
     </SafeAreaView>
   );

@@ -27,6 +27,7 @@ interface DetectionDialogsProps {
   urlInput?: string;
   setUrlInput?: (url: string) => void;
   clearQueue?: () => void;
+  selectedMedia?: string | null;
 }
 
 export default function DetectionDialogs({
@@ -48,7 +49,8 @@ export default function DetectionDialogs({
   handleUrlImage,
   urlInput,
   setUrlInput,
-  clearQueue
+  clearQueue,
+  selectedMedia
 }: DetectionDialogsProps) {
   
   useEffect(() => {
@@ -95,6 +97,7 @@ export default function DetectionDialogs({
             onSaveMediaSession={onSaveMediaSession}
             setSessionHistory={setSessionHistory}
             detectionMode={detectionMode}
+            selectedMedia={selectedMedia}
           />
           
           <PendingQueueDialog 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, Image } from 'react-native';
 import { Dialog, TextInput, Button, Badge, Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useHistoryStore } from '../../../history/store/useHistoryStore';
@@ -13,6 +13,7 @@ interface HistoryDialogProps {
   onSaveMediaSession?: () => void;
   setSessionHistory?: (history: any[]) => void;
   detectionMode?: 'live' | 'picture' | 'video';
+  selectedMedia?: string | null;
 }
 
 export default function HistoryDialog({
@@ -23,7 +24,8 @@ export default function HistoryDialog({
   onSaveSession,
   onSaveMediaSession,
   setSessionHistory,
-  detectionMode = 'live'
+  detectionMode = 'live',
+  selectedMedia
 }: HistoryDialogProps) {
   const { t } = useTranslation();
   const [isExportingText, setIsExportingText] = useState(false);
@@ -51,13 +53,44 @@ export default function HistoryDialog({
       <Dialog.Content>
         <ScrollView>
           {detectionMode !== 'live' ? (
-            <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+            <View style={{ paddingVertical: 8 }}>
               {history.length > 0 ? (
-                <Text variant="displaySmall" style={{ fontWeight: 'bold', color: theme.colors.primary }}>
-                  {history[0].sign}
-                </Text>
+                <View style={{ alignItems: 'center' }}>
+                  {detectionMode === 'picture' && selectedMedia && (
+                    <View style={{ width: 200, height: 200, borderRadius: 16, overflow: 'hidden', marginBottom: 16, backgroundColor: '#333' }}>
+                      <Image source={{ uri: selectedMedia }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </View>
+                  )}
+                  <Text variant="headlineMedium" style={{ fontWeight: 'bold', color: theme.colors.primary, textAlign: 'center', marginBottom: 16 }}>
+                    {history[0].sign}
+                  </Text>
+                  
+                  {detectionMode === 'video' && history.length > 1 && (
+                    <View style={{ width: '100%' }}>
+                      <Text variant="labelMedium" style={{ opacity: 0.7, marginBottom: 12, textAlign: 'center' }}>
+                        Toàn bộ kết quả phân tích video:
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                        {history.map((item, i) => (
+                          <Badge 
+                            key={item.id || i} 
+                            size={28} 
+                            style={{ 
+                              backgroundColor: theme.colors.elevation.level3, 
+                              color: theme.colors.onSurface, 
+                              paddingHorizontal: 12,
+                              fontSize: 14 
+                            }}
+                          >
+                            {item.sign}
+                          </Badge>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
               ) : (
-                 <Text style={{ opacity: 0.5, fontStyle: 'italic' }}>Chưa có kết quả.</Text>
+                 <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>Chưa có kết quả.</Text>
               )}
             </View>
           ) : isSelectingSession ? (
@@ -159,11 +192,11 @@ export default function HistoryDialog({
           </Button>
         )}
 
-        {!isSelectingSession && !isExportingText && (
+        {!isSelectingSession && !isExportingText && detectionMode === 'live' && (
           <Button onPress={onDismiss}>{t('detection.close')}</Button>
         )}
 
-        {!isSelectingSession && !isExportingText && (
+        {!isSelectingSession && !isExportingText && detectionMode === 'live' && (
           <Button 
             mode="contained" 
             disabled={history.length === 0}

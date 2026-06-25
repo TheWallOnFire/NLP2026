@@ -83,7 +83,8 @@ export function useDetectionLogic(navigation: any) {
 
   const onSaveMediaSession = () => {
     if (sessionHistory.length > 0 && pendingMediaUri && detectionMode !== 'live') {
-      addImageVideoSession(detectionMode as 'picture' | 'video', pendingMediaUri, [sessionHistory[0].sign], activePackId || undefined);
+      const signsToSave = detectionMode === 'video' ? sessionHistory.map(h => h.sign).reverse() : [sessionHistory[0].sign];
+      addImageVideoSession(detectionMode as 'picture' | 'video', pendingMediaUri, signsToSave, activePackId || undefined);
       setSnackbarMsg("Đã lưu kết quả!");
       setSessionHistory([]);
       setPendingMediaUri(null);
@@ -95,7 +96,8 @@ export function useDetectionLogic(navigation: any) {
   const lastDetectionTime = useRef(0);
 
   const handleDetection = useCallback((index: number, conf: number) => {
-    if (Date.now() - lastDetectionTime.current > 1000) {
+    // Bỏ qua cooldown 1000ms nếu là chế độ chụp ảnh (picture)
+    if (detectionMode === 'picture' || Date.now() - lastDetectionTime.current > 1000) {
       const words = packWords[activePackId || '']?.map(w => w.word) || [];
       if (words.length > 0 && index >= 0 && index < words.length) {
         const word = words[index];
@@ -111,13 +113,16 @@ export function useDetectionLogic(navigation: any) {
               Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
             } catch (e) { console.warn("Speech API failed", e); }
           }
-          setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
           if (detectionMode === 'picture') {
+            setSessionHistory([{ id: Date.now().toString(), sign: `${word} (${Math.round(conf * 100)}%)` }]); // Ảnh chỉ có 1 kết quả duy nhất kèm độ chính xác
             setIsHistoryDialogOpen(true);
             setIsProcessing(false);
+          } else {
+            setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
           }
         } else if (detectionMode === 'picture') {
-          setSessionHistory([{ id: Date.now().toString(), sign: word }]);
+          // Dưới ngưỡng tự tin vẫn báo kết quả để người dùng biết
+          setSessionHistory([{ id: Date.now().toString(), sign: `${word} (${Math.round(conf * 100)}% - Thấp)` }]);
           setIsHistoryDialogOpen(true);
           setIsProcessing(false);
         }
