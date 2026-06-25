@@ -42,6 +42,12 @@ const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
 };
 
 export function useDetectionLogic(navigation: any) {
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   const theme = useTheme();
   const defaultFacing = useSettingsStore(state => state.camera?.defaultFacing || 'back');
   const ttsSettings = useSettingsStore(state => state.sound);
@@ -57,6 +63,13 @@ export function useDetectionLogic(navigation: any) {
   const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
   const downloadedPacks = packs.filter(p => p.isDownloaded);
   const activePack = downloadedPacks.find(p => p.id === activePackId);
+
+  const isFocused = useIsFocused();
+
+  // Fix Bug 40: Đồng bộ defaultFacing khi App focus
+  useEffect(() => {
+    if (isFocused) setFacing(defaultFacing);
+  }, [defaultFacing, isFocused]);
 
   const saveCameraSession = useHistoryStore(state => state.saveCameraSession);
   const addImageVideoSession = useHistoryStore(state => state.addImageVideoSession);
@@ -92,6 +105,18 @@ export function useDetectionLogic(navigation: any) {
         if (dirInfo.exists) {
           await FileSystem.deleteAsync(mediaDir, { idempotent: true });
         }
+        // Xóa rác do ImageManipulator tạo ra (Bug 16)
+        const manipDir = `${FileSystem.cacheDirectory}ImageManipulator/`;
+        const manipInfo = await FileSystem.getInfoAsync(manipDir);
+        if (manipInfo.exists) {
+          await FileSystem.deleteAsync(manipDir, { idempotent: true });
+        }
+        // Xóa rác do takeSnapshot tạo ra
+        const cameraDir = `${FileSystem.cacheDirectory}Camera/`;
+        const cameraInfo = await FileSystem.getInfoAsync(cameraDir);
+        if (cameraInfo.exists) {
+          await FileSystem.deleteAsync(cameraDir, { idempotent: true });
+        }
       } catch (e) {}
     };
     cleanCache(); // Clean on mount
@@ -121,6 +146,7 @@ export function useDetectionLogic(navigation: any) {
   const latestDetectionRef = useRef<any>(null);
   const recentPredictions = useRef<string[]>([]);
   const lastSpeechTime = useRef(0);
+  const lastSpokenWord = useRef<string | null>(null);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     const words = packWords[activePackId || '']?.map(w => w.word) || [];
@@ -142,44 +168,59 @@ export function useDetectionLogic(navigation: any) {
       }, {});
       const smoothedWord = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
 
-      setDetectedWord(smoothedWord);
-      setConfidence(conf);
+      // Chống nháy (Bug 22): Phải trên 3 phiếu (Đa số) mới cập nhật chữ mới
+      if (counts[smoothedWord] >= 3) {
+        if (isMounted.current) {
+          setDetectedWord(smoothedWord);
+          setConfidence(conf);
+        }
 
-      const shouldLogHistory = detectionMode === 'picture' || detectionMode === 'video' || timeSinceLast > 1000;
+        const shouldLogHistory = detectionMode === 'picture' || detectionMode === 'video' || timeSinceLast > 1000;
 
-      if (conf >= thresholdValue) {
-        if (shouldLogHistory) {
-          triggerImpactFeedback();
-          
-          if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500)) {
-            try {
-              Speech.stop();
-              Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
-              lastSpeechTime.current = now;
-            } catch (e) { console.warn("Speech API failed", e); }
+        if (conf >= thresholdValue) {
+          if (shouldLogHistory) {
+            triggerImpactFeedback();
+            
+            // Chống Spam Audio (Bug 23): Không đọc lại từ vừa đọc
+            if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500) && (lastSpokenWord.current !== smoothedWord)) {
+              try {
+                Speech.stop();
+                Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+                lastSpeechTime.current = now;
+                lastSpokenWord.current = smoothedWord;
+              } catch (e) { console.warn("Speech API failed", e); }
+            }
+            
+            if (detectionMode === 'picture') {
+              if (isMounted.current) {
+                setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}%)` }]); 
+                setIsHistoryDialogOpen(true);
+                setIsProcessing(false);
+              }
+            } else {
+              if (isMounted.current) {
+                setSessionHistory(prev => {
+                  if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === smoothedWord && timeSinceLast < 2000) {
+                     return prev; 
+                  }
+                  const newHistory = [{ id: now.toString(), sign: smoothedWord }, ...prev];
+                  if (newHistory.length > 50) newHistory.length = 50;
+                  return newHistory;
+                });
+              }
+            }
+            lastDetectionTime.current = now;
           }
-          
-          if (detectionMode === 'picture') {
-            setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}%)` }]); 
+        } else if (detectionMode === 'picture') {
+          if (isMounted.current) {
+            setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}% - Thấp)` }]);
             setIsHistoryDialogOpen(true);
             setIsProcessing(false);
-          } else {
-            setSessionHistory(prev => {
-              if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === smoothedWord && timeSinceLast < 2000) {
-                 return prev; 
-              }
-              const newHistory = [{ id: now.toString(), sign: smoothedWord }, ...prev];
-              if (newHistory.length > 50) newHistory.length = 50;
-              return newHistory;
-            });
           }
-          lastDetectionTime.current = now;
         }
-      } else if (detectionMode === 'picture') {
-        setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}% - Thấp)` }]);
-        setIsHistoryDialogOpen(true);
-        setIsProcessing(false);
       }
+    } else if (index !== undefined) {
+      console.warn(`Model trả về index [${index}] vượt quá mảng từ vựng (Bug 10). Vui lòng cập nhật bộ từ!`);
     }
   }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode]);
 
@@ -194,7 +235,6 @@ export function useDetectionLogic(navigation: any) {
 
   const appState = useRef(AppState.currentState);
   const [isAppActive, setIsAppActive] = useState(appState.current === 'active');
-  const isFocused = useIsFocused();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
@@ -292,13 +332,14 @@ export function useDetectionLogic(navigation: any) {
               for (const fileUri of files) {
                 if (fileUri.match(/\.(jpg|jpeg|png)$/i)) {
                   allImageUris.push(fileUri);
-                } else if (!fileUri.match(/\.[a-zA-Z0-9]+$/)) {
-                  // Nếu không có phần mở rộng (extension) hợp lệ thì coi là folder
+                } else if (!fileUri.match(/\.[a-zA-Z0-9]{2,4}$/)) {
+                  // Cải thiện Regex (Bug 38): Nếu chuỗi không kết thúc bằng đuôi file truyền thống (3-4 chữ cái) thì coi là thư mục
                   await scanDirectory(fileUri);
                 }
               }
-            } catch (e) {
-              // Ignore errors (e.g. if fileUri is not a directory)
+            } catch (e: any) {
+              // Báo cáo lỗi thay vì nuốt lỗi (Bug 39)
+              console.warn(`Không thể truy cập thư mục: ${dirUri}`, e);
             }
           };
 
@@ -322,6 +363,7 @@ export function useDetectionLogic(navigation: any) {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsMultipleSelection: true,
+          selectionLimit: 50, // Tránh OOM khi chọn quá nhiều ảnh (Bug 43)
           quality: 0.8,
         });
 
@@ -348,6 +390,9 @@ export function useDetectionLogic(navigation: any) {
       const results: {fileName: string, sign: string, conf: number}[] = [];
       
       for (let i = 0; i < selectedBatchAssets.length; i++) {
+        // Thêm delay setTimeout(0) vào vòng lặp for để React có thời gian render Progress Bar.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
         const asset = selectedBatchAssets[i];
         setSnackbarMsg(`Đang xử lý ${i + 1}/${selectedBatchAssets.length}...`);
         
@@ -502,6 +547,7 @@ export function useDetectionLogic(navigation: any) {
     let timerId: NodeJS.Timeout;
 
     if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
+      cancelAnimation(scanAnimValue); // Fix Bug 38: Xóa hàng đợi Worklet trước khi gán mới
       scanAnimValue.value = withRepeat(
         withSequence(
           withTiming(1, { duration: getInterval() === -1 ? 1000 : getInterval() }),
@@ -603,15 +649,27 @@ export function useDetectionLogic(navigation: any) {
 
   const handleUrlImage = async (url: string) => {
     if (!url) return;
+    let destUriTemp = '';
     try {
       setIsProcessing(true);
-      const cleanUrl = url.trim();
+      let cleanUrl = url.trim();
+      
+      // Fix Bug 84: Chặn HTTP kém bảo mật (Cleartext) và thay bằng HTTPS
+      if (cleanUrl.startsWith('http://')) {
+        cleanUrl = cleanUrl.replace('http://', 'https://');
+      }
+
       try { new URL(cleanUrl); } catch (e) { throw new Error("Đường dẫn URL không hợp lệ."); }
       setSnackbarMsg("Đang kiểm tra kết nối mạng và ảnh...");
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const response = await fetch(cleanUrl, { method: 'HEAD', signal: controller.signal });
+        // Fix Bug 17: Vô hiệu hóa Cache mạng để luôn tải ảnh mới nhất
+        const response = await fetch(cleanUrl, { 
+          method: 'HEAD', 
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         clearTimeout(timeoutId);
         if (!response.ok) throw new Error(`Server từ chối truy cập.`);
         const contentType = response.headers.get('content-type');
@@ -620,10 +678,14 @@ export function useDetectionLogic(navigation: any) {
         if (e.name === 'AbortError') throw new Error("Mạng quá yếu.");
         if (e.message.includes("Server từ chối") || e.message.includes("Không phải file ảnh")) throw e;
       }
-      const ext = cleanUrl.split('.').pop()?.split('?')[0] || 'jpg';
-      const safeExt = /^[a-zA-Z0-9]+$/.test(ext) ? ext : 'jpg';
+      
+      // Fix Bug 88: Siết chặt Regex lọc Extension chống Injection File
+      const rawExt = cleanUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      const safeExt = /^[a-zA-Z]{2,4}$/.test(rawExt) ? rawExt.toLowerCase() : 'jpg';
       const fileName = `dl_img_${Date.now()}.${safeExt}`;
       const destUri = `${FileSystem.cacheDirectory}${fileName}`;
+      destUriTemp = destUri;
+
       try {
         const fileInfo = await FileSystem.getInfoAsync(destUri);
         if (fileInfo.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
@@ -659,8 +721,13 @@ export function useDetectionLogic(navigation: any) {
       setSnackbarMsg("Tải thành công! Bắt đầu quét...");
       await handleManualScan(uri, true);
     } catch (err: any) {
+      // Fix Bug 19: Dọn rác tệp tin tải dang dở khi có lỗi Timeout/Mạng
+      if (destUriTemp) {
+        try { await FileSystem.deleteAsync(destUriTemp, { idempotent: true }); } catch (e) {}
+      }
       console.warn("Lỗi chọn ảnh:", err);
-      Alert.alert(i18n.t('detection.imageLoadError'), err.message || i18n.t('detection.imageLoadError'));
+      // Fix Bug 48: Ép kiểu lỗi thành chuỗi an toàn
+      Alert.alert(i18n.t('detection.imageLoadError'), String(err.message || err || i18n.t('detection.imageLoadError')));
     } finally {
       setIsProcessing(false);
     }
@@ -670,22 +737,27 @@ export function useDetectionLogic(navigation: any) {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: false });
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsProcessing(true); // Fix Bug 50: Hiển thị trạng thái Loading
         try {
-        const file = result.assets[0];
-        const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
-        if (fileName.includes('..') || fileName.includes('/') || !fileName.toLowerCase().endsWith('.tflite')) {
-           return Alert.alert(i18n.t('detection.securityError'), "Chỉ cho phép file model có định dạng .tflite hợp lệ.");
-        }
+          const file = result.assets[0];
+          const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
+          if (fileName.includes('..') || fileName.includes('/') || !fileName.toLowerCase().endsWith('.tflite')) {
+             return Alert.alert(i18n.t('detection.securityError'), "Chỉ cho phép file model có định dạng .tflite hợp lệ.");
+          }
 
-        const targetPath = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.copyAsync({ from: file.uri, to: targetPath });
-        setCustomModelUri(targetPath);
-        Alert.alert(i18n.t('detection.success'), i18n.t('detection.customModelSuccess'));
-      } catch (err) {
-        Alert.alert(i18n.t('detection.invalidFile'), i18n.t('detection.invalidTflite'));
+          const targetPath = `${FileSystem.documentDirectory}${fileName}`;
+          await FileSystem.copyAsync({ from: file.uri, to: targetPath });
+          setCustomModelUri(targetPath);
+          Alert.alert(i18n.t('detection.success'), i18n.t('detection.customModelSuccess'));
+        } catch (err: any) {
+          Alert.alert(i18n.t('detection.invalidFile'), String(err.message || err || i18n.t('detection.invalidTflite')));
+        } finally {
+          setIsProcessing(false);
+        }
       }
-      }
-    } catch (err) { console.error("Failed to pick model", err); }
+    } catch (err: any) { 
+      Alert.alert("Lỗi tải Model", String(err.message || err)); // Fix Bug 48: Ép kiểu string chống văng Object
+    }
   };
 
   const toggleCameraFacing = () => {
@@ -705,6 +777,10 @@ export function useDetectionLogic(navigation: any) {
 
   const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch') => {
     clearQueue();
+    // Fix Bug 31: Xóa bóng ma State (Stale Closure) khi đổi Mode
+    recentPredictions.current = [];
+    setDetectedWord(null);
+    setConfidence(0);
     setDetectionMode(mode);
   };
 

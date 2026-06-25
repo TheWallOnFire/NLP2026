@@ -69,7 +69,7 @@ export default function DetectionScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
       <TopOptionsBar
         theme={theme}
         detectionMode={detectionMode}
@@ -233,5 +233,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 4,
     borderRadius: 16,
+    minHeight: 48,
+    justifyContent: 'center',
   },
 });

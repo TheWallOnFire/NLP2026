@@ -60,9 +60,15 @@ export function useSignLanguageModel(
           }
         } else {
           try {
-            m = await loadTensorflowModel({ url: urlToLoad }, []); // Vô hiệu hóa NNAPI để tránh lỗi cache buffer trên Android
+            // Fix Bug 21: Thử bật NNAPI (Tăng tốc NPU Android), nếu driver văng lỗi mới Fallback về CPU thay vì cấm tuyệt đối
+            m = await loadTensorflowModel({ url: urlToLoad }, ['nnapi']);
           } catch (e) {
-            console.error("Lỗi khi load model trên Android:", e);
+            console.warn("NNAPI failed, falling back to CPU", e);
+            try {
+              m = await loadTensorflowModel({ url: urlToLoad }, []);
+            } catch (e2) {
+              console.error("Lỗi khi load model trên Android:", e2);
+            }
           }
         }
         if (isMounted) setTfliteModel(m);
@@ -83,7 +89,7 @@ export function useSignLanguageModel(
   useEffect(() => {
     return () => {
       if (tfliteModel && typeof tfliteModel.release === 'function') {
-        tfliteModel.release();
+        try { tfliteModel.release(); } catch (e) {}
       }
     };
   }, [tfliteModel]);
@@ -127,7 +133,17 @@ export function useSignLanguageModel(
             
             const preStartTime = Date.now();
             const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(uri, shape, facing);
-            const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, expectedChannels, dataType, pixelFormat);
+            
+            // Fix Bug 23: Tự động phán đoán chuẩn hóa hoặc lấy cấu hình từ Pack
+            let normalizationType: '[-1, 1]' | '[0, 1]' | '[0, 255]' = '[0, 1]';
+            if (activePack?.normalization) {
+               normalizationType = activePack.normalization;
+            } else if (customModelUri && customModelUri.toLowerCase().includes('mobilenet')) {
+               // Đa số MobileNetV2 gốc tải từ Keras sẽ dùng [-1, 1]
+               normalizationType = '[-1, 1]';
+            }
+            
+            const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, expectedChannels, dataType, pixelFormat, normalizationType);
             const preprocessTime = Date.now() - preStartTime;
 
             if (developerDebugMode) {
@@ -142,6 +158,8 @@ export function useSignLanguageModel(
               console.log(`[ML Debug] Input Data Preview (${inputData.length} phần tử): [${first5.join(', ')}...]`);
             }
 
+            // Truyền đúng chuẩn ArrayBuffer gốc (Không dùng .slice() vì sẽ sinh lỗi ép kiểu JSI)
+            // Lỗi kết quả trùng nhau (M 0.333) thực chất là do SAI hệ chuẩn hóa Input (Normalization), không phải do Buffer.
             const infStartTime = Date.now();
             const outputs = tfliteModel.runSync([inputData.buffer]);
             const inferenceTime = Date.now() - infStartTime;
@@ -168,15 +186,19 @@ export function useSignLanguageModel(
             }
 
             const totalTime = Date.now() - startTime;
-            const fps = Math.round(1000 / Math.max(1, totalTime));
+            // Fix Bug 65: FPS ảo khi totalTime quá nhỏ
+            const safeTime = totalTime > 0 ? totalTime : 1;
+            const fps = Math.round(1000 / safeTime);
 
             if (result) {
               const { maxIdx, maxVal, top3 } = result;
               const words = packWords[activePackId || '']?.map((w: any) => w.word) || [];
               
-              // Chống tràn index nếu tflite model trả về kết quả ảo (out of bounds)
-              const safeMaxIdx = (maxIdx >= 0 && maxIdx < words.length) ? maxIdx : -1;
-              const maxWord = safeMaxIdx !== -1 ? words[safeMaxIdx] : 'Unknown';
+              // Chống tràn index và Fix Bug 69 (maxIdx === 0 bị bỏ qua)
+              const safeMaxIdx = (maxIdx !== undefined && maxIdx >= 0 && maxIdx < words.length) ? maxIdx : -1;
+              
+              // Fix Bug 28: Từ chối kết quả rác nếu điểm dưới ngưỡng tối thiểu cực đoan (< 5%)
+              const maxWord = (safeMaxIdx !== -1 && maxVal >= 0.05) ? words[safeMaxIdx] : 'Unknown';
               
               if (developerDebugMode && isMountedRef.current) {
                 setMetrics({ preprocessTime, inferenceTime, totalTime, fps, top3 });

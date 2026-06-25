@@ -12,6 +12,7 @@ export interface ModelPack {
   isDownloaded: boolean;
   category: 'Basics' | 'Conversational' | 'Professional';
   inputShape?: number[];
+  normalization?: '[-1, 1]' | '[0, 1]' | '[0, 255]';
 }
 
 interface ModelState {

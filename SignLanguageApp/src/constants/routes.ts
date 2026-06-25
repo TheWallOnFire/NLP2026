@@ -15,6 +15,7 @@ export const ROUTES = {
   MODEL_MANAGER: 'ModelManager',
   PRACTICE_WORD_SETUP: 'PracticeWordSetup',
   PRACTICE_WORD_FLASHCARD: 'PracticeWordFlashcard',
+  ML_DIAGNOSTIC: 'MLDiagnostic',
 } as const;
 
 export type RouteNames = typeof ROUTES[keyof typeof ROUTES];

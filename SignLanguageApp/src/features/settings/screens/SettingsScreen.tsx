@@ -1,12 +1,13 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, List, useTheme, Card } from 'react-native-paper';
+import { Text, List, useTheme, Card, Divider } from 'react-native-paper';
 import { AlertTriangle as AlertTriangleIcon, Settings as SettingsIconLucide } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useSettingsLogic } from '../hooks/useSettingsLogic';
 import SettingsMenuSections from '../components/SettingsMenuSections';
+import { ROUTES } from '../../../constants/routes';
 
 export default function SettingsScreen({ navigation }: any) {
   const theme = useTheme();
@@ -66,6 +67,18 @@ export default function SettingsScreen({ navigation }: any) {
             />
           </Card>
         </View>
+
+        <List.Section>
+          <List.Subheader>Developer / Debug</List.Subheader>
+          <List.Item
+            title="ML Diagnostic Tool"
+            description="Kiểm thử độ ổn định (Determinism) của Model"
+            left={props => <List.Icon {...props} icon="bug" />}
+            onPress={() => navigation.navigate(ROUTES.ML_DIAGNOSTIC)}
+          />
+        </List.Section>
+        
+        <Divider style={styles.divider} />
 
         <View style={styles.footer}>
           <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
@@ -127,5 +140,8 @@ const styles = StyleSheet.create({
   },
   versionText: {
     opacity: 0.4,
+  },
+  divider: {
+    marginVertical: 16,
   },
 });

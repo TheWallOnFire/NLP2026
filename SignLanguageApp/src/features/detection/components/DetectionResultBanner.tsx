@@ -23,7 +23,14 @@ export default function DetectionResultBanner({
             <Text variant="labelMedium" style={{ color: 'gray', textTransform: 'uppercase' }}>
               {activePack ? 'Live Detection Result' : 'System Idle'}
             </Text>
-            <Text variant="displaySmall" style={{ fontWeight: '900', color: theme.colors.primary, marginTop: -4 }}>
+            <Text 
+              variant="displaySmall" 
+              style={{ fontWeight: '900', color: theme.colors.primary, marginTop: -4 }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              accessibilityLiveRegion="polite"
+              accessibilityRole="text"
+            >
               {activePack ? (detectedWord || '---') : 'Select Model'}
             </Text>
           </View>

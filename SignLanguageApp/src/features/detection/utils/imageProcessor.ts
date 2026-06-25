@@ -91,8 +91,10 @@ export async function convertPixelsToInputData(
   isRGBA: boolean, 
   expectedChannels: number, 
   dataType: string | undefined,
-  pixelFormat: string = 'unknown'
+  pixelFormat: string = 'unknown',
+  normalizationType: '[-1, 1]' | '[0, 1]' | '[0, 255]' = '[0, 1]'
 ): Promise<Float32Array | Uint8Array> {
+  const INV_255 = 0.00392156862; // 1 / 255.0
   const INV_127_5 = 0.0078431372549; // 1 / 127.5
   
   if (dataType === 'float32') {
@@ -118,18 +120,32 @@ export async function convertPixelsToInputData(
           b = uint8Array[i+2];
         }
 
-        // Chuẩn hóa [-1, 1] cho MobileNetV2
-        float32Array[floatIdx++] = r * INV_127_5 - 1.0;
-        float32Array[floatIdx++] = g * INV_127_5 - 1.0;
-        float32Array[floatIdx++] = b * INV_127_5 - 1.0;
+        if (normalizationType === '[-1, 1]') {
+          float32Array[floatIdx++] = r * INV_127_5 - 1.0;
+          float32Array[floatIdx++] = g * INV_127_5 - 1.0;
+          float32Array[floatIdx++] = b * INV_127_5 - 1.0;
+        } else if (normalizationType === '[0, 255]') {
+          float32Array[floatIdx++] = r;
+          float32Array[floatIdx++] = g;
+          float32Array[floatIdx++] = b;
+        } else {
+          // Chuẩn hóa mặc định [0, 1]
+          float32Array[floatIdx++] = r * INV_255;
+          float32Array[floatIdx++] = g * INV_255;
+          float32Array[floatIdx++] = b * INV_255;
+        }
       }
     } else if (!isRGBA && expectedChannels === 3) {
       for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
-        float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
+        if (normalizationType === '[-1, 1]') float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
+        else if (normalizationType === '[0, 255]') float32Array[i] = uint8Array[i];
+        else float32Array[i] = uint8Array[i] * INV_255;
       }
     } else {
       for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
-        float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
+        if (normalizationType === '[-1, 1]') float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
+        else if (normalizationType === '[0, 255]') float32Array[i] = uint8Array[i];
+        else float32Array[i] = uint8Array[i] * INV_255;
       }
     }
     return float32Array;

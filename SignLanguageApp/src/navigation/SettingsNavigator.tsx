@@ -2,8 +2,11 @@ import * as React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SettingsScreen from '../features/settings/screens/SettingsScreen';
 import ModelManagerScreen from '../features/settings/screens/ModelManagerScreen';
+// @ts-ignore
+import MLDiagnosticScreen from '../features/detection/screens/MLDiagnosticScreen';
 import { ROUTES } from '../constants/routes';
 import { useTheme } from 'react-native-paper';
+// Trigger IDE cache refresh
 
 const Stack = createNativeStackNavigator();
 
@@ -27,6 +30,11 @@ export default function SettingsNavigator() {
         name={ROUTES.MODEL_MANAGER} 
         component={ModelManagerScreen} 
         options={{ title: 'Model Pack Manager' }} 
+      />
+      <Stack.Screen 
+        name={ROUTES.ML_DIAGNOSTIC} 
+        component={MLDiagnosticScreen} 
+        options={{ title: 'ML Diagnostic Tool' }} 
       />
     </Stack.Navigator>
   );
