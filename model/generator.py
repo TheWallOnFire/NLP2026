@@ -112,7 +112,8 @@ def create_model_pack(info):
             "version": version,
             "author": author,
             "language": language,
-            "description": description
+            "description": description,
+            "input_shape": info.get("input_shape", [1, 224, 224, 3])
         }
         with open(os.path.join(assets_dir, "metadata.json"), "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)

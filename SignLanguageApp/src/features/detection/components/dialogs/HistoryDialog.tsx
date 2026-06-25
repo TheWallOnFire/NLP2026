@@ -132,19 +132,21 @@ export default function HistoryDialog({
         </ScrollView>
       </Dialog.Content>
       <Dialog.Actions>
-        {detectionMode !== 'live' ? (
-          <>
-            <Button onPress={onDismiss}>{t('detection.cancel')}</Button>
-            <Button mode="contained" disabled={history.length === 0} onPress={() => {
-              if (onSaveMediaSession) {
-                onSaveMediaSession();
-              }
-              onDismiss();
-            }}>
-              {t('detection.confirm')}
-            </Button>
-          </>
-        ) : isSelectingSession && (
+        {detectionMode !== 'live' && (
+          <Button onPress={onDismiss}>{t('detection.cancel')}</Button>
+        )}
+        {detectionMode !== 'live' && (
+          <Button mode="contained" disabled={history.length === 0} onPress={() => {
+            if (onSaveMediaSession) {
+              onSaveMediaSession();
+            }
+            onDismiss();
+          }}>
+            {t('detection.confirm')}
+          </Button>
+        )}
+        
+        {detectionMode === 'live' && isSelectingSession && (
           <Button onPress={() => setIsSelectingSession(false)}>{t('detection.cancel')}</Button>
         )}
         

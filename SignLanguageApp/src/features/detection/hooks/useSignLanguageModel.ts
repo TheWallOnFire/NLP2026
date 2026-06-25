@@ -13,7 +13,8 @@ export function useSignLanguageModel(
   onDetection: (index: number, confidence: number) => void,
   onError?: (errorMessage: string) => void
 ) {
-  const { customModelUri, activePackId } = useModelStore();
+  const { customModelUri, activePackId, packs } = useModelStore();
+  const activePack = useMemo(() => packs.find(p => p.id === activePackId), [packs, activePackId]);
   const { developerDebugMode } = useSettingsStore();
   const [tfliteModel, setTfliteModel] = useState<any>(null);
   const frameQueue = useRef<{uri: string, facing?: 'front' | 'back'}[]>([]);
@@ -104,7 +105,22 @@ export function useSignLanguageModel(
     }
 
     try {
-      const shape = tfliteModel.inputs?.[0]?.shape;
+      let shape = tfliteModel.inputs?.[0]?.shape;
+      
+      // Ưu tiên đọc shape từ metadata (Word List / Store) nếu có
+      if (activePack?.inputShape && activePack.inputShape.length >= 3) {
+        shape = activePack.inputShape;
+      }
+      // Fallback robust shape detection
+      else if (!shape || shape.length < 3) {
+        // If the model path contains mobilenetv2, it's exactly 96x96
+        if (processingItemRef.current?.toLowerCase().includes('mobilenetv2') || activePackId?.toLowerCase().includes('mobilenetv2')) {
+           shape = [1, 96, 96, 3];
+        } else {
+           shape = [1, 224, 224, 3];
+        }
+      }
+      
       const dataType = tfliteModel.inputs?.[0]?.dataType;
       
       const preStartTime = Date.now();
@@ -113,7 +129,7 @@ export function useSignLanguageModel(
       const preprocessTime = Date.now() - preStartTime;
 
       const infStartTime = Date.now();
-      const outputs = await tfliteModel.run([inputData.buffer || inputData]);
+      const outputs = await tfliteModel.run([inputData.buffer]);
       const inferenceTime = Date.now() - infStartTime;
       
       const outDataType = tfliteModel.outputs?.[0]?.dataType;
@@ -131,8 +147,7 @@ export function useSignLanguageModel(
 
         console.log(`[ML Debug] Model inference xong. maxIdx: ${maxIdx}, maxVal: ${maxVal.toFixed(3)} | Time: ${totalTime}ms (Pre: ${preprocessTime}ms, Inf: ${inferenceTime}ms)`);
         
-        const threshold = useSettingsStore.getState().detection?.threshold || 0.5;
-        if (maxVal > threshold && isMountedRef.current) {
+        if (isMountedRef.current) {
           onDetection(maxIdx, maxVal);
         }
       }
@@ -198,7 +213,7 @@ export function useSignLanguageModel(
   }, [tfliteModel]);
 
   return { 
-    runDetection, 
+    runDetection,
     isModelReady: tfliteModel != null,
     boxedModel,
     modelShape: tfliteModel?.inputs?.[0]?.shape,

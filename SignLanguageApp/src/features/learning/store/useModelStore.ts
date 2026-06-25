@@ -11,6 +11,7 @@ export interface ModelPack {
   wordCount: number;
   isDownloaded: boolean;
   category: 'Basics' | 'Conversational' | 'Professional';
+  inputShape?: number[];
 }
 
 interface ModelState {

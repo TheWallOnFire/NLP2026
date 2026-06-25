@@ -138,6 +138,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
       wordCount,
       isDownloaded: true,
       category: 'Basics', // default for custom
+      inputShape: metadataRaw.input_shape || undefined,
     };
 
     const words: Word[] = Object.keys(wordListRaw).map(key => ({

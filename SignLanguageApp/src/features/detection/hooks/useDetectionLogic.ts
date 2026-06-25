@@ -62,6 +62,16 @@ export function useDetectionLogic(navigation: any) {
   const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string }[]>([]);
   const [pendingMediaUri, setPendingMediaUri] = useState<string | null>(null);
 
+  const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
+  const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
+  const updateSettings = useSettingsStore(state => state.updateSettings);
+  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
+  const [isLiveScanning, setIsLiveScanning] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   useEffect(() => setSessionHistory([]), [activePackId]);
 
   const onSaveSession = (editedText: string, sessionId?: string | null) => {
@@ -102,10 +112,18 @@ export function useDetectionLogic(navigation: any) {
             } catch (e) { console.warn("Speech API failed", e); }
           }
           setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
+          if (detectionMode === 'picture') {
+            setIsHistoryDialogOpen(true);
+            setIsProcessing(false);
+          }
+        } else if (detectionMode === 'picture') {
+          setSessionHistory([{ id: Date.now().toString(), sign: word }]);
+          setIsHistoryDialogOpen(true);
+          setIsProcessing(false);
         }
       }
     }
-  }, [activePackId, packWords, ttsSettings, thresholdValue]);
+  }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode]);
 
   const [snackbarMsg, setSnackbarMsg] = useState("");
   const handleModelError = useCallback((errorMsg: string) => {
@@ -127,16 +145,6 @@ export function useDetectionLogic(navigation: any) {
     });
     return () => subscription.remove();
   }, []);
-
-  const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
-  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-  const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
-  const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
-  const updateSettings = useSettingsStore(state => state.updateSettings);
-  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
-  const [isLiveScanning, setIsLiveScanning] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const modelWidth = modelShape && modelShape.length >= 3 ? (modelShape[1] > 10 ? modelShape[1] : modelShape[2]) : 224;
   const modelHeight = modelShape && modelShape.length >= 3 ? (modelShape[2] > 10 ? modelShape[2] : (modelShape[1] > 10 ? modelShape[1] : 224)) : 224;
@@ -189,7 +197,7 @@ export function useDetectionLogic(navigation: any) {
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
       'worklet';
-      if (!isLiveScanningSV.value || !isAppActiveSV.value || currentInterval === -1 || detectionMode === 'live') {
+      if (!isLiveScanningSV.value || !isAppActiveSV.value || currentInterval === -1 || detectionMode !== 'live') {
         frame.dispose();
         return;
       }
@@ -217,9 +225,11 @@ export function useDetectionLogic(navigation: any) {
             let inputBuffer: ArrayBuffer;
             const uint8 = new Uint8Array((rawBuffer as any).buffer || rawBuffer);
             const isFront = facingSV.value === 'front';
+            
+            const expectedElements = modelWidth * modelHeight * 3;
 
             if (inputDataType === 'float32') {
-              const float32 = new Float32Array(uint8.length);
+              const float32 = new Float32Array(expectedElements);
               for (let y = 0; y < modelHeight; y++) {
                 for (let x = 0; x < modelWidth; x++) {
                   const srcX = isFront ? (modelWidth - 1 - x) : x;
@@ -232,7 +242,7 @@ export function useDetectionLogic(navigation: any) {
               }
               inputBuffer = float32.buffer;
             } else {
-              const int8Out = new Uint8Array(uint8.length);
+              const int8Out = new Uint8Array(expectedElements);
               for (let y = 0; y < modelHeight; y++) {
                 for (let x = 0; x < modelWidth; x++) {
                   const srcX = isFront ? (modelWidth - 1 - x) : x;
@@ -377,15 +387,8 @@ export function useDetectionLogic(navigation: any) {
         if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
           finalMedia = `file://${finalMedia}`;
         }
+        setPendingMediaUri(finalMedia);
         result = runDetection(finalMedia, undefined);
-        if (result.success && result.message) {
-          const detectedWord = result.message.split(' ').pop();
-          if (detectedWord) {
-            setSessionHistory([{ id: Date.now().toString(), sign: detectedWord }]);
-            setPendingMediaUri(finalMedia);
-            setIsHistoryDialogOpen(true);
-          }
-        }
       } else if (actualMedia && detectionMode === 'video') {
         try {
           const timeToCapture = player.currentTime * 1000;
@@ -394,15 +397,8 @@ export function useDetectionLogic(navigation: any) {
           if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
             finalMedia = `file://${finalMedia}`;
           }
+          setPendingMediaUri(actualMedia);
           result = runDetection(finalMedia, undefined);
-          if (result.success && result.message) {
-            const detectedWord = result.message.split(' ').pop();
-            if (detectedWord) {
-              setSessionHistory([{ id: Date.now().toString(), sign: detectedWord }]);
-              setPendingMediaUri(actualMedia);
-              setIsHistoryDialogOpen(true);
-            }
-          }
         } catch (thumbErr: any) {
           result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
         }
@@ -439,12 +435,16 @@ export function useDetectionLogic(navigation: any) {
         if (!isActive) return;
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
-        await handleManualScan();
+        
+        if (state.detectionMode === 'video') {
+          await handleManualScan();
+        }
+        
         if (isActive) timerId = setTimeout(loop, getInterval());
       };
 
-      if (detectionMode === 'video' || detectionMode === 'live') {
-        timerId = setTimeout(loop, detectionMode === 'live' ? getInterval() : 500);
+      if (detectionMode === 'video') {
+        timerId = setTimeout(loop, 500);
       }
     } else {
       cancelAnimation(scanAnimValue);
