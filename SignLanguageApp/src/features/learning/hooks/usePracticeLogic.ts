@@ -66,11 +66,53 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     latestDetection.current = { wordStr: detectedWordStr, conf };
   }, [currentWord, words]);
 
-  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
+  const { isModelReady, runDetection, getDebugInfo, clearQueue, modelShape } = useSignLanguageModel(handleDetection);
+
+  const [isConfirmImageDialogOpen, setIsConfirmImageDialogOpen] = useState(false);
+  const [imageToAnalyze, setImageToAnalyze] = useState<string | null>(null);
+  const [imageToAnalyzeSize, setImageToAnalyzeSize] = useState({ width: 0, height: 0, bytes: 0 });
+
+  const confirmImageAnalysis = async () => {
+    setIsConfirmImageDialogOpen(false);
+    if (!imageToAnalyze) return;
+    setIsProcessing(true);
+    latestDetection.current = null;
+    clearQueue();
+    runDetection(imageToAnalyze, facing, true);
+    
+    let attempts = 0;
+    while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 50) {
+      await new Promise(r => setTimeout(r, 100));
+      attempts++;
+    }
+    await new Promise(r => setTimeout(r, 100));
+    evaluateDetection();
+    setIsProcessing(false);
+  };
+
+  const handleImageSelected = async (imagePath: string) => {
+    try {
+      const FileSystem = require('expo-file-system/legacy');
+      const Image = require('react-native').Image;
+      const fileInfo = await FileSystem.getInfoAsync(imagePath);
+      Image.getSize(imagePath, (width: number, height: number) => {
+        setImageToAnalyzeSize({ width, height, bytes: fileInfo.size || 0 });
+        setImageToAnalyze(imagePath);
+        setIsConfirmImageDialogOpen(true);
+      }, () => {
+        setImageToAnalyzeSize({ width: 0, height: 0, bytes: fileInfo.size || 0 });
+        setImageToAnalyze(imagePath);
+        setIsConfirmImageDialogOpen(true);
+      });
+    } catch (e) {
+      setImageToAnalyzeSize({ width: 0, height: 0, bytes: 0 });
+      setImageToAnalyze(imagePath);
+      setIsConfirmImageDialogOpen(true);
+    }
+  };
 
   const checkFromCamera = async () => {
     if (!cameraRef.current || !isModelReady) return;
-    setIsProcessing(true);
     try {
       const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
       let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
@@ -80,24 +122,12 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
       }
 
       if (imagePath) {
-        latestDetection.current = null;
-        await runDetection(imagePath, facing, true);
-        
-        let attempts = 0;
-        await new Promise(r => setTimeout(r, 300));
-        while (getDebugInfo().isProcessing && attempts < 50) {
-          await new Promise(r => setTimeout(r, 100));
-          attempts++;
-        }
-        await new Promise(r => setTimeout(r, 100));
-        evaluateDetection();
+        await handleImageSelected(imagePath);
       }
     } catch (e) {
       console.warn("Camera snapshot failed", e);
       setSnackbarColor("red");
       setSnackbarMsg("Không thể chụp ảnh từ Camera!");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -119,24 +149,11 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
         quality: 1,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIsProcessing(true);
         const sourceUri = result.assets[0].uri;
-        latestDetection.current = null;
-        await runDetection(sourceUri);
-        
-        let attempts = 0;
-        await new Promise(r => setTimeout(r, 300));
-        while (getDebugInfo().isProcessing && attempts < 50) {
-          await new Promise(r => setTimeout(r, 100));
-          attempts++;
-        }
-        await new Promise(r => setTimeout(r, 100));
-        evaluateDetection();
-        setIsProcessing(false);
+        await handleImageSelected(sourceUri);
       }
     } catch (e) {
       console.warn("Failed to pick image", e);
-      setIsProcessing(false);
     }
   };
 
@@ -158,6 +175,12 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     getDebugInfo,
     handleSkip,
     checkFromCamera,
-    pickImageForDetection
+    pickImageForDetection,
+    isConfirmImageDialogOpen,
+    setIsConfirmImageDialogOpen,
+    imageToAnalyze,
+    imageToAnalyzeSize,
+    confirmImageAnalysis,
+    modelShape
   };
 }

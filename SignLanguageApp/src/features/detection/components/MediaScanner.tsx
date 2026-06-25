@@ -7,7 +7,7 @@ import { VideoView } from 'expo-video';
 import VideoController from './VideoController';
 
 interface MediaScannerProps {
-  detectionMode: 'live' | 'picture' | 'video';
+  detectionMode: 'live' | 'picture' | 'video' | 'batch';
   device: any;
   cameraRef: React.RefObject<any>;
   flash: boolean;
@@ -19,6 +19,7 @@ interface MediaScannerProps {
   player: any;
   pickImage: () => void;
   pickVideo: () => void;
+  pickBatchImages?: () => void;
   isAppActive?: boolean;
   frameOutput?: any;
 }
@@ -36,6 +37,7 @@ export default function MediaScanner({
   player,
   pickImage,
   pickVideo,
+  pickBatchImages,
   isAppActive = true,
   frameOutput
 }: MediaScannerProps) {
@@ -78,6 +80,11 @@ export default function MediaScanner({
           {selectedMedia ? (
             detectionMode === 'picture' ? (
               <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} resizeMode="contain" />
+            ) : detectionMode === 'batch' ? (
+              <View style={styles.emptyMedia}>
+                 <IconButton icon="folder-multiple-image" size={64} iconColor="green" />
+                 <Text variant="titleMedium">Selected Batch Folder</Text>
+              </View>
             ) : (
               <View style={{ flex: 1, position: 'relative' }}>
                 <VideoView player={player} style={styles.mediaPreview} allowsPictureInPicture />
@@ -87,9 +94,9 @@ export default function MediaScanner({
           ) : (
             <View style={styles.emptyMedia}>
               <IconButton 
-                icon={detectionMode === 'picture' ? "image-plus" : "video-plus"} 
+                icon={detectionMode === 'picture' ? "image-plus" : detectionMode === 'batch' ? "folder-multiple-image" : "video-plus"} 
                 size={64} 
-                onPress={detectionMode === 'picture' ? pickImage : pickVideo}
+                onPress={detectionMode === 'picture' ? pickImage : detectionMode === 'batch' ? pickBatchImages : pickVideo}
                 accessibilityLabel={detectionMode === 'picture' ? "Chọn ảnh từ thư viện" : "Chọn video từ thư viện"}
               />
               <Text variant="bodyLarge">No Media Selected</Text>

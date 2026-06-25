@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert, AppState, Linking } from 'react-native';
+import { Alert, AppState, Linking, Platform } from 'react-native';
 import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { useCameraDevice, useCameraPermission, useFrameOutput, useAsyncRunner } from 'react-native-vision-camera';
 import { useResizer } from 'react-native-vision-camera-resizer';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import JSZip from 'jszip';
 import { useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -70,10 +71,14 @@ export function useDetectionLogic(navigation: any) {
   const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
   const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
   const updateSettings = useSettingsStore(state => state.updateSettings);
-  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video'>('live');
+  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video' | 'batch'>('live');
   const [isLiveScanning, setIsLiveScanning] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [batchResults, setBatchResults] = useState<{fileName: string, sign: string, conf: number}[]>([]);
+  const [isBatchResultDialogOpen, setIsBatchResultDialogOpen] = useState(false);
+  const [selectedBatchAssets, setSelectedBatchAssets] = useState<any[]>([]);
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
@@ -97,18 +102,27 @@ export function useDetectionLogic(navigation: any) {
   const [detectedWord, setDetectedWord] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
   const lastDetectionTime = useRef(0);
+  const latestDetectionRef = useRef<any>(null);
 
   const handleDetection = useCallback((index: number, conf: number) => {
-    // Bỏ qua cooldown 1000ms nếu là chế độ chụp ảnh (picture)
-    if (detectionMode === 'picture' || Date.now() - lastDetectionTime.current > 1000) {
-      const words = packWords[activePackId || '']?.map(w => w.word) || [];
-      if (words.length > 0 && index >= 0 && index < words.length) {
-        const word = words[index];
-        setDetectedWord(word);
-        setConfidence(conf);
-        lastDetectionTime.current = Date.now();
+    const words = packWords[activePackId || '']?.map(w => w.word) || [];
+    if (words.length > 0 && index >= 0 && index < words.length) {
+      const word = words[index];
+      latestDetectionRef.current = { wordStr: word, conf };
+      
+      // 1. LUÔN cập nhật UI (Banner) ngay lập tức để Camera nhạy và mượt
+      setDetectedWord(word);
+      setConfidence(conf);
 
-        if (conf >= thresholdValue) {
+      const now = Date.now();
+      const timeSinceLast = now - lastDetectionTime.current;
+
+      // 2. Ngưỡng debounce cho Lịch sử và Âm thanh (Tránh spam liên tục làm đơ máy)
+      // Picture và Video thì ghi nhận liên tục, Live thì giãn cách 1 giây
+      const shouldLogHistory = detectionMode === 'picture' || detectionMode === 'video' || timeSinceLast > 1000;
+
+      if (conf >= thresholdValue) {
+        if (shouldLogHistory) {
           triggerImpactFeedback();
           if (ttsSettings?.systemSounds !== false && word && word.trim() !== '') {
             try {
@@ -116,19 +130,27 @@ export function useDetectionLogic(navigation: any) {
               Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
             } catch (e) { console.warn("Speech API failed", e); }
           }
+          
           if (detectionMode === 'picture') {
-            setSessionHistory([{ id: Date.now().toString(), sign: `${word} (${Math.round(conf * 100)}%)` }]); // Ảnh chỉ có 1 kết quả duy nhất kèm độ chính xác
+            setSessionHistory([{ id: now.toString(), sign: `${word} (${Math.round(conf * 100)}%)` }]); 
             setIsHistoryDialogOpen(true);
             setIsProcessing(false);
           } else {
-            setSessionHistory(prev => [{ id: Date.now().toString(), sign: word }, ...prev]);
+            setSessionHistory(prev => {
+              // Tránh spam liên tục cùng 1 từ trong Live Mode (nếu người dùng giữ im tay)
+              if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === word && timeSinceLast < 2000) {
+                 return prev; 
+              }
+              return [{ id: now.toString(), sign: word }, ...prev];
+            });
           }
-        } else if (detectionMode === 'picture') {
-          // Dưới ngưỡng tự tin vẫn báo kết quả để người dùng biết
-          setSessionHistory([{ id: Date.now().toString(), sign: `${word} (${Math.round(conf * 100)}% - Thấp)` }]);
-          setIsHistoryDialogOpen(true);
-          setIsProcessing(false);
+          lastDetectionTime.current = now;
         }
+      } else if (detectionMode === 'picture') {
+        // Dưới ngưỡng tự tin vẫn báo kết quả để người dùng biết
+        setSessionHistory([{ id: now.toString(), sign: `${word} (${Math.round(conf * 100)}% - Thấp)` }]);
+        setIsHistoryDialogOpen(true);
+        setIsProcessing(false);
       }
     }
   }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode]);
@@ -263,7 +285,124 @@ export function useDetectionLogic(navigation: any) {
   const scannerState = useRef({ hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning });
   scannerState.current = { hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning };
 
+  const pickBatchImages = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const { StorageAccessFramework } = FileSystem;
+        const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+        
+        if (permissions.granted) {
+          const uri = permissions.directoryUri;
+          const allImageUris: string[] = [];
+          
+          const scanDirectory = async (dirUri: string) => {
+            try {
+              const files = await StorageAccessFramework.readDirectoryAsync(dirUri);
+              for (const fileUri of files) {
+                if (fileUri.match(/\.(jpg|jpeg|png)$/i)) {
+                  allImageUris.push(fileUri);
+                } else if (!fileUri.match(/\.[a-zA-Z0-9]{2,4}$/)) {
+                  // If it doesn't have a known extension, it might be a subfolder
+                  await scanDirectory(fileUri);
+                }
+              }
+            } catch (e) {
+              // Ignore errors (e.g. if fileUri is not a directory)
+            }
+          };
+
+          setSnackbarMsg("Đang quét ảnh trong thư mục...");
+          await scanDirectory(uri);
+          
+          if (allImageUris.length > 0) {
+            const assets = allImageUris.map(imgUri => ({
+              uri: imgUri,
+              name: imgUri.split('%2F').pop() || 'image.jpg'
+            }));
+            
+            setSelectedBatchAssets(assets);
+            setSelectedMedia(assets[0].uri);
+          } else {
+            Alert.alert("Thông báo", "Không tìm thấy file ảnh nào trong thư mục này.");
+          }
+        }
+      } else {
+        // Fallback for iOS
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsMultipleSelection: true,
+          quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          setSelectedBatchAssets(result.assets);
+          setSelectedMedia(result.assets[0].uri);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to pick batch directory", error);
+    }
+  };
+
+  const handleBatchScan = async () => {
+    if (!selectedBatchAssets || selectedBatchAssets.length === 0) {
+      setSnackbarMsg("Chưa chọn file nào.");
+      return;
+    }
+    setIsProcessing(true);
+    setSnackbarMsg("Đang chuẩn bị ảnh...");
+    setBatchResults([]);
+
+    try {
+      const results: {fileName: string, sign: string, conf: number}[] = [];
+      
+      for (let i = 0; i < selectedBatchAssets.length; i++) {
+        const asset = selectedBatchAssets[i];
+        setSnackbarMsg(`Đang xử lý ${i + 1}/${selectedBatchAssets.length}...`);
+        
+        const fileName = asset.name || `image_${i}.jpg`;
+        const destUri = asset.uri;
+
+        latestDetectionRef.current = null;
+        if (clearQueue) clearQueue();
+        runDetection(destUri, facing, true);
+        
+        let attempts = 0;
+        while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 500) {
+          await new Promise(r => setTimeout(r, 100));
+          attempts++;
+        }
+        await new Promise(r => setTimeout(r, 100));
+        
+        if (latestDetectionRef.current) {
+          results.push({
+            fileName: fileName,
+            sign: latestDetectionRef.current.wordStr || 'Unknown',
+            conf: latestDetectionRef.current.conf
+          });
+        } else {
+          results.push({ fileName, sign: 'Lỗi', conf: 0 });
+        }
+      }
+
+      setBatchResults(results);
+      setIsBatchResultDialogOpen(true);
+      setSnackbarMsg(`Hoàn tất xử lý ${results.length} ảnh!`);
+      
+    } catch (e: any) {
+      console.error("Batch scan error:", e);
+      setSnackbarMsg("Lỗi khi xử lý file ZIP.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleManualScan = async (overrideUri?: string | null, isManualClick: boolean = false) => {
+    if (!isAppActive) return;
+    if (detectionMode === 'batch') {
+      if (isManualClick) await handleBatchScan();
+      return;
+    }
     if (!activePackId) {
       if (isManualClick) Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectModelFirst'));
       return;
@@ -558,7 +697,7 @@ export function useDetectionLogic(navigation: any) {
     setFlash(!flash);
   };
 
-  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video') => {
+  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch') => {
     clearQueue();
     setDetectionMode(mode);
   };
@@ -581,11 +720,12 @@ export function useDetectionLogic(navigation: any) {
     detectedWord, confidence, detectionSpeed, updateSettings,
     detectionMode, setDetectionMode: handleDetectionModeChange,
     isLiveScanning, setIsLiveScanning,
-    selectedMedia, setSelectedMedia,
+    selectedMedia, setSelectedMedia, selectedBatchAssets,
     isProcessing, snackbarMsg, setSnackbarMsg,
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
-    onPressManualScan, pickImage, pickVideo, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape
+    onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape,
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
   };
 }

@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, AppState } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Text, Button, useTheme, IconButton, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { CheckCircle } from 'lucide-react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
@@ -30,9 +31,27 @@ export default function TestScreen({ route, navigation }: any) {
     handleSimulateSkip,
     checkFromCamera
   } = useTestLogic(packId, duration, mode, cameraRef);
+  
   const device = useCameraDevice(facing);
 
+  const isFocused = useIsFocused();
+  const [isAppActive, setIsAppActive] = useState(AppState.currentState === 'active');
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', next => setIsAppActive(next === 'active'));
+    return () => subscription.remove();
+  }, []);
+  const isCameraActive = isFocused && isAppActive;
 
+  if (!hasPermission) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text variant="displaySmall" style={styles.scoreText}>{t('learning.noPermission')}</Text>
+        <Button mode="contained" onPress={requestPermission} style={{ marginTop: 32 }}>
+          {t('learning.grantPermission')}
+        </Button>
+      </View>
+    );
+  }
 
   if (!testActive) {
     return (
@@ -66,7 +85,7 @@ export default function TestScreen({ route, navigation }: any) {
       <View style={styles.cameraPlaceholder}>
         {device != null ? (
           <View style={{ flex: 1, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
-            <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={true} />
+            <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={isCameraActive} />
             <View style={styles.overlay}>
               <View style={styles.boundingBox} />
               <Text style={styles.overlayText}>{t('learning.alignSignHere') || 'Align sign here'}</Text>

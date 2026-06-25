@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 interface DetectionSidebarProps {
   theme: any;
-  detectionMode: 'live' | 'picture' | 'video';
+  detectionMode: 'live' | 'picture' | 'video' | 'batch';
   detectionSpeed: string;
   updateSettings: (settings: any) => void;
   toggleCameraFacing: () => void;
@@ -14,6 +14,7 @@ interface DetectionSidebarProps {
   flash: boolean;
   pickImage: () => void;
   pickVideo: () => void;
+  pickBatchImages?: () => void;
   isLiveScanning: boolean;
   isProcessing: boolean;
   activePackId: string | null;
@@ -32,6 +33,7 @@ export default function DetectionSidebar({
   flash,
   pickImage,
   pickVideo,
+  pickBatchImages,
   isLiveScanning,
   isProcessing,
   activePackId,
@@ -74,7 +76,7 @@ export default function DetectionSidebar({
         </>
       ) : (
         <>
-          <IconButton icon={() => <FolderOpen color="white" size={24} />} style={styles.sideBtn} onPress={detectionMode === 'picture' ? pickImage : pickVideo} />
+          <IconButton icon={() => <FolderOpen color="white" size={24} />} style={styles.sideBtn} onPress={detectionMode === 'picture' ? pickImage : detectionMode === 'batch' && pickBatchImages ? pickBatchImages : pickVideo} />
           {detectionMode === 'picture' && setIsUrlDialogOpen && (
             <IconButton icon={() => <Link color="white" size={24} />} style={styles.sideBtn} onPress={() => setIsUrlDialogOpen(true)} />
           )}

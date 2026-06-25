@@ -17,6 +17,8 @@ import { useDetectionLogic } from '../hooks/useDetectionLogic';
 export default function DetectionScreen({ navigation }: any) {
   const { t } = useTranslation();
   
+  // Using setDetectionMode from useDetectionLogic directly
+
   const {
     theme, developerDebugMode, facing, flash, hasPermission, requestPermission, device,
     activePackId, activePack, setActivePack, customModelUri, setCustomModelUri, downloadedPacks,
@@ -32,8 +34,9 @@ export default function DetectionScreen({ navigation }: any) {
     isProcessing, snackbarMsg, setSnackbarMsg,
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
-    onPressManualScan, pickImage, pickVideo, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape
+    onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape,
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
   } = useDetectionLogic(navigation);
 
   if (!hasPermission) {
@@ -104,6 +107,7 @@ export default function DetectionScreen({ navigation }: any) {
           player={player}
           pickImage={pickImage}
           pickVideo={pickVideo}
+          pickBatchImages={pickBatchImages}
           isAppActive={isAppActive && isFocused}
           frameOutput={frameOutput}
         />
@@ -118,6 +122,7 @@ export default function DetectionScreen({ navigation }: any) {
           flash={flash}
           pickImage={pickImage}
           pickVideo={pickVideo}
+          pickBatchImages={pickBatchImages}
           isLiveScanning={isLiveScanning}
           isProcessing={isProcessing}
           activePackId={activePackId}
@@ -181,6 +186,9 @@ export default function DetectionScreen({ navigation }: any) {
         imageToAnalyzeSize={imageToAnalyzeSize}
         activePackName={activePack?.name}
         modelInputShape={modelShape}
+        batchResults={batchResults}
+        isBatchResultDialogOpen={isBatchResultDialogOpen}
+        setIsBatchResultDialogOpen={setIsBatchResultDialogOpen}
       />
     </SafeAreaView>
   );

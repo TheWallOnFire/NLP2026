@@ -7,6 +7,7 @@ import UrlInputDialog from './dialogs/UrlInputDialog';
 import HistoryDialog from './dialogs/HistoryDialog';
 import PendingQueueDialog from './dialogs/PendingQueueDialog';
 import ConfirmImageDialog from './dialogs/ConfirmImageDialog';
+import BatchResultDialog from './dialogs/BatchResultDialog';
 
 interface DetectionDialogsProps {
   theme: any;
@@ -16,7 +17,7 @@ interface DetectionDialogsProps {
   onSaveSession?: (editedText: string, sessionId?: string | null) => void;
   onSaveMediaSession?: () => void;
   setSessionHistory?: (history: any[]) => void;
-  detectionMode?: 'live' | 'picture' | 'video';
+  detectionMode?: 'live' | 'picture' | 'video' | 'batch';
   isDebugDialogOpen: boolean;
   setIsDebugDialogOpen: (open: boolean) => void;
   debugData: any;
@@ -36,6 +37,9 @@ interface DetectionDialogsProps {
   imageToAnalyzeSize?: { width: number; height: number; bytes: number };
   activePackName?: string;
   modelInputShape?: number[];
+  batchResults?: { fileName: string; sign: string; conf: number }[];
+  isBatchResultDialogOpen?: boolean;
+  setIsBatchResultDialogOpen?: (open: boolean) => void;
 }
 
 export default function DetectionDialogs({
@@ -65,7 +69,10 @@ export default function DetectionDialogs({
   imageToAnalyze,
   imageToAnalyzeSize,
   activePackName,
-  modelInputShape
+  modelInputShape,
+  batchResults,
+  isBatchResultDialogOpen,
+  setIsBatchResultDialogOpen
 }: DetectionDialogsProps) {
   
   useEffect(() => {
@@ -138,6 +145,13 @@ export default function DetectionDialogs({
             onDismiss={() => setIsDebugDialogOpen(false)}
             debugData={debugData}
             clearQueue={clearQueue}
+          />
+
+          <BatchResultDialog
+            theme={theme}
+            isVisible={isBatchResultDialogOpen || false}
+            onDismiss={() => setIsBatchResultDialogOpen?.(false)}
+            results={batchResults || []}
           />
         </SafeAreaView>
       </Portal>

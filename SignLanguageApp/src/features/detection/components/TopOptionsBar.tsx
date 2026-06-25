@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text, Menu, Divider } from 'react-native-paper';
-import { ChevronDown, Brain, Camera as CameraIcon, Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
+import { Camera as CameraIcon, Image as ImageIcon, Video as VideoIcon, ChevronDown, Menu as MenuIcon, Brain } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 interface TopOptionsBarProps {
   theme: any;
-  detectionMode: 'live' | 'picture' | 'video';
-  setDetectionMode: (mode: 'live' | 'picture' | 'video') => void;
+  detectionMode: 'live' | 'picture' | 'video' | 'batch';
+  setDetectionMode: (mode: 'live' | 'picture' | 'video' | 'batch') => void;
   setSelectedMedia: (media: string | null) => void;
   setIsLiveScanning: (scanning: boolean) => void;
   activePackId: string | null;
@@ -46,6 +46,7 @@ export default function TopOptionsBar({
           <TouchableOpacity style={styles.dropdownBtn} onPress={() => setIsModeMenuOpen(true)}>
             {detectionMode === 'live' ? <CameraIcon color={theme.colors.primary} size={18} /> : 
              detectionMode === 'picture' ? <ImageIcon color={theme.colors.primary} size={18} /> :
+             detectionMode === 'batch' ? <MenuIcon color={theme.colors.primary} size={18} /> :
              <VideoIcon color={theme.colors.primary} size={18} />}
             <Text style={styles.dropdownText}>{detectionMode.toUpperCase()}</Text>
             <ChevronDown color={theme.colors.onSurface} size={16} />
@@ -55,6 +56,7 @@ export default function TopOptionsBar({
         <Menu.Item onPress={() => { setDetectionMode('live'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.liveCamera')} />
         <Menu.Item onPress={() => { setDetectionMode('picture'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.imageUpload')} />
         <Menu.Item onPress={() => { setDetectionMode('video'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.videoUpload')} />
+        <Menu.Item onPress={() => { setDetectionMode('batch'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="Batch Upload (Folder)" />
       </Menu>
 
       <Menu

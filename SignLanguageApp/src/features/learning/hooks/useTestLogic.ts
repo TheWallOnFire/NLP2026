@@ -88,7 +88,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
     latestDetection.current = { wordStr: detectedWordStr, conf };
   }, [testActive, currentWord, words]);
 
-  const { isModelReady, runDetection, getDebugInfo } = useSignLanguageModel(handleDetection);
+  const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection);
 
   const evaluateDetection = useCallback(() => {
     if (!currentWord) return;
@@ -127,11 +127,11 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
 
       if (imagePath) {
         latestDetection.current = null;
-        await runDetection(imagePath, facing, true);
+        clearQueue();
+        runDetection(imagePath, facing, true);
         
         let attempts = 0;
-        await new Promise(r => setTimeout(r, 300));
-        while (getDebugInfo().isProcessing && attempts < 50) {
+        while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 50) {
           await new Promise(r => setTimeout(r, 100));
           attempts++;
         }
