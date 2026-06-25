@@ -2,6 +2,8 @@
 dataset/
 data/
 logs/
+tmp/
+tmp_clean/
 
 # Trained Models and Weights
 *.keras

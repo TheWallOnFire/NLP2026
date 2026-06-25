@@ -168,6 +168,8 @@ export function useDetectionLogic(navigation: any) {
   const detectionTriggerSV = useSharedValue(0);
   const errorMsgSV = useSharedValue('');
   const errorTriggerSV = useSharedValue(0);
+  const currentIntervalSV = useSharedValue(1000);
+  const detectionModeSV = useSharedValue('live');
 
   useAnimatedReaction(
     () => detectionTriggerSV.value,
@@ -191,109 +193,19 @@ export function useDetectionLogic(navigation: any) {
   useEffect(() => { isAppActiveSV.value = isAppActive; }, [isAppActive]);
   useEffect(() => { facingSV.value = facing; }, [facing]);
 
-  const currentInterval = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
+  useEffect(() => {
+    currentIntervalSV.value = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
+  }, [detectionSpeed]);
+  useEffect(() => { detectionModeSV.value = detectionMode; }, [detectionMode]);
+
   const asyncRunner = useAsyncRunner();
 
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
       'worklet';
-      if (!isLiveScanningSV.value || !isAppActiveSV.value || currentInterval === -1 || detectionMode !== 'live') {
-        frame.dispose();
-        return;
-      }
-      const now = Date.now();
-      if (now - lastDetectTimeSV.value < 1000) {
-        frame.dispose();
-        return;
-      }
-      if (now - lastProcessTime.value < currentInterval) {
-        frame.dispose();
-        return;
-      }
-      lastProcessTime.value = now;
-
-      const wasHandled = asyncRunner.runAsync(() => {
-        'worklet';
-        try {
-          if (!boxedModel || !resizer) return;
-          const tflite = boxedModel.unbox();
-          let resized: any = null;
-          try {
-            resized = resizer.resize(frame);
-            const rawBuffer = resized.getPixelBuffer();
-            const inputDataType = tflite.inputs[0].dataType;
-            let inputBuffer: ArrayBuffer;
-            const uint8 = new Uint8Array((rawBuffer as any).buffer || rawBuffer);
-            const isFront = facingSV.value === 'front';
-            
-            const expectedElements = modelWidth * modelHeight * 3;
-
-            if (inputDataType === 'float32') {
-              const float32 = new Float32Array(expectedElements);
-              for (let y = 0; y < modelHeight; y++) {
-                for (let x = 0; x < modelWidth; x++) {
-                  const srcX = isFront ? (modelWidth - 1 - x) : x;
-                  const srcIdx = (y * modelWidth + srcX) * 3;
-                  const dstIdx = (y * modelWidth + x) * 3;
-                  float32[dstIdx] = Math.fround(uint8[srcIdx] / 255.0);
-                  float32[dstIdx + 1] = Math.fround(uint8[srcIdx + 1] / 255.0);
-                  float32[dstIdx + 2] = Math.fround(uint8[srcIdx + 2] / 255.0);
-                }
-              }
-              inputBuffer = float32.buffer;
-            } else {
-              const int8Out = new Uint8Array(expectedElements);
-              for (let y = 0; y < modelHeight; y++) {
-                for (let x = 0; x < modelWidth; x++) {
-                  const srcX = isFront ? (modelWidth - 1 - x) : x;
-                  const srcIdx = (y * modelWidth + srcX) * 3;
-                  const dstIdx = (y * modelWidth + x) * 3;
-                  int8Out[dstIdx] = uint8[srcIdx];
-                  int8Out[dstIdx + 1] = uint8[srcIdx + 1];
-                  int8Out[dstIdx + 2] = uint8[srcIdx + 2];
-                }
-              }
-              inputBuffer = int8Out.buffer;
-            }
-
-            const outputs = tflite.runSync([inputBuffer]);
-            const rawOut = outputs[0] as any;
-            const outputData = Array.isArray(rawOut) ? rawOut.flat(Infinity) : rawOut;
-
-            let outputArray = outputData;
-            if (outputData && outputData.byteLength && !outputData.length) {
-              outputArray = new Float32Array(outputData);
-            }
-            if (outputArray && outputArray.length > 0) {
-              let maxIdx = 0;
-              let maxVal = outputArray[0];
-              for (let i = 1; i < outputArray.length; i++) {
-                if (outputArray[i] > maxVal) {
-                  maxVal = outputArray[i];
-                  maxIdx = i;
-                }
-              }
-              if (isNaN(maxVal)) {
-                errorMsgSV.value = "Lỗi: Kết quả model trả về NaN.";
-                errorTriggerSV.value = now;
-              } else if (maxVal > thresholdValue && maxVal > 0 && isFinite(maxVal)) {
-                lastDetectTimeSV.value = now;
-                detectedIdxSV.value = maxIdx;
-                detectedValSV.value = maxVal;
-                detectionTriggerSV.value = now;
-              }
-            }
-          } finally {
-            if (resized) resized.dispose();
-          }
-        } catch (e: any) {
-          errorMsgSV.value = `Lỗi Camera Worklet: ${e.message || 'Unknown'}`;
-          errorTriggerSV.value = Date.now();
-        } finally {
-          frame.dispose();
-        }
-      });
-      if (!wasHandled) frame.dispose();
+      // Mọi xử lý live giờ được chuyển về handleManualScan + runDetection queue
+      // Worklet này chỉ giữ chỗ để tránh crash
+      frame.dispose();
     }
   });
 
@@ -436,14 +348,14 @@ export function useDetectionLogic(navigation: any) {
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
         
-        if (state.detectionMode === 'video') {
+        if (state.detectionMode === 'video' || state.detectionMode === 'live') {
           await handleManualScan();
         }
         
         if (isActive) timerId = setTimeout(loop, getInterval());
       };
 
-      if (detectionMode === 'video') {
+      if (detectionMode === 'video' || detectionMode === 'live') {
         timerId = setTimeout(loop, 500);
       }
     } else {
