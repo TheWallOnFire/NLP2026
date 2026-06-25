@@ -1,0 +1,8 @@
+{
+  "id": "asl_mobilenetv2_final_001",
+  "name": "ASL MobileNetV2 Final",
+  "version": "1.0.0",
+  "author": "AI Developer Team",
+  "language": "en-US",
+  "description": "Mô hình CNN nhận diện 29 lớp ngôn ngữ ký hiệu ASL (A-Z, del, nothing, space)."
+}

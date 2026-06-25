@@ -19,14 +19,34 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     const file = result.assets[0];
     const fileUri = file.uri;
 
-    // 2. Read the zip file into base64
-    const base64Content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: 'base64',
-    });
+    // Bước 1.1: Xác thực định dạng file (chỉ chấp nhận .zip)
+    const isZip = file.name.toLowerCase().endsWith('.zip') || (file.mimeType && file.mimeType.includes('zip'));
+    if (!isZip) {
+      throw new Error("Định dạng tệp không hợp lệ. Vui lòng chọn tệp .zip chứa mô hình.");
+    }
 
-    // 3. Load with JSZip
-    const zip = new JSZip();
-    const loadedZip = await zip.loadAsync(base64Content, { base64: true });
+    // Bước 1.2: Xác thực kích thước file để tránh OOM (Ví dụ tối đa 150MB)
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists) {
+      throw new Error("Không thể tìm thấy tệp đã chọn.");
+    }
+    const MAX_FILE_SIZE = 150 * 1024 * 1024; // 150MB
+    if (fileInfo.size && fileInfo.size > MAX_FILE_SIZE) {
+      throw new Error("Kích thước tệp quá lớn (>150MB), có thể gây tràn bộ nhớ. Vui lòng chọn tệp nhỏ hơn.");
+    }
+
+    // 2. Read the zip file via fetch to ArrayBuffer to prevent Base64 string OOM
+    let loadedZip;
+    try {
+      const response = await fetch(fileUri);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // 3. Load with JSZip
+      const zip = new JSZip();
+      loadedZip = await zip.loadAsync(arrayBuffer);
+    } catch (e) {
+      throw new Error("Tệp không đúng định dạng nén chuẩn hoặc bị hỏng. Không thể đọc dữ liệu.");
+    }
 
     // 4. Find metadata.json and word_list.json
     let metadataFile = null;

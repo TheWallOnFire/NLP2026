@@ -41,12 +41,14 @@ export function usePackDetailLogic(packId: string) {
   const handleToggleFavorite = (wordId: string) => {
     triggerSelectionFeedback();
     toggleFavorite(packId, wordId);
+    setSelectedWord(prev => prev && prev.id === wordId ? { ...prev, favorite: !prev.favorite } : prev);
   };
 
   const handleMarkLearned = (wordId: string, learned: boolean) => {
     if (learned) triggerSuccessFeedback();
     else triggerSelectionFeedback();
     markLearned(packId, wordId, learned);
+    setSelectedWord(prev => prev && prev.id === wordId ? { ...prev, learned } : prev);
   };
 
   return {

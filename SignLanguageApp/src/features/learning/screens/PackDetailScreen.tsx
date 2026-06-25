@@ -121,12 +121,20 @@ export default function PackDetailScreen({ route, navigation }: any) {
               </Card>
 
               <View style={styles.modalActions}>
-                <IconButton 
-                  icon={selectedWord.favorite ? "star" : "star-outline"} 
-                  iconColor={selectedWord.favorite ? "#FFC107" : "gray"}
-                  size={32}
-                  onPress={() => handleToggleFavorite(selectedWord.id)}
-                />
+                <View style={{ flexDirection: 'row' }}>
+                  <IconButton 
+                    icon={selectedWord.favorite ? "star" : "star-outline"} 
+                    iconColor={selectedWord.favorite ? "#FFC107" : "gray"}
+                    size={32}
+                    onPress={() => handleToggleFavorite(selectedWord.id)}
+                  />
+                  <IconButton 
+                    icon={selectedWord.learned ? "check-circle" : "check-circle-outline"} 
+                    iconColor={selectedWord.learned ? "#4CAF50" : "gray"}
+                    size={32}
+                    onPress={() => handleMarkLearned(selectedWord.id, !selectedWord.learned)}
+                  />
+                </View>
                 <Button 
                   mode="contained" 
                   icon="play-circle" 
