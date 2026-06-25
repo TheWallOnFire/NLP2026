@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, StyleSheet, Linking, Alert } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, StyleSheet, Linking, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Button, IconButton } from 'react-native-paper';
+import { Text, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { History as HistoryIcon, ListTodo } from 'lucide-react-native';
 
@@ -35,7 +35,7 @@ export default function DetectionScreen({ navigation }: any) {
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape,
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
     batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
   } = useDetectionLogic(navigation);
 
@@ -94,7 +94,7 @@ export default function DetectionScreen({ navigation }: any) {
         )}
 
         <MediaScanner
-          key={`scanner-${modelWidth}-${detectionSpeed}`}
+          key={`scanner-${modelShape?.[1] || 224}-${detectionSpeed}`}
           detectionMode={detectionMode}
           device={device}
           cameraRef={camera}
@@ -111,6 +111,15 @@ export default function DetectionScreen({ navigation }: any) {
           isAppActive={isAppActive && isFocused}
           frameOutput={frameOutput}
         />
+
+        <View style={styles.topResultOverlay}>
+          <DetectionResultBanner
+            theme={theme}
+            activePack={activePack}
+            detectedWord={detectedWord}
+            confidence={confidence}
+          />
+        </View>
 
         <DetectionSidebar
           theme={theme}
@@ -130,14 +139,39 @@ export default function DetectionScreen({ navigation }: any) {
           onPressManualScan={onPressManualScan}
           setIsUrlDialogOpen={setIsUrlDialogOpen}
         />
+
+        {/* Fix Bug 15 UI/UX: Hiển thị màng bọc mờ chặn màn hình (Dimming Overlay) khi đang phân tích ảnh nặng, giúp UI rành mạch và tránh người dùng spam nút */}
+        {isProcessing && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 }]} pointerEvents="auto">
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={{ color: 'white', marginTop: 10, fontWeight: 'bold' }}>Processing...</Text>
+          </View>
+        )}
       </View>
 
-      <DetectionResultBanner
-        theme={theme}
-        activePack={activePack}
-        detectedWord={detectedWord}
-        confidence={confidence}
-      />
+      <View style={styles.historyTextContainer}>
+        {sessionHistory.length === 0 ? (
+           <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>Chưa có kết quả...</Text>
+        ) : (
+          <Text 
+            style={styles.historyTextContent} 
+            numberOfLines={1} 
+            ellipsizeMode="head"
+          >
+            {[...sessionHistory].reverse().map((item, index) => {
+              const conf = item.conf || 0;
+              let color = '#F44336'; // Đỏ
+              if (conf > 0.90) color = '#4CAF50'; // Xanh lá
+              else if (conf > 0.60) color = '#FF9800'; // Vàng
+              return (
+                <Text key={item.id} style={{ color: color, fontWeight: 'bold' }}>
+                  {item.sign}{' '}
+                </Text>
+              );
+            })}
+          </Text>
+        )}
+      </View>
 
       <View style={styles.actionButtonsRow}>
         <Button
@@ -236,4 +270,26 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
   },
+  topResultOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    zIndex: 30,
+    elevation: 30,
+  },
+  historyTextContainer: {
+    height: 60,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  historyTextContent: {
+    fontSize: 24,
+    letterSpacing: 2,
+    textAlign: 'right', // Ép chữ dồn sang phải để luôn thấy chữ mới nhất
+  }
 });

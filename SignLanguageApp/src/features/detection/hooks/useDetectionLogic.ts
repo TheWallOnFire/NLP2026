@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert, AppState, Linking, Platform } from 'react-native';
 import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { useCameraDevice, useCameraPermission, useFrameOutput, useAsyncRunner } from 'react-native-vision-camera';
-import { useResizer } from 'react-native-vision-camera-resizer';
+import { useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import JSZip from 'jszip';
@@ -12,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
+import { useDetectionUIState } from './useDetectionUIState';
 
 import { useSignLanguageModel } from './useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
@@ -31,7 +31,7 @@ const saveMediaToAppStorage = async (sourceUri: string): Promise<string> => {
     }
     const cleanUri = sourceUri.split('?')[0];
     const ext = cleanUri.split('.').pop() || 'jpg';
-    const fileName = `media_${Date.now()}.${ext}`;
+    const fileName = `media_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
     const destUri = `${mediaDir}${fileName}`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
     return destUri;
@@ -74,25 +74,33 @@ export function useDetectionLogic(navigation: any) {
   const saveCameraSession = useHistoryStore(state => state.saveCameraSession);
   const addImageVideoSession = useHistoryStore(state => state.addImageVideoSession);
   const addBatchSession = useHistoryStore(state => state.addBatchSession);
-  const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string }[]>([]);
+  const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string, conf?: number }[]>([]);
   const [pendingMediaUri, setPendingMediaUri] = useState<string | null>(null);
 
-  const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
-  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-  const [isConfirmImageDialogOpen, setIsConfirmImageDialogOpen] = useState(false);
-  const [imageToAnalyze, setImageToAnalyze] = useState<string | null>(null);
-  const [imageToAnalyzeSize, setImageToAnalyzeSize] = useState({ width: 0, height: 0, bytes: 0 });
+  const uiState = useDetectionUIState();
+  const {
+    isDebugDialogOpen, setIsDebugDialogOpen,
+    isHistoryDialogOpen, setIsHistoryDialogOpen,
+    isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
+    imageToAnalyze, setImageToAnalyze,
+    imageToAnalyzeSize, setImageToAnalyzeSize,
+    detectionMode, setDetectionMode,
+    isLiveScanning, setIsLiveScanning,
+    selectedMedia, setSelectedMedia,
+    isProcessing, setIsProcessing,
+    batchResults, setBatchResults,
+    isBatchResultDialogOpen, setIsBatchResultDialogOpen,
+    selectedBatchAssets, setSelectedBatchAssets,
+    snackbarMsg, setSnackbarMsg,
+    isUrlDialogOpen, setIsUrlDialogOpen,
+    urlInput, setUrlInput,
+    detectedWord, setDetectedWord,
+    confidence, setConfidence
+  } = uiState;
+
   const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
   const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
   const updateSettings = useSettingsStore(state => state.updateSettings);
-  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video' | 'batch'>('live');
-  const [isLiveScanning, setIsLiveScanning] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const [batchResults, setBatchResults] = useState<{fileName: string, sign: string, conf: number}[]>([]);
-  const [isBatchResultDialogOpen, setIsBatchResultDialogOpen] = useState(false);
-  const [selectedBatchAssets, setSelectedBatchAssets] = useState<any[]>([]);
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
@@ -140,82 +148,100 @@ export function useDetectionLogic(navigation: any) {
     }
   };
 
-  const [detectedWord, setDetectedWord] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState(0);
   const lastDetectionTime = useRef(0);
   const latestDetectionRef = useRef<any>(null);
   const recentPredictions = useRef<string[]>([]);
   const lastSpeechTime = useRef(0);
   const lastSpokenWord = useRef<string | null>(null);
+  const lastHapticTime = useRef(0); // Dùng để Fix Bug 42 (Rung Spam)
+  // Fix Bug 1 UI/UX: Ref để kìm hãm luồng Render UI
+  const lastUIUpdateTime = useRef(0);
+  const lastRenderedWord = useRef<string | null>(null);
+  const lastFrameProcessedTime = useRef(0);
+  const lastLoggedWord = useRef<string | null>(null);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     const words = packWords[activePackId || '']?.map(w => w.word) || [];
     if (words.length > 0 && index >= 0 && index < words.length) {
       const word = words[index];
       latestDetectionRef.current = { wordStr: word, conf };
-      
       const now = Date.now();
-      const timeSinceLast = now - lastDetectionTime.current;
-
-      recentPredictions.current.push(word);
-      if (recentPredictions.current.length > 5) {
-        recentPredictions.current.shift(); 
+      let timeSinceLast = now - lastDetectionTime.current;
+      let frameGap = now - lastFrameProcessedTime.current;
+      // Fix Bug 20 (Timezone Glitch): Chống âm thời gian nếu hệ điều hành cập nhật lại múi giờ hoặc DST
+      if (timeSinceLast < 0) timeSinceLast = 1000;
+      if (frameGap < 0) frameGap = 1000;
+      
+      // Fix Bug 1: Xóa lịch sử rác cũ nếu Camera bị tạm ngưng quá lâu, tránh ô nhiễm thuật toán Anti-Flicker
+      if (frameGap > 1500) {
+        recentPredictions.current = [];
       }
       
-      const counts = recentPredictions.current.reduce((acc: any, val) => {
-         acc[val] = (acc[val] || 0) + 1;
-         return acc;
-      }, {});
-      const smoothedWord = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+      lastFrameProcessedTime.current = now;
 
-      // Chống nháy (Bug 22): Phải trên 3 phiếu (Đa số) mới cập nhật chữ mới
-      if (counts[smoothedWord] >= 3) {
+      // Yêu cầu của user: Bỏ hẳn Anti-Flicker, lấy luôn kết quả của khung hình hiện tại (1 Vote) để đạt tốc độ thời gian thực tuyệt đối
+      const smoothedWord = word;
+
+      if (true) {
         if (isMounted.current) {
-          setDetectedWord(smoothedWord);
-          setConfidence(conf);
+          // Fix Bug 1 UI/UX: Rerender Throttling. Giảm tải từ 30 FPS xuống còn cập nhật khi chữ đổi hoặc mỗi 200ms
+          const shouldUpdateUI = 
+            smoothedWord !== lastRenderedWord.current || 
+            (now - lastUIUpdateTime.current > 200) || 
+            detectionMode === 'picture' || 
+            detectionMode === 'batch';
+            
+          if (shouldUpdateUI) {
+            setDetectedWord(smoothedWord);
+            setConfidence(conf);
+            lastRenderedWord.current = smoothedWord;
+            lastUIUpdateTime.current = now;
+          }
         }
 
-        const shouldLogHistory = detectionMode === 'picture' || detectionMode === 'video' || timeSinceLast > 1000;
-
-        if (conf >= thresholdValue) {
-          if (shouldLogHistory) {
-            triggerImpactFeedback();
-            
-            // Chống Spam Audio (Bug 23): Không đọc lại từ vừa đọc
-            if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500) && (lastSpokenWord.current !== smoothedWord)) {
-              try {
-                Speech.stop();
-                Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
-                lastSpeechTime.current = now;
-                lastSpokenWord.current = smoothedWord;
-              } catch (e) { console.warn("Speech API failed", e); }
-            }
-            
-            if (detectionMode === 'picture') {
-              if (isMounted.current) {
-                setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}%)` }]); 
-                setIsHistoryDialogOpen(true);
-                setIsProcessing(false);
-              }
-            } else {
-              if (isMounted.current) {
-                setSessionHistory(prev => {
-                  if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === smoothedWord && timeSinceLast < 2000) {
-                     return prev; 
-                  }
-                  const newHistory = [{ id: now.toString(), sign: smoothedWord }, ...prev];
-                  if (newHistory.length > 50) newHistory.length = 50;
-                  return newHistory;
-                });
-              }
-            }
-            lastDetectionTime.current = now;
-          }
-        } else if (detectionMode === 'picture') {
+        // Yêu cầu của user: Lưu Toàn Bộ vào Result History mà không cần bất kỳ điều kiện phức tạp nào!
+        if (detectionMode === 'picture') {
           if (isMounted.current) {
-            setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}% - Thấp)` }]);
+            const uniqueId = `${now}_${Math.random().toString(36).substring(7)}`;
+            setSessionHistory([{ id: uniqueId, sign: smoothedWord, conf: conf }]); 
             setIsHistoryDialogOpen(true);
             setIsProcessing(false);
+          }
+        } else {
+          if (isMounted.current) {
+            setSessionHistory(prev => {
+              const uniqueId = `${now}_${Math.random().toString(36).substring(7)}`;
+              // Lưu trực tiếp mọi kết quả kèm % tự tin dạng tham số để UI đổi màu
+              const newHistory = [{ id: uniqueId, sign: smoothedWord, conf: conf }, ...prev];
+              if (newHistory.length > 50) newHistory.length = 50; // Giữ tối đa 50 kết quả gần nhất để tránh OOM
+              return newHistory;
+            });
+          }
+        }
+        
+        lastDetectionTime.current = now;
+        lastLoggedWord.current = smoothedWord;
+
+        // Vẫn giữ điều kiện cho Rung và Đọc (để tránh điện thoại bị rung liệt mô-tơ và văng App)
+        if (conf >= thresholdValue) {
+          // Fix Bug 42: Chống Spam Rung (Chỉ rung tối đa 1 lần mỗi 800ms)
+          if (now - lastHapticTime.current > 800) {
+            // Fix Khựng UI do Haptics
+            setTimeout(() => triggerImpactFeedback(), 0);
+            lastHapticTime.current = now;
+          }
+          
+          // Fix Bug 48: Chống thắt cổ chai TTS (Dọn sạch hàng đợi TTS cũ trước khi đọc từ mới)
+          if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500) && (lastSpokenWord.current !== smoothedWord)) {
+            // Fix Bug 5 UI/UX: Gọi Speech API trong setTimeout để nó đẩy xuống đáy Callback Queue, không chặn quá trình vẽ Layout của React
+            setTimeout(() => {
+              try {
+                Speech.stop(); // Stop immediately clears the queue
+                Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+              } catch (e) { console.warn("Speech API failed", e); }
+            }, 16);
+            lastSpeechTime.current = now;
+            lastSpokenWord.current = smoothedWord;
           }
         }
       }
@@ -224,10 +250,10 @@ export function useDetectionLogic(navigation: any) {
     }
   }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode]);
 
-  const [snackbarMsg, setSnackbarMsg] = useState("");
   const handleModelError = useCallback((errorMsg: string) => {
     setSnackbarMsg(errorMsg);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => { });
+    setIsProcessing(false); // Fix Bug: Nhả khóa màn hình nếu Model gặp lỗi
   }, []);
 
   const { isModelReady, boxedModel, modelShape, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
@@ -239,27 +265,30 @@ export function useDetectionLogic(navigation: any) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       setIsAppActive(nextAppState === 'active');
+      if (nextAppState !== 'active' && clearQueue) {
+        // Bug 5: Xóa rỗng hàng đợi khi thu nhỏ App xuống Background để tránh quét ảnh cũ khi mở lại
+        clearQueue();
+      }
       appState.current = nextAppState;
     });
+    
+    // Bug 11: Tự động dọn dẹp rác (Cache Bloat) của ImageManipulator khi Component Mount
+    const cleanImageCache = async () => {
+      try {
+        const FileSystem = require('expo-file-system/legacy');
+        const cacheDir = FileSystem.cacheDirectory + 'ImageManipulator';
+        const info = await FileSystem.getInfoAsync(cacheDir);
+        if (info.exists) {
+          await FileSystem.deleteAsync(cacheDir, { idempotent: true });
+        }
+      } catch (e) { }
+    };
+    cleanImageCache();
+
     return () => subscription.remove();
-  }, []);
-
-  const modelWidth = modelShape && modelShape.length >= 3 ? (modelShape[1] > 10 ? modelShape[1] : modelShape[2]) : 224;
-  const modelHeight = modelShape && modelShape.length >= 3 ? (modelShape[2] > 10 ? modelShape[2] : (modelShape[1] > 10 ? modelShape[1] : 224)) : 224;
-
-  const { resizer } = useResizer({
-    width: modelWidth,
-    height: modelHeight,
-    channelOrder: 'rgb',
-    dataType: 'uint8',
-    scaleMode: 'cover',
-    pixelLayout: 'interleaved',
-  });
+  }, [clearQueue]);
 
   // Đã dọn dẹp các UseSharedValue gây Anti-pattern và Memory Leak dư thừa
-  // ...
-
-  const asyncRunner = useAsyncRunner();
 
   const frameOutput = useFrameOutput({
     onFrame: (frame) => {
@@ -269,9 +298,6 @@ export function useDetectionLogic(navigation: any) {
       frame.dispose();
     }
   });
-
-  const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
-  const [urlInput, setUrlInput] = useState("");
 
   const player = useVideoPlayer(detectionMode === 'video' ? selectedMedia : null, player => {
     if (player) {
@@ -390,8 +416,11 @@ export function useDetectionLogic(navigation: any) {
       const results: {fileName: string, sign: string, conf: number}[] = [];
       
       for (let i = 0; i < selectedBatchAssets.length; i++) {
-        // Thêm delay setTimeout(0) vào vòng lặp for để React có thời gian render Progress Bar.
-        await new Promise(resolve => setTimeout(resolve, 0));
+        // Fix Bug 9 (Batch Interleaving): Dừng vòng lặp ngay lập tức nếu người dùng thoát Component
+        if (!isMounted.current) break;
+        
+        // Fix Bug 4 UI/UX: Đổi setTimeout(0) thành setTimeout(16) (Tương đương 1 Frame 60FPS) để ép JS Thread nhả Event Loop cho UI Thread render Snackbar
+        await new Promise(resolve => setTimeout(resolve, 16));
         
         const asset = selectedBatchAssets[i];
         setSnackbarMsg(`Đang xử lý ${i + 1}/${selectedBatchAssets.length}...`);
@@ -516,7 +545,8 @@ export function useDetectionLogic(navigation: any) {
         return;
       } else if (actualMedia && detectionMode === 'video') {
         try {
-          const timeToCapture = player.currentTime * 1000;
+          // Fix Bug 28 & 22: Chống nội suy (Motion Blur) giữa các Frame bằng cách làm tròn cứng thời gian
+          const timeToCapture = Math.floor(player.currentTime * 1000);
           const { uri } = await VideoThumbnails.getThumbnailAsync(actualMedia, { time: timeToCapture, quality: 0.8 });
           let finalMedia = uri;
           if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
@@ -577,9 +607,13 @@ export function useDetectionLogic(navigation: any) {
       setDetectedWord(null);
       setConfidence(0);
     }
+    
+    // Bug 10: Xóa Ghost Detection mỗi khi người dùng đổi chế độ (VD Live sang Video)
     return () => {
       isActive = false;
       clearTimeout(timerId);
+      setDetectedWord(null);
+      setConfidence(0);
     };
   }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning, detectionSpeed]);
 
@@ -679,10 +713,11 @@ export function useDetectionLogic(navigation: any) {
         if (e.message.includes("Server từ chối") || e.message.includes("Không phải file ảnh")) throw e;
       }
       
-      // Fix Bug 88: Siết chặt Regex lọc Extension chống Injection File
-      const rawExt = cleanUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      // Fix Bug 23: Sử dụng API chuẩn để bóc tách đuôi file, tránh bị nhiễu bởi Query Parameters (?id=...)
+      const parsedUrl = new URL(cleanUrl);
+      const rawExt = parsedUrl.pathname.split('.').pop() || 'jpg';
       const safeExt = /^[a-zA-Z]{2,4}$/.test(rawExt) ? rawExt.toLowerCase() : 'jpg';
-      const fileName = `dl_img_${Date.now()}.${safeExt}`;
+      const fileName = `dl_img_${Date.now()}_${Math.random().toString(36).substring(7)}.${safeExt}`;
       const destUri = `${FileSystem.cacheDirectory}${fileName}`;
       destUriTemp = destUri;
 
@@ -698,10 +733,15 @@ export function useDetectionLogic(navigation: any) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
             const downloadPromise = FileSystem.downloadAsync(url, dest);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs));
+            let innerTimeoutId: any;
+            const timeoutPromise = new Promise((_, reject) => {
+               innerTimeoutId = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+            });
             const result = await Promise.race([downloadPromise, timeoutPromise]) as FileSystem.FileSystemDownloadResult;
             clearTimeout(timeoutId);
+            clearTimeout(innerTimeoutId); // Fix Bug 6: Hủy bộ đếm giờ ngầm để tránh Unhandled Promise Rejection
             if (result.status === 200) return result;
+            if (result.status === 206) throw new Error("Dữ liệu bị rách (Partial Content)."); // Fix Bug 24
             if (i === retries) throw new Error(`Lỗi: ${result.status}`);
           } catch (error) {
             if (i === retries) throw error;
@@ -741,6 +781,12 @@ export function useDetectionLogic(navigation: any) {
         try {
           const file = result.assets[0];
           const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
+          
+          // Fix Bug 37 (GZIP Bomb Limit): Không cho phép tải model vượt quá 200MB để tránh tràn RAM
+          if (file.size && file.size > 200 * 1024 * 1024) {
+             return Alert.alert("Dung lượng quá lớn", "File model không được vượt quá 200MB.");
+          }
+          
           if (fileName.includes('..') || fileName.includes('/') || !fileName.toLowerCase().endsWith('.tflite')) {
              return Alert.alert(i18n.t('detection.securityError'), "Chỉ cho phép file model có định dạng .tflite hợp lệ.");
           }
@@ -796,6 +842,7 @@ export function useDetectionLogic(navigation: any) {
       setIsConfirmImageDialogOpen(false);
       if (imageToAnalyze) {
         setPendingMediaUri(imageToAnalyze);
+        setIsProcessing(true); // Fix Bug: Khóa chạm màn hình để chờ AI xử lý
         runDetection(imageToAnalyze, undefined);
       }
     },
@@ -807,7 +854,7 @@ export function useDetectionLogic(navigation: any) {
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape,
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
     batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
   };
 }

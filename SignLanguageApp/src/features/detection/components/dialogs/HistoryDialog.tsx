@@ -71,20 +71,29 @@ export default function HistoryDialog({
                         Toàn bộ kết quả phân tích video:
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                        {history.map((item, i) => (
-                          <Badge 
-                            key={item.id || i} 
-                            size={28} 
-                            style={{ 
-                              backgroundColor: theme.colors.elevation.level3, 
-                              color: theme.colors.onSurface, 
-                              paddingHorizontal: 12,
-                              fontSize: 14 
-                            }}
-                          >
-                            {item.sign}
-                          </Badge>
-                        ))}
+                        {[...history].reverse().map((item, i) => {
+                          const conf = item.conf || 0;
+                          let bgColor = '#FFEBEE';
+                          let textColor = '#C62828';
+                          if (conf > 0.9) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; }
+                          else if (conf > 0.6) { bgColor = '#FFF3E0'; textColor = '#E65100'; }
+
+                          return (
+                            <Badge 
+                              key={item.id || i} 
+                              size={28} 
+                              style={{ 
+                                backgroundColor: bgColor, 
+                                color: textColor, 
+                                paddingHorizontal: 12,
+                                fontSize: 14,
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {item.sign}
+                            </Badge>
+                          );
+                        })}
                       </View>
                     </View>
                   )}
@@ -143,20 +152,29 @@ export default function HistoryDialog({
           ) : (
             history.length > 0 ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {history.map((item, i) => (
-                  <Badge 
-                    key={item.id || i} 
-                    size={28} 
-                    style={{ 
-                      backgroundColor: theme.colors.elevation.level3, 
-                      color: theme.colors.onSurface, 
-                      paddingHorizontal: 12,
-                      fontSize: 14 
-                    }}
-                  >
-                    {item.sign}
-                  </Badge>
-                ))}
+                {[...history].reverse().map((item, i) => {
+                  const conf = item.conf || 0;
+                  let bgColor = '#FFEBEE';
+                  let textColor = '#C62828';
+                  if (conf > 0.9) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; }
+                  else if (conf > 0.6) { bgColor = '#FFF3E0'; textColor = '#E65100'; }
+
+                  return (
+                    <Badge 
+                      key={item.id || i} 
+                      size={28} 
+                      style={{ 
+                        backgroundColor: bgColor, 
+                        color: textColor, 
+                        paddingHorizontal: 12,
+                        fontSize: 14,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {item.sign}
+                    </Badge>
+                  );
+                })}
               </View>
             ) : (
               <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>{t('detection.noWordsRecorded')}</Text>

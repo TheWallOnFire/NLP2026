@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import Animated from 'react-native-reanimated';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Camera } from 'react-native-vision-camera';
@@ -81,7 +82,8 @@ export default function MediaScanner({
         <View style={styles.uploadWrapper}>
           {selectedMedia ? (
             detectionMode === 'picture' ? (
-              <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} resizeMode="contain" />
+              // Fix Bug 10 UI/UX: Dùng Expo Image với hiệu ứng mờ dần (transition={200}) để loại bỏ khung hình đen nhấp nháy khi tải ảnh mới
+              <Image source={{ uri: selectedMedia }} style={styles.mediaPreview} contentFit="contain" transition={200} />
             ) : detectionMode === 'batch' ? (
               <View style={styles.emptyMedia}>
                  <IconButton icon="folder-multiple-image" size={64} iconColor="green" />

@@ -14,15 +14,26 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   let image;
   let finalUriToLoad = uri;
   
-  // Thay vì Center Crop, ta thực hiện Resize thẳng (Squish/bóp méo) để bảo toàn mọi chi tiết viền ảnh
+  // Fix Bug: Center Crop ảnh trước khi Resize để chống bóp méo tỷ lệ (Aspect Ratio Distortion)
   try {
+    const { Image } = require('react-native');
+    const getImageSize = () => new Promise<{w: number, h: number}>((resolve) => {
+      Image.getSize(uri, (w: number, h: number) => resolve({w, h}), () => resolve({w: 0, h: 0}));
+    });
+    
+    const sizeStart = Date.now();
+    const size = await getImageSize();
     const manipActions: any[] = [];
     
-    manipActions.push({ resize: { width, height } });
-
-    if (facing === 'front') {
-      manipActions.push({ flip: ImageManipulator.FlipType.Horizontal });
+    if (size.w > 0 && size.h > 0) {
+      const shortest = Math.min(size.w, size.h);
+      // Fix Bug 16: Ép kiểu nguyên (Floor) để tránh lỗi văng App khi truyền tọa độ lẻ (Float) vào Native C++
+      const originX = Math.floor((size.w - shortest) / 2);
+      const originY = Math.floor((size.h - shortest) / 2);
+      manipActions.push({ crop: { originX, originY, width: shortest, height: shortest } });
     }
+    
+    manipActions.push({ resize: { width, height } });
 
     const manipResult = await ImageManipulator.manipulateAsync(
       uri,
@@ -30,11 +41,13 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
       { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
     );
     finalUriToLoad = manipResult.uri;
-    console.log(`[ML Debug] Đã Resize (${width}x${height}) và bóp méo khung hình: ${finalUriToLoad}`);
+    const manipTime = Date.now() - sizeStart;
+    console.log(`[ML Debug - Profiler] ImageManipulator xử lý Crop/Resize mất ${manipTime}ms. Kết quả: ${finalUriToLoad}`);
   } catch (manipErr) {
-    console.warn(`[ML Debug] Không thể dùng ImageManipulator (Resize), fallback về ảnh gốc. Lỗi:`, manipErr);
+    console.warn(`[ML Debug] Lỗi ImageManipulator, fallback ảnh gốc:`, manipErr);
   }
 
+  const loadStart = Date.now();
   if (finalUriToLoad.startsWith('http://') || finalUriToLoad.startsWith('https://')) {
     image = await loadImage({ url: finalUriToLoad });
   } else {
@@ -53,15 +66,19 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
       console.warn(`[ML Debug] Không thể kiểm tra fileInfo, tiếp tục đọc ảnh... Lỗi:`, fsErr);
     }
 
-    image = await loadImage({ filePath: cleanPath }); // Dùng filePath thay vì url để tránh lỗi "Web Images are not supported"
+    image = await loadImage({ filePath: cleanPath });
   }
+  const loadTime = Date.now() - loadStart;
+  console.log(`[ML Debug - Profiler] Nitro loadImage đọc ảnh vào RAM mất ${loadTime}ms.`);
 
+  const pixelStart = Date.now();
   // Bỏ qua resizeAsync vì ImageManipulator đã resize chính xác về width x height rồi
   const rawData = await image.toRawPixelData();
-  // Lỗi thực sự là do toRawPixelData() trả về object { buffer, width, height, pixelFormat } chứ không phải ArrayBuffer!
-  // Gọi new Uint8Array() trực tiếp lên object này sẽ tạo ra mảng rỗng (Length 0).
   const pixelBuffer = rawData.buffer || rawData; 
   const uint8Array = new Uint8Array(pixelBuffer);
+  
+  const pixelTime = Date.now() - pixelStart;
+  console.log(`[ML Debug - Profiler] Trích xuất ${uint8Array.length} bytes RawPixelData mất ${pixelTime}ms.`);
 
   if (uint8Array.length === 0) {
     throw new Error("Lỗi bộ nhớ: Không trích xuất được pixel data (Buffer rỗng, nguy cơ văng TFLite C++).");
@@ -97,6 +114,8 @@ export async function convertPixelsToInputData(
   const INV_255 = 0.00392156862; // 1 / 255.0
   const INV_127_5 = 0.0078431372549; // 1 / 127.5
   
+  const convertStart = Date.now();
+  
   if (dataType === 'float32') {
     const float32Array = new Float32Array(expectedElements);
     
@@ -104,21 +123,34 @@ export async function convertPixelsToInputData(
       let floatIdx = 0;
       const format = pixelFormat.toLowerCase();
       
-      for (let i = 0; i < uint8Array.length && floatIdx < expectedElements; i += 4) {
-        let r = 0, g = 0, b = 0;
+      for (let i = 0; i < expectedElements * 4 && i < uint8Array.length; i += 4) {
+        let r = 0, g = 0, b = 0, a = 255;
         if (format === 'bgra') {
           b = uint8Array[i];
           g = uint8Array[i+1];
           r = uint8Array[i+2];
+          a = uint8Array[i+3];
         } else if (format === 'argb') {
+          a = uint8Array[i];
           r = uint8Array[i+1];
           g = uint8Array[i+2];
           b = uint8Array[i+3];
-        } else { // rgba, xrgb, etc.
+        } else { // rgba
           r = uint8Array[i];
           g = uint8Array[i+1];
           b = uint8Array[i+2];
+          a = uint8Array[i+3];
         }
+
+        // Bug 21: Trộn kênh Alpha (Độ trong suốt) với nền trắng (White Background) để tránh ảnh PNG bị đen thui
+        if (a < 255) {
+          const alphaFactor = a / 255.0;
+          r = Math.round(r * alphaFactor + 255 * (1 - alphaFactor));
+          g = Math.round(g * alphaFactor + 255 * (1 - alphaFactor));
+          b = Math.round(b * alphaFactor + 255 * (1 - alphaFactor));
+        }
+
+        if (floatIdx >= float32Array.length) break;
 
         if (normalizationType === '[-1, 1]') {
           float32Array[floatIdx++] = r * INV_127_5 - 1.0;
@@ -148,6 +180,10 @@ export async function convertPixelsToInputData(
         else float32Array[i] = uint8Array[i] * INV_255;
       }
     }
+    
+    const convertTime = Date.now() - convertStart;
+    console.log(`[ML Debug - Profiler] Ép kiểu ${expectedElements} phần tử sang Float32Array mất ${convertTime}ms.`);
+    
     return float32Array;
   } else {
     if (isRGBA && expectedChannels === 3) {

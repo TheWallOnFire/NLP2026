@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, InteractionManager } from 'react-native';
 import { loadTensorflowModel } from 'react-native-fast-tflite';
 import { NitroModules } from 'react-native-nitro-modules';
 import { useModelStore } from '../../learning/store/useModelStore';
@@ -50,6 +50,9 @@ export function useSignLanguageModel(
         return;
       }
       
+      // Fix Bug 39: Đảm bảo xóa sạch Model Shape cũ trước khi load cái mới
+      if (isMounted) setTfliteModel(null);
+      
       try {
         let m;
         if (Platform.OS === 'ios') {
@@ -60,29 +63,48 @@ export function useSignLanguageModel(
           }
         } else {
           try {
-            // Fix Bug 21: Thử bật NNAPI (Tăng tốc NPU Android), nếu driver văng lỗi mới Fallback về CPU thay vì cấm tuyệt đối
-            m = await loadTensorflowModel({ url: urlToLoad }, ['nnapi']);
+            // LỖI NGHIÊM TRỌNG (Critical Bug): Tuyệt đối KHÔNG BẬT NNAPI trên Android.
+            // Delegate NNAPI trên một số dòng máy (đặc biệt là thông qua JSI) gặp lỗi Memory Mapping,
+            // dẫn đến việc Model không đọc được Buffer đầu vào và luôn trả về một mảng Output rác giống hệt nhau (M: 0.333).
+            // Do đó, ta ép buộc chạy bằng CPU (truyền mảng rỗng []).
+            m = await loadTensorflowModel({ url: urlToLoad }, []);
           } catch (e) {
-            console.warn("NNAPI failed, falling back to CPU", e);
-            try {
-              m = await loadTensorflowModel({ url: urlToLoad }, []);
-            } catch (e2) {
-              console.error("Lỗi khi load model trên Android:", e2);
-            }
+            console.error("Lỗi khi load model trên Android:", e);
           }
         }
-        if (isMounted) setTfliteModel(m);
+        if (isMounted) {
+          // Fix Bug 35: Sấy Graph (Warm-up Phase). Chạy thử 1 vòng Tensor rỗng để Engine biên dịch C++
+          if (m && m.inputs && m.inputs.length > 0) {
+            try {
+              const shape = m.inputs[0].shape;
+              const size = shape.reduce((a: number, b: number) => a * b, 1);
+              const dummy = m.inputs[0].dataType === 'float32' ? new Float32Array(size) : new Uint8Array(size);
+              m.runSync([dummy.buffer]);
+              console.log("[ML Debug] Warm-up inference hoàn tất!");
+            } catch(warmupErr) { console.warn("Warm-up failed:", warmupErr); }
+          }
+          setTfliteModel(m);
+        }
       } catch (cpuError: any) {
         console.error("Fast TFLite Load Error:", cpuError);
-        if (isMounted && urlToLoad === customModelUri) {
-          Alert.alert(i18n.t('detection.modelLoadError'), i18n.t('detection.corruptedModel'));
+        if (isMounted) {
+          setTfliteModel(null);
+          if (urlToLoad === customModelUri) {
+            Alert.alert(i18n.t('detection.modelLoadError'), i18n.t('detection.corruptedModel'));
+          }
         }
       }
     };
-    loadModel();
+    
+    // Fix Bug 2 UI/UX: Đợi Animation trượt chuyển màn hình (Slide-in Navigation) hoàn tất rồi mới khóa JS Thread để Load Model, tránh bị khựng (Jitter)
+    const task = InteractionManager.runAfterInteractions(() => {
+       if (isMounted) loadModel();
+    });
+    
     return () => { 
       isMounted = false; 
       isMountedRef.current = false;
+      task.cancel();
     };
   }, [customModelUri, activePackId]);
 
@@ -158,14 +180,20 @@ export function useSignLanguageModel(
               console.log(`[ML Debug] Input Data Preview (${inputData.length} phần tử): [${first5.join(', ')}...]`);
             }
 
+            // Fix Bug 31: Nhường Event Loop cho React UI Thread render animation trước khi luồng JS bị khóa chết 300ms bởi runSync
+            await new Promise(r => setTimeout(r, 0));
+            
             // Truyền đúng chuẩn ArrayBuffer gốc (Không dùng .slice() vì sẽ sinh lỗi ép kiểu JSI)
-            // Lỗi kết quả trùng nhau (M 0.333) thực chất là do SAI hệ chuẩn hóa Input (Normalization), không phải do Buffer.
             const infStartTime = Date.now();
             const outputs = tfliteModel.runSync([inputData.buffer]);
             const inferenceTime = Date.now() - infStartTime;
+            if (developerDebugMode) console.log(`[ML Debug - Profiler] TFLite C++ Core runSync tốn ${inferenceTime}ms.`);
             
+            const parseStartTime = Date.now();
             const outDataType = tfliteModel.outputs?.[0]?.dataType;
             const result = parseInferenceOutput(outputs, outDataType);
+            const parseTime = Date.now() - parseStartTime;
+            if (developerDebugMode) console.log(`[ML Debug - Profiler] Đọc và giải mã Output Tensor tốn ${parseTime}ms.`);
 
             if (developerDebugMode) {
               let outLength = 0;
@@ -177,6 +205,10 @@ export function useSignLanguageModel(
                    outPreview = ` Preview: [${first5Out.join(', ')}...]`;
                 } else if (outputs[0].byteLength) {
                    outLength = outDataType === 'float32' ? outputs[0].byteLength / 4 : outputs[0].byteLength;
+                   // Fix Bug 15: Kiểm tra tính toàn vẹn của mảng Byte trước khi ép kiểu Float32 (tránh lỗi RangeError làm sập App)
+                   if (outDataType === 'float32' && outputs[0].byteLength % 4 !== 0) {
+                      throw new Error(`Buffer rác: byteLength ${outputs[0].byteLength} không chia hết cho 4.`);
+                   }
                    const outArr = outDataType === 'float32' ? new Float32Array(outputs[0]) : new Uint8Array(outputs[0]);
                    const first5Out = Array.from(outArr.slice(0, 5)).map((v: any) => v.toFixed(6));
                    outPreview = ` Preview: [${first5Out.join(', ')}...]`;
@@ -186,9 +218,9 @@ export function useSignLanguageModel(
             }
 
             const totalTime = Date.now() - startTime;
-            // Fix Bug 65: FPS ảo khi totalTime quá nhỏ
+            // Fix Bug 40: Bẫy nghịch đảo (Divide By Zero) gây FPS Ảo 1000. Cập nhật giới hạn tối đa 60 FPS
             const safeTime = totalTime > 0 ? totalTime : 1;
-            const fps = Math.round(1000 / safeTime);
+            const fps = Math.min(60, Math.round(1000 / safeTime));
 
             if (result) {
               const { maxIdx, maxVal, top3 } = result;
@@ -213,8 +245,12 @@ export function useSignLanguageModel(
               console.log(`[ML Debug] Output Values (Top 3): ${top3Str}`);
               
               // Kiểm tra queue có bị clear ngang chừng không (chuyển mode)
-              if (isMountedRef.current && processingItemRef.current === uri && safeMaxIdx !== -1) {
-                onDetection(safeMaxIdx, maxVal);
+              if (isMountedRef.current && processingItemRef.current === uri) {
+                if (safeMaxIdx !== -1) {
+                  onDetection(safeMaxIdx, maxVal);
+                } else if (onError) {
+                  onError("Không thể nhận diện ký hiệu hợp lệ từ hình ảnh này.");
+                }
               }
             }
           } catch (e: any) {

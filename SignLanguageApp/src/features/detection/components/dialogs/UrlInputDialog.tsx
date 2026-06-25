@@ -23,7 +23,7 @@ export default function UrlInputDialog({
   if (!isVisible) return null;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center' }}>
+    <>
       <Dialog visible={isVisible} onDismiss={onDismiss}>
         <Dialog.Title>{t('detection.urlInputTitle')}</Dialog.Title>
         <Dialog.Content>
@@ -34,6 +34,7 @@ export default function UrlInputDialog({
             mode="outlined"
             autoCapitalize="none"
             keyboardType="url"
+            maxLength={2048} // Fix Bug 48: Chống dán mã độc Base64 siêu to khổng lồ làm tràn RAM
           />
           <Text variant="bodySmall" style={{ marginTop: 8, opacity: 0.6 }}>
             {t('detection.urlInputDesc')}
@@ -51,6 +52,6 @@ export default function UrlInputDialog({
           }} disabled={!urlInput}>{t('detection.downloadAndScan')}</Button>
         </Dialog.Actions>
       </Dialog>
-    </KeyboardAvoidingView>
+    </>
   );
 }
