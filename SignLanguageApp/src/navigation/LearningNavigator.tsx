@@ -5,6 +5,8 @@ import PackDetailScreen from '../features/learning/screens/PackDetailScreen';
 import PracticeScreen from '../features/learning/screens/PracticeScreen';
 import TestConfigScreen from '../features/learning/screens/TestConfigScreen';
 import TestScreen from '../features/learning/screens/TestScreen';
+import PracticeWordSetupScreen from '../features/learning/screens/PracticeWordSetupScreen';
+import PracticeWordFlashcardScreen from '../features/learning/screens/PracticeWordFlashcardScreen';
 import { ROUTES } from '../constants/routes';
 import { useTheme } from 'react-native-paper';
 
@@ -46,6 +48,16 @@ export default function LearningNavigator() {
         name={ROUTES.TEST}
         component={TestScreen}
         options={{ title: 'Vocabulary Test' }}
+      />
+      <Stack.Screen
+        name={ROUTES.PRACTICE_WORD_SETUP}
+        component={PracticeWordSetupScreen}
+        options={{ title: 'Practice Word Setup' }}
+      />
+      <Stack.Screen
+        name={ROUTES.PRACTICE_WORD_FLASHCARD}
+        component={PracticeWordFlashcardScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

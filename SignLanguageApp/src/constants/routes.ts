@@ -13,6 +13,8 @@ export const ROUTES = {
   PROFILE: 'Profile',
   SETTINGS: 'Settings',
   MODEL_MANAGER: 'ModelManager',
+  PRACTICE_WORD_SETUP: 'PracticeWordSetup',
+  PRACTICE_WORD_FLASHCARD: 'PracticeWordFlashcard',
 } as const;
 
 export type RouteNames = typeof ROUTES[keyof typeof ROUTES];

@@ -42,6 +42,8 @@ export default function MediaScanner({
   frameOutput
 }: MediaScannerProps) {
 
+  // Tách const ra ngoài hoặc dùng memo để tránh re-render liên tục gây giật lag Camera
+  const cameraConstraints = React.useMemo(() => [{ fps: 30 }], []);
 
   return (
     <>
@@ -52,7 +54,7 @@ export default function MediaScanner({
               ref={cameraRef} 
               style={StyleSheet.absoluteFill} 
               device={device} 
-              constraints={[{ fps: 30 }]}
+              constraints={cameraConstraints}
               isActive={true} 
               torchMode={flash ? 'on' : 'off'} 
               outputs={frameOutput ? [frameOutput] : []}

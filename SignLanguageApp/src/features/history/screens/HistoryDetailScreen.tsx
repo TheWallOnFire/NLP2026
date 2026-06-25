@@ -63,6 +63,7 @@ export default function HistoryDetailScreen() {
       if (mode === 'live') return { title: 'Camera', icon: <Camera size={24} color={theme.colors.primary} /> };
       if (mode === 'picture') return { title: 'Image', icon: <ImageIcon size={24} color={theme.colors.primary} /> };
       if (mode === 'video') return { title: 'Video', icon: <VideoIcon size={24} color={theme.colors.primary} /> };
+      if (mode === 'batch') return { title: 'Batch Scan', icon: <ImageIcon size={24} color={theme.colors.primary} /> };
       return { title: 'Phiên nhận diện', icon: <Camera size={24} color={theme.colors.primary} /> };
     }
     return { title: 'Phiên hoạt động', icon: <BookOpen size={24} color={theme.colors.primary} /> };
@@ -178,6 +179,30 @@ export default function HistoryDetailScreen() {
                   <Text variant="bodyMedium" style={{ opacity: 0.5 }}>Ảnh/video đã xóa</Text>
                 </View>
               ) : null}
+            </View>
+          </>
+        ) : historyItem.type === 'detection' && historyItem.mode === 'batch' && historyItem.batchResults ? (
+          <>
+            <Text variant="titleMedium" style={{ marginTop: 24, marginBottom: 12, fontWeight: 'bold' }}>
+              Kết quả quét thư mục:
+            </Text>
+            <View style={styles.testResultsContainer}>
+              {historyItem.batchResults.map((res, index) => (
+                <Card key={index} style={styles.testResultCard} mode="outlined">
+                  <View style={styles.testResultRow}>
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold', marginRight: 12, opacity: 0.5, width: 24 }}>{index + 1}.</Text>
+                    <View style={styles.testResultIcon}>
+                      <ImageIcon color={theme.colors.primary} size={20} />
+                    </View>
+                    <View style={styles.testResultContent}>
+                      <Text variant="bodyLarge" style={{ fontWeight: 'bold' }}>{res.fileName}</Text>
+                      <Text variant="bodyMedium" style={{ color: theme.colors.primary }}>
+                        Nhận diện: {res.sign} ({Math.round(res.conf * 100)}%)
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              ))}
             </View>
           </>
         ) : (

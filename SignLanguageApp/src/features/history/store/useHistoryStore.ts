@@ -8,7 +8,7 @@ export interface HistoryItem {
   signs?: string[];
   packId?: string;
   sessionId?: string;
-  mode?: 'live' | 'picture' | 'video' | 'test';
+  mode?: 'live' | 'picture' | 'video' | 'test' | 'batch';
   time: string;
   date: string;
   timestamp?: number;
@@ -17,6 +17,7 @@ export interface HistoryItem {
   videoUri?: string;
   testStats?: { score: number; total: number; duration: number };
   testResults?: { word: string; isCorrect: boolean; correctness?: number; confusedWith?: string }[];
+  batchResults?: { fileName: string; sign: string; conf: number }[];
 }
 
 interface HistoryState {
@@ -24,6 +25,7 @@ interface HistoryState {
   addHistoryItem: (item: Omit<HistoryItem, 'id'>) => void;
   saveCameraSession: (text: string, packId?: string, appendToSessionId?: string | null) => void;
   addImageVideoSession: (mode: 'picture' | 'video', uri: string, resultWords: string[], packId?: string) => void;
+  addBatchSession: (results: { fileName: string; sign: string; conf: number }[], packId?: string) => void;
   clearHistory: () => void;
 }
 
@@ -102,6 +104,21 @@ export const useHistoryStore = create<HistoryState>()(
           timestamp: Date.now(),
           imageUri: mode === 'picture' ? uri : undefined,
           videoUri: mode === 'video' ? uri : undefined,
+        };
+        return { history: [newItem, ...state.history].slice(0, 50) };
+      }),
+      addBatchSession: (results, packId) => set((state) => {
+        const newItem: HistoryItem = {
+          id: Date.now().toString() + '-' + Math.floor(Math.random() * 1000000).toString(),
+          sign: `Batch Detection (${results.length} images)`,
+          signs: results.map(r => r.sign),
+          batchResults: results,
+          packId,
+          mode: 'batch',
+          type: 'detection',
+          date: new Date().toLocaleDateString('vi-VN'),
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
         };
         return { history: [newItem, ...state.history].slice(0, 50) };
       }),

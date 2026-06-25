@@ -60,6 +60,7 @@ export function useDetectionLogic(navigation: any) {
 
   const saveCameraSession = useHistoryStore(state => state.saveCameraSession);
   const addImageVideoSession = useHistoryStore(state => state.addImageVideoSession);
+  const addBatchSession = useHistoryStore(state => state.addBatchSession);
   const [sessionHistory, setSessionHistory] = useState<{ id: string, sign: string }[]>([]);
   const [pendingMediaUri, setPendingMediaUri] = useState<string | null>(null);
 
@@ -82,6 +83,21 @@ export function useDetectionLogic(navigation: any) {
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
+  useEffect(() => {
+    // Dọn dẹp bộ nhớ đệm (tránh tràn ổ cứng)
+    const cleanCache = async () => {
+      try {
+        const mediaDir = `${FileSystem.cacheDirectory}captured_media/`;
+        const dirInfo = await FileSystem.getInfoAsync(mediaDir);
+        if (dirInfo.exists) {
+          await FileSystem.deleteAsync(mediaDir, { idempotent: true });
+        }
+      } catch (e) {}
+    };
+    cleanCache(); // Clean on mount
+    return () => { cleanCache(); }; // Clean on unmount
+  }, []);
+
   const onSaveSession = (editedText: string, sessionId?: string | null) => {
     if (editedText.trim().length === 0) return;
     
@@ -103,6 +119,8 @@ export function useDetectionLogic(navigation: any) {
   const [confidence, setConfidence] = useState(0);
   const lastDetectionTime = useRef(0);
   const latestDetectionRef = useRef<any>(null);
+  const recentPredictions = useRef<string[]>([]);
+  const lastSpeechTime = useRef(0);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     const words = packWords[activePackId || '']?.map(w => w.word) || [];
@@ -110,45 +128,55 @@ export function useDetectionLogic(navigation: any) {
       const word = words[index];
       latestDetectionRef.current = { wordStr: word, conf };
       
-      // 1. LUÔN cập nhật UI (Banner) ngay lập tức để Camera nhạy và mượt
-      setDetectedWord(word);
-      setConfidence(conf);
-
       const now = Date.now();
       const timeSinceLast = now - lastDetectionTime.current;
 
-      // 2. Ngưỡng debounce cho Lịch sử và Âm thanh (Tránh spam liên tục làm đơ máy)
-      // Picture và Video thì ghi nhận liên tục, Live thì giãn cách 1 giây
+      recentPredictions.current.push(word);
+      if (recentPredictions.current.length > 5) {
+        recentPredictions.current.shift(); 
+      }
+      
+      const counts = recentPredictions.current.reduce((acc: any, val) => {
+         acc[val] = (acc[val] || 0) + 1;
+         return acc;
+      }, {});
+      const smoothedWord = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+
+      setDetectedWord(smoothedWord);
+      setConfidence(conf);
+
       const shouldLogHistory = detectionMode === 'picture' || detectionMode === 'video' || timeSinceLast > 1000;
 
       if (conf >= thresholdValue) {
         if (shouldLogHistory) {
           triggerImpactFeedback();
-          if (ttsSettings?.systemSounds !== false && word && word.trim() !== '') {
+          
+          if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500)) {
             try {
               Speech.stop();
-              Speech.speak(word, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+              Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+              lastSpeechTime.current = now;
             } catch (e) { console.warn("Speech API failed", e); }
           }
           
           if (detectionMode === 'picture') {
-            setSessionHistory([{ id: now.toString(), sign: `${word} (${Math.round(conf * 100)}%)` }]); 
+            setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}%)` }]); 
             setIsHistoryDialogOpen(true);
             setIsProcessing(false);
           } else {
             setSessionHistory(prev => {
-              // Tránh spam liên tục cùng 1 từ trong Live Mode (nếu người dùng giữ im tay)
-              if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === word && timeSinceLast < 2000) {
+              if (detectionMode === 'live' && prev.length > 0 && prev[0].sign === smoothedWord && timeSinceLast < 2000) {
                  return prev; 
               }
-              return [{ id: now.toString(), sign: word }, ...prev];
+              const newHistory = [{ id: now.toString(), sign: smoothedWord }, ...prev];
+              if (newHistory.length > 50) newHistory.length = 50;
+              return newHistory;
             });
           }
           lastDetectionTime.current = now;
         }
       } else if (detectionMode === 'picture') {
-        // Dưới ngưỡng tự tin vẫn báo kết quả để người dùng biết
-        setSessionHistory([{ id: now.toString(), sign: `${word} (${Math.round(conf * 100)}% - Thấp)` }]);
+        setSessionHistory([{ id: now.toString(), sign: `${smoothedWord} (${Math.round(conf * 100)}% - Thấp)` }]);
         setIsHistoryDialogOpen(true);
         setIsProcessing(false);
       }
@@ -188,45 +216,8 @@ export function useDetectionLogic(navigation: any) {
     pixelLayout: 'interleaved',
   });
 
-  const lastProcessTime = useSharedValue(0);
-  const lastDetectTimeSV = useSharedValue(0);
-  const isLiveScanningSV = useSharedValue(false);
-  const isAppActiveSV = useSharedValue(true);
-  const facingSV = useSharedValue(facing);
-  const detectedIdxSV = useSharedValue(-1);
-  const detectedValSV = useSharedValue(0);
-  const detectionTriggerSV = useSharedValue(0);
-  const errorMsgSV = useSharedValue('');
-  const errorTriggerSV = useSharedValue(0);
-  const currentIntervalSV = useSharedValue(1000);
-  const detectionModeSV = useSharedValue('live');
-
-  useAnimatedReaction(
-    () => detectionTriggerSV.value,
-    (currentTrigger, previousTrigger) => {
-      if (currentTrigger !== previousTrigger && currentTrigger > 0) {
-        runOnJS(handleDetection)(detectedIdxSV.value, detectedValSV.value);
-      }
-    }
-  );
-
-  useAnimatedReaction(
-    () => errorTriggerSV.value,
-    (currentTrigger, previousTrigger) => {
-      if (currentTrigger !== previousTrigger && currentTrigger > 0) {
-        runOnJS(handleModelError)(errorMsgSV.value);
-      }
-    }
-  );
-
-  useEffect(() => { isLiveScanningSV.value = isLiveScanning; }, [isLiveScanning]);
-  useEffect(() => { isAppActiveSV.value = isAppActive; }, [isAppActive]);
-  useEffect(() => { facingSV.value = facing; }, [facing]);
-
-  useEffect(() => {
-    currentIntervalSV.value = detectionSpeed === 'slow' ? 2000 : detectionSpeed === 'fast' ? 500 : detectionSpeed === 'off' ? -1 : 1000;
-  }, [detectionSpeed]);
-  useEffect(() => { detectionModeSV.value = detectionMode; }, [detectionMode]);
+  // Đã dọn dẹp các UseSharedValue gây Anti-pattern và Memory Leak dư thừa
+  // ...
 
   const asyncRunner = useAsyncRunner();
 
@@ -301,8 +292,8 @@ export function useDetectionLogic(navigation: any) {
               for (const fileUri of files) {
                 if (fileUri.match(/\.(jpg|jpeg|png)$/i)) {
                   allImageUris.push(fileUri);
-                } else if (!fileUri.match(/\.[a-zA-Z0-9]{2,4}$/)) {
-                  // If it doesn't have a known extension, it might be a subfolder
+                } else if (!fileUri.match(/\.[a-zA-Z0-9]+$/)) {
+                  // Nếu không có phần mở rộng (extension) hợp lệ thì coi là folder
                   await scanDirectory(fileUri);
                 }
               }
@@ -363,15 +354,24 @@ export function useDetectionLogic(navigation: any) {
         const fileName = asset.name || `image_${i}.jpg`;
         const destUri = asset.uri;
 
-        latestDetectionRef.current = null;
+        latestDetectionRef.current = null; // Reset kết quả ảnh cũ
         if (clearQueue) clearQueue();
-        runDetection(destUri, facing, true);
+        
+        // Không truyền facing cho ảnh Batch để tránh bị lật ngang sai logic
+        runDetection(destUri, undefined, true);
         
         let attempts = 0;
+        // Thêm điều kiện an toàn, nếu timeout 500 thì thoát và tính là lỗi
         while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 500) {
           await new Promise(r => setTimeout(r, 100));
           attempts++;
         }
+        
+        if (attempts >= 500) {
+          console.warn(`[Batch Scan] Timeout xử lý ảnh ${fileName}`);
+          latestDetectionRef.current = null;
+        }
+
         await new Promise(r => setTimeout(r, 100));
         
         if (latestDetectionRef.current) {
@@ -386,12 +386,15 @@ export function useDetectionLogic(navigation: any) {
       }
 
       setBatchResults(results);
+      if (results.length > 0) {
+        addBatchSession(results, activePackId || undefined);
+      }
       setIsBatchResultDialogOpen(true);
-      setSnackbarMsg(`Hoàn tất xử lý ${results.length} ảnh!`);
+      setSnackbarMsg(`Hoàn tất xử lý ${results.length} ảnh và đã lưu vào lịch sử!`);
       
     } catch (e: any) {
       console.error("Batch scan error:", e);
-      setSnackbarMsg("Lỗi khi xử lý file ZIP.");
+      setSnackbarMsg("Lỗi khi xử lý file/thư mục.");
     } finally {
       setIsProcessing(false);
     }
@@ -513,7 +516,7 @@ export function useDetectionLogic(navigation: any) {
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
         
-        if (state.detectionMode === 'video' || state.detectionMode === 'live') {
+        if ((state.detectionMode === 'video' || state.detectionMode === 'live') && !isProcessing) {
           await handleManualScan();
         }
         
@@ -618,7 +621,8 @@ export function useDetectionLogic(navigation: any) {
         if (e.message.includes("Server từ chối") || e.message.includes("Không phải file ảnh")) throw e;
       }
       const ext = cleanUrl.split('.').pop()?.split('?')[0] || 'jpg';
-      const fileName = `downloaded_image_temp.${ext}`;
+      const safeExt = /^[a-zA-Z0-9]+$/.test(ext) ? ext : 'jpg';
+      const fileName = `dl_img_${Date.now()}.${safeExt}`;
       const destUri = `${FileSystem.cacheDirectory}${fileName}`;
       try {
         const fileInfo = await FileSystem.getInfoAsync(destUri);
@@ -669,7 +673,9 @@ export function useDetectionLogic(navigation: any) {
         try {
         const file = result.assets[0];
         const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
-        if (fileName.includes('..') || fileName.includes('/')) return Alert.alert(i18n.t('detection.securityError'), i18n.t('detection.invalidFileName'));
+        if (fileName.includes('..') || fileName.includes('/') || !fileName.toLowerCase().endsWith('.tflite')) {
+           return Alert.alert(i18n.t('detection.securityError'), "Chỉ cho phép file model có định dạng .tflite hợp lệ.");
+        }
 
         const targetPath = `${FileSystem.documentDirectory}${fileName}`;
         await FileSystem.copyAsync({ from: file.uri, to: targetPath });

@@ -66,7 +66,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     latestDetection.current = { wordStr: detectedWordStr, conf };
   }, [currentWord, words]);
 
-  const { isModelReady, runDetection, getDebugInfo, clearQueue, modelShape } = useSignLanguageModel(handleDetection);
+  const { isModelReady, runDetection, getDebugInfo, clearQueue, modelShape } = useSignLanguageModel(handleDetection, undefined, packId);
 
   const [isConfirmImageDialogOpen, setIsConfirmImageDialogOpen] = useState(false);
   const [imageToAnalyze, setImageToAnalyze] = useState<string | null>(null);

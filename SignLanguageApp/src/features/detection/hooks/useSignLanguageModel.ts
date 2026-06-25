@@ -12,9 +12,11 @@ import i18n from '../../../core/i18n';
 
 export function useSignLanguageModel(
   onDetection: (index: number, confidence: number) => void,
-  onError?: (errorMessage: string) => void
+  onError?: (errorMessage: string) => void,
+  overridePackId?: string
 ) {
-  const { customModelUri, activePackId, packs } = useModelStore();
+  const { customModelUri, activePackId: globalActivePackId, packs } = useModelStore();
+  const activePackId = overridePackId || globalActivePackId;
   const activePack = useMemo(() => packs.find(p => p.id === activePackId), [packs, activePackId]);
   const { packWords } = useLearningStore();
   const { developerDebugMode } = useSettingsStore();
@@ -166,27 +168,31 @@ export function useSignLanguageModel(
             }
 
             const totalTime = Date.now() - startTime;
-            const fps = totalTime > 0 ? Math.round(1000 / totalTime) : 0;
+            const fps = Math.round(1000 / Math.max(1, totalTime));
 
             if (result) {
               const { maxIdx, maxVal, top3 } = result;
               const words = packWords[activePackId || '']?.map((w: any) => w.word) || [];
+              
+              // Chống tràn index nếu tflite model trả về kết quả ảo (out of bounds)
+              const safeMaxIdx = (maxIdx >= 0 && maxIdx < words.length) ? maxIdx : -1;
+              const maxWord = safeMaxIdx !== -1 ? words[safeMaxIdx] : 'Unknown';
               
               if (developerDebugMode && isMountedRef.current) {
                 setMetrics({ preprocessTime, inferenceTime, totalTime, fps, top3 });
               }
 
               const top3Str = top3.map((t: {idx: number, val: number}) => {
-                const word = words.length > t.idx ? words[t.idx] : 'Unknown';
+                const word = (t.idx >= 0 && t.idx < words.length) ? words[t.idx] : 'Unknown';
                 return `[${word} (Idx ${t.idx}): ${t.val.toFixed(3)}]`;
               }).join(', ');
               
-              const maxWord = words.length > maxIdx ? words[maxIdx] : 'Unknown';
-              console.log(`[ML Debug] Model inference xong. Kết quả: ${maxWord} (Idx: ${maxIdx}), maxVal: ${maxVal.toFixed(3)} | Time: ${totalTime}ms (Pre: ${preprocessTime}ms, Inf: ${inferenceTime}ms)`);
+              console.log(`[ML Debug] Model inference xong. Kết quả: ${maxWord} (Idx: ${safeMaxIdx}), maxVal: ${maxVal.toFixed(3)} | Time: ${totalTime}ms (Pre: ${preprocessTime}ms, Inf: ${inferenceTime}ms)`);
               console.log(`[ML Debug] Output Values (Top 3): ${top3Str}`);
               
-              if (isMountedRef.current) {
-                onDetection(maxIdx, maxVal);
+              // Kiểm tra queue có bị clear ngang chừng không (chuyển mode)
+              if (isMountedRef.current && processingItemRef.current === uri && safeMaxIdx !== -1) {
+                onDetection(safeMaxIdx, maxVal);
               }
             }
           } catch (e: any) {
@@ -249,6 +255,7 @@ export function useSignLanguageModel(
 
   const clearQueue = useCallback(() => {
     frameQueue.current = [];
+    processingItemRef.current = null; // Huỷ cờ xử lý để chặn onDetection của frame hiện tại
   }, []);
 
   const boxedModel = useMemo(() => {

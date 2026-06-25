@@ -14,25 +14,10 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   let image;
   let finalUriToLoad = uri;
   
-  // Đọc kích thước thật của ảnh để thực hiện Center Crop trước khi Resize
+  // Thay vì Center Crop, ta thực hiện Resize thẳng (Squish/bóp méo) để bảo toàn mọi chi tiết viền ảnh
   try {
-    // 1. Lấy thông tin kích thước gốc (sử dụng action rỗng)
-    const infoResult = await ImageManipulator.manipulateAsync(uri, []);
-    const origW = infoResult.width;
-    const origH = infoResult.height;
-    
-    // 2. Tính toán hình vuông lớn nhất ở giữa ảnh
-    const minDim = Math.min(origW, origH);
-    const originX = Math.floor((origW - minDim) / 2);
-    const originY = Math.floor((origH - minDim) / 2);
-
-    // 3. Thực hiện Cắt (Crop) -> Resize -> Flip (nếu camera trước)
     const manipActions: any[] = [];
     
-    // Đảm bảo không crop với kích thước = 0 gây lỗi
-    if (minDim > 0) {
-      manipActions.push({ crop: { originX, originY, width: minDim, height: minDim } });
-    }
     manipActions.push({ resize: { width, height } });
 
     if (facing === 'front') {
@@ -45,9 +30,9 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
       { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
     );
     finalUriToLoad = manipResult.uri;
-    console.log(`[ML Debug] Đã Crop (${minDim}x${minDim}) và Resize (${width}x${height}): ${finalUriToLoad}`);
+    console.log(`[ML Debug] Đã Resize (${width}x${height}) và bóp méo khung hình: ${finalUriToLoad}`);
   } catch (manipErr) {
-    console.warn(`[ML Debug] Không thể dùng ImageManipulator (Crop/Resize), fallback về ảnh gốc. Lỗi:`, manipErr);
+    console.warn(`[ML Debug] Không thể dùng ImageManipulator (Resize), fallback về ảnh gốc. Lỗi:`, manipErr);
   }
 
   if (finalUriToLoad.startsWith('http://') || finalUriToLoad.startsWith('https://')) {
@@ -108,7 +93,7 @@ export async function convertPixelsToInputData(
   dataType: string | undefined,
   pixelFormat: string = 'unknown'
 ): Promise<Float32Array | Uint8Array> {
-  const INV_255 = 0.003921568627451; 
+  const INV_127_5 = 0.0078431372549; // 1 / 127.5
   
   if (dataType === 'float32') {
     const float32Array = new Float32Array(expectedElements);
@@ -133,17 +118,18 @@ export async function convertPixelsToInputData(
           b = uint8Array[i+2];
         }
 
-        float32Array[floatIdx++] = r * INV_255;
-        float32Array[floatIdx++] = g * INV_255;
-        float32Array[floatIdx++] = b * INV_255;
+        // Chuẩn hóa [-1, 1] cho MobileNetV2
+        float32Array[floatIdx++] = r * INV_127_5 - 1.0;
+        float32Array[floatIdx++] = g * INV_127_5 - 1.0;
+        float32Array[floatIdx++] = b * INV_127_5 - 1.0;
       }
     } else if (!isRGBA && expectedChannels === 3) {
       for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
-        float32Array[i] = uint8Array[i] * INV_255;
+        float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
       }
     } else {
       for (let i = 0; i < uint8Array.length && i < expectedElements; i++) {
-        float32Array[i] = uint8Array[i] * INV_255;
+        float32Array[i] = uint8Array[i] * INV_127_5 - 1.0;
       }
     }
     return float32Array;

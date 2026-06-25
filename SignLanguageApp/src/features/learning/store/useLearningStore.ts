@@ -51,7 +51,16 @@ export const useLearningStore = create<LearningState>()(
       getPackWords: (packId) => get().packWords[packId] || [],
       
       initializePackWords: (packId, words) => set((state) => {
-        if (state.packWords[packId]) return state; // Không đè mảng mới nếu bộ từ vựng đã tồn tại để bảo toàn điểm số
+        if (state.packWords[packId]) {
+          const currentWords = state.packWords[packId];
+          const newWordsMap = new Map(words.map(w => [w.id, w]));
+          // Giữ lại trạng thái học/yêu thích của từ cũ, thêm từ mới vào
+          const mergedWords = words.map(w => {
+            const existing = currentWords.find(cw => cw.id === w.id);
+            return existing ? { ...w, learned: existing.learned, favorite: existing.favorite } : w;
+          });
+          return { packWords: { ...state.packWords, [packId]: mergedWords } };
+        }
         return { packWords: { ...state.packWords, [packId]: words } };
       }),
       

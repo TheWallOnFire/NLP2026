@@ -4,12 +4,14 @@ import { useHistoryStore } from '../../history/store/useHistoryStore';
 import { useModelStore } from '../store/useModelStore';
 import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
+import { useSettingsStore } from '../../settings/store/useSettingsStore';
 
 export function useTestLogic(packId: string, duration: number, mode: string, cameraRef: any) {
   const words = useLearningStore(state => state.packWords[packId]) || [];
   const addHistoryItem = useHistoryStore(state => state.addHistoryItem);
   const packs = useModelStore(state => state.packs);
   const pack = packs.find(p => p.id === packId);
+  const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
 
   const [timeLeft, setTimeLeft] = useState(duration || 60);
   const [score, setScore] = useState(0);
@@ -17,6 +19,13 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const [currentWord, setCurrentWord] = useState<any>(null);
   const [testActive, setTestActive] = useState(false);
   
+  // Warm-up Timer
+  const [warmupTime, setWarmupTime] = useState(3);
+  const isMounted = useRef(true);
+
+  // Time Drift fix
+  const testEndTimeRef = useRef<number | null>(null);
+
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
@@ -25,18 +34,38 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const latestDetection = useRef<{wordStr: string, conf: number} | null>(null);
 
   useEffect(() => {
-    if (words.length > 0 && !currentWord) {
-      setCurrentWord(words[Math.floor(Math.random() * words.length)]);
-      setTestActive(true);
-    }
-  }, [words, currentWord]);
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   useEffect(() => {
-    if (timeLeft > 0 && testActive) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    if (words.length > 0 && !currentWord && warmupTime === 0) {
+      setCurrentWord(words[Math.floor(Math.random() * words.length)]);
+      setTestActive(true);
+      testEndTimeRef.current = Date.now() + (duration || 60) * 1000;
+    }
+  }, [words, currentWord, warmupTime, duration]);
+
+  // Warm-up interval
+  useEffect(() => {
+    if (warmupTime > 0) {
+      const timer = setTimeout(() => {
+         if (isMounted.current) setWarmupTime(prev => prev - 1);
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [timeLeft, testActive]);
+  }, [warmupTime]);
+
+  // Main Test Timer (chống drift)
+  useEffect(() => {
+    if (testActive && testEndTimeRef.current) {
+      const timer = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((testEndTimeRef.current! - Date.now()) / 1000));
+        if (isMounted.current) setTimeLeft(remaining);
+      }, 500);
+      return () => clearInterval(timer);
+    }
+  }, [testActive]);
 
   useEffect(() => {
     if (timeLeft === 0 && testActive) {
@@ -59,24 +88,29 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   }, [timeLeft, testActive, score, testResults, addHistoryItem, pack, packId, duration]);
 
   const nextWord = () => {
-    if (words.length <= 1) return;
+    if (words.length <= 1) {
+      if (words.length === 1) setCurrentWord(words[0]);
+      return;
+    }
     let randomWord;
+    let fallbackCounter = 0;
     do {
       randomWord = words[Math.floor(Math.random() * words.length)];
-    } while (currentWord && randomWord.id === currentWord.id);
+      fallbackCounter++;
+    } while (currentWord && randomWord.id === currentWord.id && fallbackCounter < 10);
     setCurrentWord(randomWord);
   };
 
   const handleSimulateCorrect = useCallback(() => {
-    if (!testActive || !currentWord) return;
+    if (!testActive || !currentWord || isProcessing) return;
     triggerSuccessFeedback();
     setScore(prev => prev + 1);
     setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true }]);
     nextWord();
-  }, [testActive, currentWord]);
+  }, [testActive, currentWord, isProcessing]);
 
   const handleSimulateSkip = () => {
-    if (!testActive || !currentWord) return;
+    if (!testActive || !currentWord || isProcessing) return;
     triggerErrorFeedback();
     setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false }]);
     nextWord();
@@ -88,31 +122,31 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
     latestDetection.current = { wordStr: detectedWordStr, conf };
   }, [testActive, currentWord, words]);
 
-  const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection);
+  const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, undefined, packId);
 
   const evaluateDetection = useCallback(() => {
-    if (!currentWord) return;
+    if (!currentWord || !isMounted.current) return;
     const det = latestDetection.current;
     
-    if (det && det.wordStr === currentWord.word && det.conf >= 0.7) {
+    if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
       setSnackbarColor("green");
       setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
       triggerSuccessFeedback();
       setScore(prev => prev + 1);
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true, correctness: Math.round(det.conf * 100) }]);
       setTimeout(() => {
-        nextWord();
+        if (isMounted.current) nextWord();
       }, 500);
     } else {
       setSnackbarColor("red");
-      setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);
+      setSnackbarMsg(`Chưa chính xác! (${det?.wordStr || 'Không rõ'})`);
       triggerErrorFeedback();
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false, correctness: Math.round((det?.conf || 0) * 100), confusedWith: det?.wordStr }]);
       setTimeout(() => {
-        nextWord();
+        if (isMounted.current) nextWord();
       }, 500);
     }
-  }, [currentWord]);
+  }, [currentWord, thresholdValue]);
 
   const checkFromCamera = async () => {
     if (!cameraRef.current || !isModelReady) return;
@@ -150,6 +184,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   return {
     words,
     timeLeft,
+    warmupTime,
     score,
     currentWord,
     testActive,
