@@ -64,6 +64,9 @@ export function useDetectionLogic(navigation: any) {
 
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isConfirmImageDialogOpen, setIsConfirmImageDialogOpen] = useState(false);
+  const [imageToAnalyze, setImageToAnalyze] = useState<string | null>(null);
+  const [imageToAnalyzeSize, setImageToAnalyzeSize] = useState({ width: 0, height: 0, bytes: 0 });
   const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
   const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
   const updateSettings = useSettingsStore(state => state.updateSettings);
@@ -304,8 +307,26 @@ export function useDetectionLogic(navigation: any) {
         if (finalMedia && !finalMedia.startsWith('file://') && !finalMedia.startsWith('http') && finalMedia.startsWith('/')) {
           finalMedia = `file://${finalMedia}`;
         }
-        setPendingMediaUri(finalMedia);
-        result = runDetection(finalMedia, undefined);
+        
+        // Lấy thông tin file ảnh để hiện trên Dialog
+        try {
+          const FileSystem = require('expo-file-system/legacy');
+          const Image = require('react-native').Image;
+          const fileInfo = await FileSystem.getInfoAsync(finalMedia);
+          Image.getSize(finalMedia, (width: number, height: number) => {
+            setImageToAnalyzeSize({ width, height, bytes: fileInfo.size || 0 });
+            setImageToAnalyze(finalMedia);
+            setIsConfirmImageDialogOpen(true);
+          }, () => {
+            setImageToAnalyzeSize({ width: 0, height: 0, bytes: fileInfo.size || 0 });
+            setImageToAnalyze(finalMedia);
+            setIsConfirmImageDialogOpen(true);
+          });
+        } catch (e) {
+          setImageToAnalyze(finalMedia);
+          setIsConfirmImageDialogOpen(true);
+        }
+        return;
       } else if (actualMedia && detectionMode === 'video') {
         try {
           const timeToCapture = player.currentTime * 1000;
@@ -402,18 +423,7 @@ export function useDetectionLogic(navigation: any) {
       }
       setIsLiveScanning(prev => !prev);
     } else {
-      if (detectionMode === 'picture' && selectedMedia) {
-        Alert.alert(
-        i18n.t('detection.confirmImageAnalysis'),
-        i18n.t('detection.confirmImageAnalysisDesc'),
-        [
-            { text: "Hủy", style: "cancel" },
-            { text: "Nhận dạng", onPress: () => handleManualScan(null, true) }
-          ]
-        );
-      } else {
-        await handleManualScan(null, true);
-      }
+      await handleManualScan(null, true);
     }
   };
 
@@ -559,6 +569,15 @@ export function useDetectionLogic(navigation: any) {
     sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
+    isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
+    imageToAnalyze, imageToAnalyzeSize,
+    confirmImageAnalysis: () => {
+      setIsConfirmImageDialogOpen(false);
+      if (imageToAnalyze) {
+        setPendingMediaUri(imageToAnalyze);
+        runDetection(imageToAnalyze, undefined);
+      }
+    },
     detectedWord, confidence, detectionSpeed, updateSettings,
     detectionMode, setDetectionMode: handleDetectionModeChange,
     isLiveScanning, setIsLiveScanning,
@@ -567,6 +586,6 @@ export function useDetectionLogic(navigation: any) {
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape
   };
 }

@@ -23,6 +23,8 @@ export default function DetectionScreen({ navigation }: any) {
     sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
+    isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
+    imageToAnalyze, imageToAnalyzeSize, confirmImageAnalysis,
     detectedWord, confidence, detectionSpeed, updateSettings,
     detectionMode, setDetectionMode,
     isLiveScanning, setIsLiveScanning,
@@ -31,7 +33,7 @@ export default function DetectionScreen({ navigation }: any) {
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, handleUrlImage, pickModelFile,
-    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth
+    toggleCameraFacing, toggleFlash, clearQueue, packWords, modelWidth, modelShape
   } = useDetectionLogic(navigation);
 
   if (!hasPermission) {
@@ -172,6 +174,13 @@ export default function DetectionScreen({ navigation }: any) {
         setUrlInput={setUrlInput}
         clearQueue={clearQueue}
         selectedMedia={selectedMedia}
+        isConfirmImageDialogOpen={isConfirmImageDialogOpen}
+        setIsConfirmImageDialogOpen={setIsConfirmImageDialogOpen}
+        confirmImageAnalysis={confirmImageAnalysis}
+        imageToAnalyze={imageToAnalyze}
+        imageToAnalyzeSize={imageToAnalyzeSize}
+        activePackName={activePack?.name}
+        modelInputShape={modelShape}
       />
     </SafeAreaView>
   );

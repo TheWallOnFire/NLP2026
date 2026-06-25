@@ -6,6 +6,7 @@ import { Portal, Snackbar } from 'react-native-paper';
 import UrlInputDialog from './dialogs/UrlInputDialog';
 import HistoryDialog from './dialogs/HistoryDialog';
 import PendingQueueDialog from './dialogs/PendingQueueDialog';
+import ConfirmImageDialog from './dialogs/ConfirmImageDialog';
 
 interface DetectionDialogsProps {
   theme: any;
@@ -28,6 +29,13 @@ interface DetectionDialogsProps {
   setUrlInput?: (url: string) => void;
   clearQueue?: () => void;
   selectedMedia?: string | null;
+  isConfirmImageDialogOpen?: boolean;
+  setIsConfirmImageDialogOpen?: (open: boolean) => void;
+  confirmImageAnalysis?: () => void;
+  imageToAnalyze?: string | null;
+  imageToAnalyzeSize?: { width: number; height: number; bytes: number };
+  activePackName?: string;
+  modelInputShape?: number[];
 }
 
 export default function DetectionDialogs({
@@ -50,7 +58,14 @@ export default function DetectionDialogs({
   urlInput,
   setUrlInput,
   clearQueue,
-  selectedMedia
+  selectedMedia,
+  isConfirmImageDialogOpen,
+  setIsConfirmImageDialogOpen,
+  confirmImageAnalysis,
+  imageToAnalyze,
+  imageToAnalyzeSize,
+  activePackName,
+  modelInputShape
 }: DetectionDialogsProps) {
   
   useEffect(() => {
@@ -67,12 +82,16 @@ export default function DetectionDialogs({
         setIsDebugDialogOpen(false);
         return true;
       }
+      if (isConfirmImageDialogOpen && setIsConfirmImageDialogOpen) {
+        setIsConfirmImageDialogOpen(false);
+        return true;
+      }
       return false; // OS handles app exit
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
-  }, [isUrlDialogOpen, isHistoryDialogOpen, isDebugDialogOpen]);
+  }, [isUrlDialogOpen, isHistoryDialogOpen, isDebugDialogOpen, isConfirmImageDialogOpen]);
 
   return (
     <>
@@ -85,6 +104,19 @@ export default function DetectionDialogs({
               urlInput={urlInput || ''}
               setUrlInput={setUrlInput}
               onSubmit={handleUrlImage}
+            />
+          )}
+
+          {isConfirmImageDialogOpen && setIsConfirmImageDialogOpen && confirmImageAnalysis && imageToAnalyzeSize && (
+            <ConfirmImageDialog
+              theme={theme}
+              isVisible={isConfirmImageDialogOpen}
+              onDismiss={() => setIsConfirmImageDialogOpen(false)}
+              onConfirm={confirmImageAnalysis}
+              imageUri={imageToAnalyze || null}
+              imageSize={imageToAnalyzeSize}
+              activePackName={activePackName || ''}
+              modelInputShape={modelInputShape || []}
             />
           )}
           
