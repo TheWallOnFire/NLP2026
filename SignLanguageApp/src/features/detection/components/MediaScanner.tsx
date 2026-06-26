@@ -8,7 +8,7 @@ import { VideoView } from 'expo-video';
 import VideoController from './VideoController';
 
 interface MediaScannerProps {
-  detectionMode: 'live' | 'picture' | 'video' | 'batch';
+  detectionMode: 'live' | 'picture' | 'video' | 'batch' | 'auto';
   device: any;
   cameraRef: React.RefObject<any>;
   flash: boolean;
@@ -48,7 +48,7 @@ export default function MediaScanner({
 
   return (
     <>
-      {detectionMode === 'live' ? (
+      {detectionMode === 'live' || detectionMode === 'auto' ? (
         <View style={styles.cameraWrapper}>
           {device != null && isAppActive ? (
             <Camera 

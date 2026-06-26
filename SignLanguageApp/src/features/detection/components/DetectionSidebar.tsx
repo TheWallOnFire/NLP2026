@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 interface DetectionSidebarProps {
   theme: any;
-  detectionMode: 'live' | 'picture' | 'video' | 'batch';
+  detectionMode: 'live' | 'picture' | 'video' | 'batch' | 'auto';
   detectionSpeed: string;
   updateSettings: (settings: any) => void;
   toggleCameraFacing: () => void;
@@ -46,7 +46,7 @@ export default function DetectionSidebar({
 
   return (
     <View style={styles.verticalSidebar}>
-      {detectionMode === 'live' ? (
+      {detectionMode === 'live' || detectionMode === 'auto' ? (
         <>
           <Menu
             visible={isSpeedMenuOpen}
@@ -85,12 +85,12 @@ export default function DetectionSidebar({
       
       {/* Manual Analyze Button */}
       <IconButton 
-        icon={detectionMode === 'live' && detectionSpeed !== 'off' ? (isLiveScanning ? "stop-circle" : "play-circle") : "scan-helper"} 
+        icon={(detectionMode === 'live' || detectionMode === 'auto') && detectionSpeed !== 'off' ? (isLiveScanning ? "stop-circle" : "play-circle") : "scan-helper"} 
         containerColor={isLiveScanning ? theme.colors.error : theme.colors.primary} 
         iconColor="white" 
         style={[styles.sideBtn, { marginTop: 20 }]} 
         onPress={onPressManualScan} 
-        disabled={(!isLiveScanning && isProcessing) || !activePackId || (detectionMode !== 'live' && !selectedMedia)}
+        disabled={(!isLiveScanning && isProcessing) || !activePackId || ((detectionMode !== 'live' && detectionMode !== 'auto') && !selectedMedia)}
       />
     </View>
   );

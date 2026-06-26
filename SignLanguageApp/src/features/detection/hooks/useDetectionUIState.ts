@@ -7,7 +7,7 @@ export function useDetectionUIState() {
   const [imageToAnalyze, setImageToAnalyze] = useState<string | null>(null);
   const [imageToAnalyzeSize, setImageToAnalyzeSize] = useState({ width: 0, height: 0, bytes: 0 });
   
-  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video' | 'batch'>('live');
+  const [detectionMode, setDetectionMode] = useState<'live' | 'picture' | 'video' | 'batch' | 'auto'>('live');
   const [isLiveScanning, setIsLiveScanning] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);

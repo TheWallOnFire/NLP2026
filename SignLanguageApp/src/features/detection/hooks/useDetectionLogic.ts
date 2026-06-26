@@ -495,7 +495,7 @@ export function useDetectionLogic(navigation: any) {
     let result: { success: boolean, message: string } | undefined;
 
     try {
-      if (detectionMode === 'live') {
+      if (detectionMode === 'live' || detectionMode === 'auto') {
         if (camera.current && (isManualClick || isLiveScanning)) {
           try {
             const photo = await camera.current.takeSnapshot({ quality: 85 });
@@ -576,7 +576,7 @@ export function useDetectionLogic(navigation: any) {
     let isActive = true;
     let timerId: NodeJS.Timeout;
 
-    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
+    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video' || detectionMode === 'auto') && isLiveScanning) {
       cancelAnimation(scanAnimValue); // Fix Bug 38: Xóa hàng đợi Worklet trước khi gán mới
       scanAnimValue.value = withRepeat(
         withSequence(
@@ -592,14 +592,14 @@ export function useDetectionLogic(navigation: any) {
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
         
-        if ((state.detectionMode === 'video' || state.detectionMode === 'live') && !isProcessing) {
+        if ((state.detectionMode === 'video' || state.detectionMode === 'live' || state.detectionMode === 'auto') && !isProcessing) {
           await handleManualScan();
         }
         
         if (isActive) timerId = setTimeout(loop, getInterval());
       };
 
-      if (detectionMode === 'video' || detectionMode === 'live') {
+      if (detectionMode === 'video' || detectionMode === 'live' || detectionMode === 'auto') {
         timerId = setTimeout(loop, 500);
       }
     } else {
@@ -627,7 +627,7 @@ export function useDetectionLogic(navigation: any) {
   }, [isDebugDialogOpen, developerDebugMode, getDebugInfo]);
 
   const onPressManualScan = async () => {
-    if ((detectionMode === 'live' || detectionMode === 'video') && detectionSpeed !== 'off') {
+    if ((detectionMode === 'live' || detectionMode === 'video' || detectionMode === 'auto') && detectionSpeed !== 'off') {
       if (detectionMode === 'video' && !selectedMedia) {
         Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectVideoFirst'));
         return;

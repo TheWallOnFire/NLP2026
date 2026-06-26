@@ -10,7 +10,6 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
   const markLearned = useLearningStore(state => state.markLearned);
   
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [practiceWords, setPracticeWords] = useState<any[]>([]);
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
@@ -22,20 +21,17 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
 
+  // Ensure currentIndex starts at wordId if provided
   useEffect(() => {
-    if (words.length > 0 && practiceWords.length === 0) {
-      let sorted;
-      if (wordId) {
-        const specificWord = words.find(w => w.id === wordId);
-        const others = words.filter(w => w.id !== wordId);
-        sorted = specificWord ? [specificWord, ...others] : others;
-      } else {
-        sorted = words.filter(w => !w.learned).concat(words.filter(w => w.learned));
+    if (wordId && words.length > 0) {
+      const idx = words.findIndex(w => w.id === wordId);
+      if (idx !== -1) {
+        setCurrentIndex(idx);
       }
-      setPracticeWords(sorted);
     }
-  }, [words, practiceWords.length, wordId]);
+  }, [wordId, words.length]);
 
+  const practiceWords = words;
   const currentWord = practiceWords[currentIndex];
 
   const handleSkip = useCallback(() => {
@@ -51,9 +47,6 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
       setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
       triggerSuccessFeedback();
       markLearned(packId, currentWord.id, true);
-      setTimeout(() => {
-        handleSkip();
-      }, 1000);
     } else {
       setSnackbarColor("red");
       setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);

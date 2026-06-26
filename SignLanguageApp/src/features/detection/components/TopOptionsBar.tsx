@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 
 interface TopOptionsBarProps {
   theme: any;
-  detectionMode: 'live' | 'picture' | 'video' | 'batch';
-  setDetectionMode: (mode: 'live' | 'picture' | 'video' | 'batch') => void;
+  detectionMode: 'live' | 'picture' | 'video' | 'batch' | 'auto';
+  setDetectionMode: (mode: 'live' | 'picture' | 'video' | 'batch' | 'auto') => void;
   setSelectedMedia: (media: string | null) => void;
   setIsLiveScanning: (scanning: boolean) => void;
   activePackId: string | null;
@@ -47,6 +47,7 @@ export default function TopOptionsBar({
             {detectionMode === 'live' ? <CameraIcon color={theme.colors.primary} size={18} /> : 
              detectionMode === 'picture' ? <ImageIcon color={theme.colors.primary} size={18} /> :
              detectionMode === 'batch' ? <MenuIcon color={theme.colors.primary} size={18} /> :
+             detectionMode === 'auto' ? <Brain color={theme.colors.primary} size={18} /> :
              <VideoIcon color={theme.colors.primary} size={18} />}
             <Text style={styles.dropdownText}>{detectionMode.toUpperCase()}</Text>
             <ChevronDown color={theme.colors.onSurface} size={16} />
@@ -57,6 +58,7 @@ export default function TopOptionsBar({
         <Menu.Item onPress={() => { setDetectionMode('picture'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.imageUpload')} />
         <Menu.Item onPress={() => { setDetectionMode('video'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.videoUpload')} />
         <Menu.Item onPress={() => { setDetectionMode('batch'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="Batch Upload (Folder)" />
+        <Menu.Item onPress={() => { setDetectionMode('auto'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(true); }} title="Auto Detection" />
       </Menu>
 
       <Menu
