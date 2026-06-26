@@ -4,10 +4,12 @@ import { View, StyleSheet } from 'react-native';
 import { Appbar, Text, Button, SegmentedButtons, useTheme, Surface, IconButton } from 'react-native-paper';
 import { useLearningStore } from '../store/useLearningStore';
 import { ROUTES } from '../../../constants/routes';
+import { useTranslation } from 'react-i18next';
 
 export default function PracticeWordSetupScreen({ route, navigation }: any) {
   const { packId } = route.params || {};
   const theme = useTheme();
+  const { t } = useTranslation();
   
   const words = useLearningStore(state => state.packWords[packId]) || [];
   
@@ -114,7 +116,7 @@ export default function PracticeWordSetupScreen({ route, navigation }: any) {
           contentStyle={{ paddingVertical: 8 }}
           labelStyle={{ fontSize: 18 }}
         >
-          {maxWords === 0 ? "Không có từ vựng" : "START PRACTICE"}
+          {maxWords === 0 ? t('learning.noVocabulary') : t('learning.startPracticeBtn')}
         </Button>
       </View>
     </View>

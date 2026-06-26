@@ -7,9 +7,11 @@ import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } f
 import { useIsFocused } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { usePracticeWordLogic } from '../hooks/usePracticeWordLogic';
+import { useTranslation } from 'react-i18next';
 import { ROUTES } from '../../../constants/routes';
 
 export default function PracticeWordFlashcardScreen({ route, navigation }: any) {
+  const { t } = useTranslation();
   const { packId, filterType, wordCount } = route.params || {};
   const theme = useTheme();
   
@@ -71,8 +73,8 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
   if (!hasPermission) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text variant="titleMedium">Cấp quyền Camera để sử dụng</Text>
-        <Button mode="contained" onPress={requestPermission} style={{ marginTop: 20 }}>Cấp quyền</Button>
+        <Text variant="titleMedium">{t('learning.cameraPermissionNeeded')}</Text>
+        <Button mode="contained" onPress={requestPermission} style={{ marginTop: 20 }}>{t('learning.grantPermission')}</Button>
       </View>
     );
   }
@@ -84,10 +86,10 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
           <Appbar.BackAction onPress={() => navigation.goBack()} />
           <Appbar.Content title="Hoàn thành" />
         </Appbar.Header>
-        <Text variant="headlineMedium">Đã hoàn thành!</Text>
-        <Text variant="bodyLarge" style={{ marginTop: 10 }}>Bạn đã ôn tập {practiceWords.length} từ vựng.</Text>
+        <Text variant="headlineMedium">{t('learning.testFinished')}</Text>
+        <Text variant="bodyLarge" style={{ marginTop: 10 }}>{t('learning.wordsPracticed', { count: practiceWords.length })}</Text>
         <Button mode="contained" onPress={() => navigation.navigate(ROUTES.PACK_DETAIL, { packId })} style={{ marginTop: 30 }}>
-          Trở về Danh sách
+          {t('learning.goBack')}
         </Button>
       </View>
     );
@@ -97,7 +99,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={`Từ ${currentIndex + 1}/${practiceWords.length}`} />
+        <Appbar.Content title={t('learning.wordOfWord', { current: currentIndex + 1, total: practiceWords.length })} />
       </Appbar.Header>
 
       <View style={styles.flashcardContainer}>
@@ -107,7 +109,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
             <Text variant="displayLarge" style={{ color: theme.colors.onPrimaryContainer, fontWeight: 'bold' }}>
               {currentWord?.word}
             </Text>
-            <Text variant="bodyMedium" style={{ marginTop: 20, color: 'gray' }}>(Chạm để lật)</Text>
+            <Text variant="bodyMedium" style={{ marginTop: 20, color: 'gray' }}>{t('learning.tapToFlip')}</Text>
           </Animated.View>
           
           {/* MẶT SAU (ẢNH) */}
@@ -121,7 +123,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
               />
             ) : (
               <View style={styles.errorImage}>
-                <Text>Chưa có ảnh</Text>
+                <Text>{t('learning.noImage')}</Text>
               </View>
             )}
             <Text variant="titleLarge" style={{ marginTop: 10, fontWeight: 'bold' }}>{currentWord?.word}</Text>
@@ -158,7 +160,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
           onPress={handleSkip} 
           disabled={isProcessing}
         >
-          Skip
+          {t('learning.skip')}
         </Button>
         <Button 
           mode="contained" 
@@ -167,7 +169,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
           disabled={!isModelReady || isProcessing}
           icon={() => isProcessing ? <ActivityIndicator size={16} color="white" /> : null}
         >
-          {isProcessing ? "Checking..." : "Check"}
+          {isProcessing ? t('learning.checking') : t('learning.check')}
         </Button>
       </View>
 

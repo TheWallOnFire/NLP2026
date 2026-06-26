@@ -52,7 +52,7 @@ export default function PracticeControls({
           style={styles.actionButton}
           icon={() => <SkipForward size={20} color={theme.colors.primary} />}
         >
-          Next
+          {t('learning.next')}
         </Button>
       </View>
       {isProcessing && (

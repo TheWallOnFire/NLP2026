@@ -4,8 +4,10 @@ import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 
 export function usePracticeLogic(packId: string, wordId: string | undefined, cameraRef: any) {
+  const { t } = useTranslation();
   const words = useLearningStore(state => state.packWords[packId]) || [];
   const markLearned = useLearningStore(state => state.markLearned);
   
@@ -44,12 +46,15 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     
     if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
       setSnackbarColor("green");
-      setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
+      setSnackbarMsg(t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
       triggerSuccessFeedback();
       markLearned(packId, currentWord.id, true);
     } else {
       setSnackbarColor("red");
-      setSnackbarMsg(`Chưa chính xác! Nhận diện được: ${det?.wordStr || 'Không rõ'} (${Math.round((det?.conf || 0) * 100)}%)`);
+      setSnackbarMsg(t('learning.incorrectFeedback', { 
+        word: det?.wordStr || 'Unknown', 
+        confidence: Math.round((det?.conf || 0) * 100) 
+      }));
     }
   }, [currentWord, thresholdValue, packId, markLearned, handleSkip]);
 
@@ -120,7 +125,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     } catch (e) {
       console.warn("Camera snapshot failed", e);
       setSnackbarColor("red");
-      setSnackbarMsg("Không thể chụp ảnh từ Camera!");
+      setSnackbarMsg(t('learning.cameraCaptureFailed'));
     }
   };
 

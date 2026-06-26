@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLearningStore } from '../store/useLearningStore';
 import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
+import { useTranslation } from 'react-i18next';
 
 export function usePracticeWordLogic(packId: string, filterType: string, wordCount: number, cameraRef: any) {
+  const { t } = useTranslation();
   const words = useLearningStore(state => state.packWords[packId]) || [];
   
   const [practiceWords, setPracticeWords] = useState<any[]>([]);
@@ -62,12 +64,12 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
     // Ngưỡng 0.6 cho practice
     if (det && det.wordStr === currentWord.word && det.conf >= 0.6) {
       setSnackbarColor("green");
-      setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
+      setSnackbarMsg(t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
       triggerSuccessFeedback();
       setTimeout(handleNext, 1000);
     } else {
       setSnackbarColor("red");
-      setSnackbarMsg(`Chưa chính xác! (${det?.wordStr || 'Không rõ'})`);
+      setSnackbarMsg(t('learning.incorrectFeedbackNoDetect', { word: det?.wordStr || 'Unknown' }));
       triggerErrorFeedback();
     }
   }, [currentWord, handleNext]);
@@ -99,7 +101,7 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
     } catch (e) {
       console.warn("Camera check failed", e);
       setSnackbarColor("red");
-      setSnackbarMsg("Không thể chụp ảnh!");
+      setSnackbarMsg(t('learning.cameraCaptureFailed'));
     } finally {
       setIsProcessing(false);
     }
