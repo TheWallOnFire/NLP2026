@@ -12,7 +12,7 @@ interface HistoryDialogProps {
   onSaveSession?: (editedText: string, sessionId?: string | null) => void;
   onSaveMediaSession?: () => void;
   setSessionHistory?: (history: any[]) => void;
-  detectionMode?: 'live' | 'picture' | 'video' | 'batch';
+  detectionMode?: 'live' | 'picture' | 'video' | 'batch' | 'auto';
   selectedMedia?: string | null;
 }
 

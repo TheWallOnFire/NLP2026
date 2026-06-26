@@ -33,10 +33,11 @@ export default function DetectionScreen({ navigation }: any) {
     selectedMedia, setSelectedMedia,
     isProcessing, snackbarMsg, setSnackbarMsg,
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
-    player, scanAnimStyle, camera, isAppActive, isFocused,
+    player, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
     toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
-    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen,
+    handBox, autoState
   } = useDetectionLogic(navigation);
 
   if (!hasPermission) {
@@ -102,7 +103,6 @@ export default function DetectionScreen({ navigation }: any) {
           activePackId={activePackId}
           detectionSpeed={detectionSpeed}
           isLiveScanning={isLiveScanning}
-          scanAnimStyle={scanAnimStyle}
           selectedMedia={selectedMedia}
           player={player}
           pickImage={pickImage}
@@ -110,6 +110,8 @@ export default function DetectionScreen({ navigation }: any) {
           pickBatchImages={pickBatchImages}
           isAppActive={isAppActive && isFocused}
           frameOutput={frameOutput}
+          handBox={handBox}
+          autoState={autoState}
         />
 
         <View style={styles.topResultOverlay}>

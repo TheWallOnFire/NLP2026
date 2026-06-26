@@ -17,7 +17,7 @@ interface DetectionDialogsProps {
   onSaveSession?: (editedText: string, sessionId?: string | null) => void;
   onSaveMediaSession?: () => void;
   setSessionHistory?: (history: any[]) => void;
-  detectionMode?: 'live' | 'picture' | 'video' | 'batch';
+  detectionMode?: 'live' | 'picture' | 'video' | 'batch' | 'auto';
   isDebugDialogOpen: boolean;
   setIsDebugDialogOpen: (open: boolean) => void;
   debugData: any;

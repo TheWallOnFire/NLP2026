@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import Animated from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Camera } from 'react-native-vision-camera';
 import { VideoView } from 'expo-video';
@@ -15,7 +15,6 @@ interface MediaScannerProps {
   activePackId: string | null;
   detectionSpeed: string;
   isLiveScanning: boolean;
-  scanAnimStyle?: any;
   selectedMedia: string | null;
   player: any;
   pickImage: () => void;
@@ -23,6 +22,8 @@ interface MediaScannerProps {
   pickBatchImages?: () => void;
   isAppActive?: boolean;
   frameOutput?: any;
+  handBox?: any;
+  autoState?: any;
 }
 
 export default function MediaScanner({
@@ -33,18 +34,63 @@ export default function MediaScanner({
   activePackId,
   detectionSpeed,
   isLiveScanning,
-  scanAnimStyle,
   selectedMedia,
   player,
   pickImage,
   pickVideo,
   pickBatchImages,
   isAppActive = true,
-  frameOutput
+  frameOutput,
+  handBox,
+  autoState
 }: MediaScannerProps) {
 
   // Tách const ra ngoài hoặc dùng memo để tránh re-render liên tục gây giật lag Camera
   const cameraConstraints = React.useMemo(() => [{ fps: 30 }], []);
+
+  const handBoxStyle = useAnimatedStyle(() => {
+    if (!handBox || handBox.value.score < 0.0) {
+      return { 
+        opacity: withTiming(0, { duration: 300 }), // Fix Bug 31: Fade out mượt mà
+        borderColor: 'transparent',
+        backgroundColor: 'transparent'
+      };
+    }
+    // Thuật toán ánh xạ toạ độ từ Tensor 1:1 (Resizer) sang màn hình điện thoại 9:20 (Cover)
+    // 1. Resizer cắt khung hình 9:16 thành 1:1 (cắt trên/dưới)
+    const x_sensor = handBox.value.x;
+    const y_sensor = 0.21875 + handBox.value.y * 0.5625;
+    const w_sensor = handBox.value.w;
+    const h_sensor = handBox.value.h * 0.5625;
+
+    // 2. Camera Preview phóng to 9:16 lên 9:20 (cắt trái/phải)
+    // Hệ số bù x là (9/16) / (9/20) = 1.25
+    const x_screen = (x_sensor - 0.5) * 1.25 + 0.5;
+    const w_screen = w_sensor * 1.25;
+    const y_screen = y_sensor;
+    const h_screen = h_sensor;
+
+    // Fix Bug 32: Visual Feedback cho Trạng thái
+    let color = 'rgba(0, 255, 0, 1)'; // State 0 (Searching): Xanh lá
+    let bgColor = 'rgba(0, 255, 0, 0.1)';
+    if (autoState && autoState.value === 1) {
+       color = 'rgba(255, 165, 0, 1)'; // State 1 (Locking): Cam
+       bgColor = 'rgba(255, 165, 0, 0.2)';
+    } else if (autoState && autoState.value === 2) {
+       color = 'rgba(255, 0, 0, 1)'; // State 2 (Scanning): Đỏ
+       bgColor = 'rgba(255, 0, 0, 0.3)';
+    }
+
+    return {
+      opacity: withTiming(1, { duration: 150 }),
+      left: `${x_screen * 100}%`,
+      top: `${y_screen * 100}%`,
+      width: `${w_screen * 100}%`,
+      height: `${h_screen * 100}%`,
+      borderColor: color,
+      backgroundColor: bgColor
+    };
+  });
 
   return (
     <>
@@ -65,18 +111,16 @@ export default function MediaScanner({
               {device == null ? <ActivityIndicator size="large" /> : <Text style={{ color: 'white' }}>Camera Paused</Text>}
             </View>
           )}
-          {/* Scanning Reticle */}
-          <View style={styles.reticleContainer} pointerEvents="none">
-            <View style={styles.reticle}>
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
-              {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
-                <Animated.View style={[styles.scanLine, scanAnimStyle]} />
-              )}
-            </View>
-          </View>
+          
+          {/* Khung khóa mục tiêu bàn tay cho Auto Mode */}
+          {detectionMode === 'auto' && handBox && (
+            <Animated.View style={[styles.handBox, handBoxStyle]} pointerEvents="none">
+               <View style={styles.handBoxCornerTopLeft} />
+               <View style={styles.handBoxCornerTopRight} />
+               <View style={styles.handBoxCornerBottomLeft} />
+               <View style={styles.handBoxCornerBottomRight} />
+            </Animated.View>
+          )}
         </View>
       ) : (
         <View style={styles.uploadWrapper}>
@@ -127,40 +171,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  reticleContainer: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reticle: {
-    width: 200,
-    height: 200,
-    position: 'relative',
-  },
-  corner: {
+  handBox: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: 'white',
-    borderWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 3,
+    borderWidth: 2,
+    borderRadius: 8,
   },
-  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
-  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
-  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
-  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  scanLine: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    width: '100%',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
+  handBoxCornerTopLeft: { position: 'absolute', top: -2, left: -2, width: 20, height: 20, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
+  handBoxCornerTopRight: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
+  handBoxCornerBottomLeft: { position: 'absolute', bottom: -2, left: -2, width: 20, height: 20, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
+  handBoxCornerBottomRight: { position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
 });

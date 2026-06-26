@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert, AppState, Linking, Platform } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { useSharedValue, runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -12,10 +12,12 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
 import { useDetectionUIState } from './useDetectionUIState';
-
+import { useResizer } from 'react-native-vision-camera-resizer';
+import { useHandDetectionModel } from './useHandDetectionModel';
 import { useSignLanguageModel } from './useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
 import { useHistoryStore } from '../../history/store/useHistoryStore';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { useSettingsStore } from '../../settings/store/useSettingsStore';
@@ -57,6 +59,16 @@ export function useDetectionLogic(navigation: any) {
   const [flash, setFlash] = useState(false);
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(facing);
+  
+  const { isHandModelReady, boxedHandModel } = useHandDetectionModel();
+  const { resizer } = useResizer({
+    width: 192,
+    height: 192,
+    channelOrder: 'rgb',
+    dataType: 'float32',
+    scaleMode: 'cover',
+    pixelLayout: 'interleaved',
+  });
 
   const { packs, activePackId, setActivePack, customModelUri, setCustomModelUri } = useModelStore();
   const packWords = useLearningStore(state => state.packWords);
@@ -216,6 +228,7 @@ export function useDetectionLogic(navigation: any) {
               if (newHistory.length > 50) newHistory.length = 50; // Giữ tối đa 50 kết quả gần nhất để tránh OOM
               return newHistory;
             });
+            setIsProcessing(false); // Fix lỗi kẹt mode Auto/Live
           }
         }
         
@@ -290,11 +303,169 @@ export function useDetectionLogic(navigation: any) {
 
   // Đã dọn dẹp các UseSharedValue gây Anti-pattern và Memory Leak dư thừa
 
+  const handBox = useSharedValue({ x: 0, y: 0, w: 0, h: 0, score: 0 });
+  const autoState = useSharedValue(0); // 0: Searching, 1: Locking, 2: Monitoring
+  const lockStartTime = useSharedValue(0);
+  const lastClassifyTime = useSharedValue(0);
+  const searchDelayEndTime = useSharedValue(0); 
+  const lastWorkletLogTime = useSharedValue(0);
+  const handLostTime = useSharedValue(0); // Bộ đệm thời gian mất dấu tay
+
+  const triggerAutoScan = () => {
+    if (detectionMode === 'auto' && isLiveScanning && !isProcessing) {
+      handleManualScan(null, true);
+    }
+  };
+
   const frameOutput = useFrameOutput({
+    pixelFormat: 'yuv',
     onFrame: (frame) => {
       'worklet';
-      // Mọi xử lý live giờ được chuyển về handleManualScan + runDetection queue
-      // Worklet này chỉ giữ chỗ để tránh crash
+      const mode = detectionMode;
+      const live = isLiveScanning;
+      
+      if (mode === 'auto' && live && isHandModelReady && boxedHandModel && resizer) {
+        const now = Date.now();
+        if (now > searchDelayEndTime.value) {
+          let resized: any = null;
+          try {
+            resized = resizer.resize(frame);
+            const buffer = resized.getPixelBuffer();
+            const floatBuffer = new Float32Array(buffer);
+            
+            // CHUẨN HÓA PIXEL: Dùng phép nhân (nhanh hơn phép chia) để tối ưu hoá vòng lặp 110,592 phần tử
+            const inv = 1.0 / 127.5;
+            for (let i = 0; i < floatBuffer.length; i++) {
+              floatBuffer[i] = floatBuffer[i] * inv - 1.0;
+            }
+            
+            const outputs = boxedHandModel.unbox().runSync([floatBuffer]);
+
+            let maxLogit = -100;
+            let maxIdx = -1;
+            let regBuffer = null;
+
+            if (outputs && outputs.length > 0) {
+              for (let i = 0; i < outputs.length; i++) {
+                const out = outputs[i];
+                const byteLen = out.byteLength;
+                if (byteLen === 8064 || (out.length && out.length === 2016)) {
+                  const arr = out.length ? out : new Float32Array(out);
+                  for (let j = 0; j < 2016; j++) {
+                    if (arr[j] > maxLogit) {
+                      maxLogit = arr[j];
+                      maxIdx = j;
+                    }
+                  }
+                } else if (byteLen === 145152 || (out.length && out.length === 36288)) {
+                  regBuffer = out.length ? out : new Float32Array(out);
+                }
+              }
+            }
+            if (maxLogit > 0.5 && maxIdx !== -1 && regBuffer) { 
+              handLostTime.value = 0; // Đặt lại bộ đệm vì đã tìm thấy tay
+              // Giải mã toạ độ Bounding Box
+              let cx = 0, cy = 0;
+              if (maxIdx < 1152) { // Lưới 24x24
+                 const cell_y = Math.floor(maxIdx / 48);
+                 const cell_x = Math.floor((maxIdx % 48) / 2);
+                 cx = (cell_x + 0.5) / 24;
+                 cy = (cell_y + 0.5) / 24;
+              } else { // Lưới 12x12
+                 const rem = maxIdx - 1152;
+                 const cell_y = Math.floor(rem / 72);
+                 const cell_x = Math.floor((rem % 72) / 6);
+                 cx = (cell_x + 0.5) / 12;
+                 cy = (cell_y + 0.5) / 12;
+              }
+              
+              const dx = regBuffer[maxIdx * 18 + 0];
+              const dy = regBuffer[maxIdx * 18 + 1];
+              const w = regBuffer[maxIdx * 18 + 2];
+              const h = regBuffer[maxIdx * 18 + 3];
+              
+              const palm_cx = cx + dx / 192;
+              const palm_cy = cy + dy / 192;
+              const palm_w = w / 192;
+              const palm_h = h / 192;
+              
+              // Tính toán kích thước và làm mượt (EMA Smoothing) để chống giật khung hình
+              let target_x = palm_cx - palm_w * 1.5;
+              let target_y = palm_cy - palm_h * 1.5;
+              let target_w = palm_w * 3;
+              let target_h = palm_h * 3;
+              
+              if (handBox.value.score > 0) {
+                 const s = 0.35; // Tốc độ làm mượt 35% mỗi frame (mượt mà nhưng không bị lag theo sau)
+                 target_x = handBox.value.x + (target_x - handBox.value.x) * s;
+                 target_y = handBox.value.y + (target_y - handBox.value.y) * s;
+                 target_w = handBox.value.w + (target_w - handBox.value.w) * s;
+                 target_h = handBox.value.h + (target_h - handBox.value.h) * s;
+              }
+
+              handBox.value = { 
+                  x: target_x, 
+                  y: target_y, 
+                  w: target_w, 
+                  h: target_h, 
+                  score: maxLogit 
+              };
+
+              if (now - lastWorkletLogTime.value > 1000) {
+                 console.log(`[AutoMode] Bám tay mượt... Logit: ${maxLogit.toFixed(2)}, State: ${autoState.value}`);
+                 lastWorkletLogTime.value = now;
+              }
+
+              // State Machine cho Auto Mode
+              if (autoState.value === 0) {
+                 console.log(`[AutoMode] Phát hiện tay! Trạng thái 0 -> 1 (Bắt đầu khóa 1s)`);
+                 autoState.value = 1;
+                 lockStartTime.value = now;
+              } else if (autoState.value === 1) {
+                 if (now - lockStartTime.value > 1000) { // Chờ 1s khóa tay
+                     console.log(`[AutoMode] Đã khóa tay 1s! Trạng thái 1 -> 2 (Kích hoạt nhận diện)`);
+                     autoState.value = 2;
+                     lastClassifyTime.value = now;
+                     runOnJS(triggerAutoScan)();
+                 }
+              } else if (autoState.value === 2) {
+                 // Mỗi 1.5s nhận diện lại để xem ký tự có đổi không
+                 if (now - lastClassifyTime.value > 1500) {
+                     console.log(`[AutoMode] Đang theo dõi (Trạng thái 2). Kích hoạt nhận diện vòng lặp!`);
+                     lastClassifyTime.value = now;
+                     runOnJS(triggerAutoScan)();
+                 }
+              }
+            } else {
+              if (handLostTime.value === 0) {
+                  handLostTime.value = now; // Bắt đầu tính giờ mất dấu
+              }
+              
+              // Khoan dung (Grace period) 400ms. Nếu mất dấu tay quá 400ms thì mới HỦY khóa và Reset
+              if (now - handLostTime.value > 400) {
+                  handBox.value = { x: 0, y: 0, w: 0, h: 0, score: -100 };
+                  if (autoState.value !== 0) {
+                     console.log(`[AutoMode] Mất dấu tay thực sự! Trạng thái ${autoState.value} -> 0.`);
+                     autoState.value = 0;
+                     // Trễ 0.5 giây khi RỚT NHỊP
+                     searchDelayEndTime.value = now + 500;
+                  } else {
+                     if (now - lastWorkletLogTime.value > 2000) {
+                         console.log(`[AutoMode] Đang tìm kiếm... Logit cao nhất: ${maxLogit.toFixed(2)}`);
+                         lastWorkletLogTime.value = now;
+                     }
+                  }
+              }
+            }
+          } catch(e) {
+          } finally {
+            if (resized) {
+               resized.dispose();
+            }
+          }
+        }
+      }
+      
       frame.dispose();
     }
   });
@@ -319,10 +490,7 @@ export function useDetectionLogic(navigation: any) {
     return () => clearTimeout(timeout);
   }, [flash]);
 
-  const scanAnimValue = useSharedValue(0);
-  const scanAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: scanAnimValue.value * 200 }]
-  }));
+
   const camera = useRef<any>(null);
 
   useEffect(() => {
@@ -498,6 +666,10 @@ export function useDetectionLogic(navigation: any) {
       if (detectionMode === 'live' || detectionMode === 'auto') {
         if (camera.current && (isManualClick || isLiveScanning)) {
           try {
+            // Fix Lỗi Logic Race Condition (Ghost Crop): Đọc tọa độ khung xanh NGAY LẬP TỨC trước khi chụp ảnh, 
+            // nếu đọc sau khi chụp (mất 100ms), tay đã di chuyển sang chỗ khác khiến ảnh Crop bị trượt mục tiêu.
+            const currentHandBox = detectionMode === 'auto' ? { ...handBox.value } : null;
+
             const photo = await camera.current.takeSnapshot({ quality: 85 });
             let imagePath: string | undefined = undefined;
             if (photo && typeof photo.saveToTemporaryFileAsync === 'function') {
@@ -510,7 +682,56 @@ export function useDetectionLogic(navigation: any) {
             }
             if (imagePath) {
               if (developerDebugMode) setSnackbarMsg("Đã tự động chụp và xử lý...");
-              result = runDetection(imagePath, facing, true);
+              
+              let finalImagePath = imagePath;
+              // Tính năng crop tay khi đang ở Auto Mode
+              if (detectionMode === 'auto' && currentHandBox && currentHandBox.score > 0.5) {
+                const box = currentHandBox;
+                if ((photo as any).width && (photo as any).height) {
+                  const pWidth = (photo as any).width;
+                  const pHeight = (photo as any).height;
+                  
+                  // Tính toán tỷ lệ khung hình thật của Snapshot (VD: 9/16 = 0.5625)
+                  const R = pWidth / pHeight; 
+                  console.log(`[AutoMode-Crop] Snapshot gốc: ${pWidth}x${pHeight} (Tỷ lệ R=${R.toFixed(3)})`);
+                  
+                  // Ánh xạ toạ độ từ 1:1 (Resizer) sang tỷ lệ thực của Snapshot
+                  // Vì cover crop chiều cao, phần bị cắt trên/dưới là (1 - R) / 2
+                  const snap_x = box.x;
+                  const snap_y = (1 - R) / 2 + box.y * R;
+                  const snap_w = box.w;
+                  const snap_h = box.h * R;
+                  
+                  // Chống Crash (Bắt lỗi ngoài ranh giới cho Crop ảnh)
+                  let originX = Math.round(snap_x * pWidth);
+                  let originY = Math.round(snap_y * pHeight);
+                  let w = Math.round(snap_w * pWidth);
+                  let h = Math.round(snap_h * pHeight);
+                  
+                  originX = Math.max(0, Math.min(pWidth - 1, originX));
+                  originY = Math.max(0, Math.min(pHeight - 1, originY));
+                  
+                  if (originX + w > pWidth) w = pWidth - originX;
+                  if (originY + h > pHeight) h = pHeight - originY;
+                  
+                  console.log(`[AutoMode-Crop] Cắt lấy tay: originX=${originX}, originY=${originY}, w=${w}, h=${h}`);
+                  
+                  if (w > 10 && h > 10) {
+                    try {
+                      const manipResult = await ImageManipulator.manipulateAsync(
+                        imagePath,
+                        [{ crop: { originX, originY, width: w, height: h } }],
+                        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+                      );
+                      finalImagePath = manipResult.uri;
+                    } catch (e) {
+                      console.warn("Lỗi crop ảnh tự động:", e);
+                    }
+                  }
+                }
+              }
+              
+              result = runDetection(finalImagePath, facing, true);
             } else {
               result = { success: false, message: "Lỗi Camera: Không thể lưu file ảnh tạm." };
             }
@@ -577,33 +798,23 @@ export function useDetectionLogic(navigation: any) {
     let timerId: NodeJS.Timeout;
 
     if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video' || detectionMode === 'auto') && isLiveScanning) {
-      cancelAnimation(scanAnimValue); // Fix Bug 38: Xóa hàng đợi Worklet trước khi gán mới
-      scanAnimValue.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: getInterval() === -1 ? 1000 : getInterval() }),
-          withTiming(0, { duration: getInterval() === -1 ? 1000 : getInterval() })
-        ),
-        -1,
-        false
-      );
-
       const loop = async () => {
         if (!isActive) return;
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
         
-        if ((state.detectionMode === 'video' || state.detectionMode === 'live' || state.detectionMode === 'auto') && !isProcessing) {
+        // Mode Auto không gọi tự động theo thời gian nữa, mà do Frame Processor (bàn tay) kích hoạt
+        if ((state.detectionMode === 'video' || state.detectionMode === 'live') && !isProcessing) {
           await handleManualScan();
         }
         
         if (isActive) timerId = setTimeout(loop, getInterval());
       };
 
-      if (detectionMode === 'video' || detectionMode === 'live' || detectionMode === 'auto') {
+      if (detectionMode === 'video' || detectionMode === 'live') {
         timerId = setTimeout(loop, 500);
       }
     } else {
-      cancelAnimation(scanAnimValue);
       setDetectedWord(null);
       setConfidence(0);
     }
@@ -821,8 +1032,14 @@ export function useDetectionLogic(navigation: any) {
     setFlash(!flash);
   };
 
-  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch') => {
+  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch' | 'auto') => {
     clearQueue();
+    // Fix Bug Logic State Machine: Reset toàn bộ Worklet SharedValues khi đổi Mode để tránh kẹt trạng thái
+    autoState.value = 0;
+    handLostTime.value = 0;
+    searchDelayEndTime.value = 0;
+    handBox.value = { x: 0, y: 0, w: 0, h: 0, score: -100 };
+    
     // Fix Bug 31: Xóa bóng ma State (Stale Closure) khi đổi Mode
     recentPredictions.current = [];
     setDetectedWord(null);
@@ -852,9 +1069,10 @@ export function useDetectionLogic(navigation: any) {
     selectedMedia, setSelectedMedia, selectedBatchAssets,
     isProcessing, snackbarMsg, setSnackbarMsg,
     frameOutput, isUrlDialogOpen, setIsUrlDialogOpen, urlInput, setUrlInput,
-    player, scanAnimStyle, camera, isAppActive, isFocused,
+    player, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
     toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
-    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen,
+    handBox, autoState
   };
 }
