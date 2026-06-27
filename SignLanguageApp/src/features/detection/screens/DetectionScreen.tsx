@@ -3,7 +3,7 @@ import { View, StyleSheet, Linking, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { History as HistoryIcon, ListTodo } from 'lucide-react-native';
+import { History as HistoryIcon, ListTodo, Save } from 'lucide-react-native';
 
 import TopOptionsBar from '../components/TopOptionsBar';
 import MediaScanner from '../components/MediaScanner';
@@ -11,6 +11,7 @@ import DetectionSidebar from '../components/DetectionSidebar';
 import DetectionResultBanner from '../components/DetectionResultBanner';
 import DetectionDialogs from '../components/DetectionDialogs';
 import DebugOverlay from '../components/DebugOverlay';
+import AutoModeBoundingBox from '../components/AutoModeBoundingBox';
 
 import { useDetectionLogic } from '../hooks/useDetectionLogic';
 
@@ -22,7 +23,7 @@ export default function DetectionScreen({ navigation }: any) {
   const {
     theme, developerDebugMode, facing, flash, hasPermission, requestPermission, device,
     activePackId, activePack, setActivePack, customModelUri, setCustomModelUri, downloadedPacks,
-    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
+    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession, onSaveAutoSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
     isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
@@ -36,7 +37,10 @@ export default function DetectionScreen({ navigation }: any) {
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
     toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
-    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen,
+    // Auto Mode
+    autoDetection,
+    isAutoModeActive,
   } = useDetectionLogic(navigation);
 
   if (!hasPermission) {
@@ -112,14 +116,49 @@ export default function DetectionScreen({ navigation }: any) {
           frameOutput={frameOutput}
         />
 
-        <View style={styles.topResultOverlay}>
-          <DetectionResultBanner
-            theme={theme}
-            activePack={activePack}
-            detectedWord={detectedWord}
-            confidence={confidence}
+        {/* Auto Mode: Bounding Box Overlay */}
+        {detectionMode === 'auto' && isLiveScanning && autoDetection && (
+          <AutoModeBoundingBox
+            boxX={autoDetection.boxX}
+            boxY={autoDetection.boxY}
+            boxWidth={autoDetection.boxWidth}
+            boxHeight={autoDetection.boxHeight}
+            boxVisible={autoDetection.boxVisible}
+            autoState={autoDetection.autoState}
+            statusText={autoDetection.statusText}
           />
-        </View>
+        )}
+
+        {/* Result Banner - Ẩn khi Auto Mode vì hiển thị status badge riêng */}
+        {detectionMode !== 'auto' && (
+          <View style={styles.topResultOverlay}>
+            <DetectionResultBanner
+              theme={theme}
+              activePack={activePack}
+              detectedWord={detectedWord}
+              confidence={confidence}
+            />
+          </View>
+        )}
+
+        {/* Auto Mode: Kết quả nhận diện hiện tại */}
+        {detectionMode === 'auto' && isLiveScanning && detectedWord && (
+          <View style={styles.autoResultOverlay}>
+            <View style={[
+              styles.autoResultBadge,
+              { 
+                backgroundColor: confidence > 0.8 
+                  ? 'rgba(76, 175, 80, 0.9)' 
+                  : confidence > 0.6 
+                    ? 'rgba(255, 152, 0, 0.9)' 
+                    : 'rgba(244, 67, 54, 0.9)' 
+              }
+            ]}>
+              <Text style={styles.autoResultText}>{detectedWord}</Text>
+              <Text style={styles.autoResultConf}>{Math.round(confidence * 100)}%</Text>
+            </View>
+          </View>
+        )}
 
         <DetectionSidebar
           theme={theme}
@@ -149,6 +188,7 @@ export default function DetectionScreen({ navigation }: any) {
         )}
       </View>
 
+      {/* Chuỗi kết quả - Ký tự điền từ phải qua trái */}
       <View style={styles.historyTextContainer}>
         {sessionHistory.length === 0 ? (
            <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>Chưa có kết quả...</Text>
@@ -160,9 +200,9 @@ export default function DetectionScreen({ navigation }: any) {
           >
             {[...sessionHistory].reverse().map((item, index) => {
               const conf = item.conf || 0;
-              let color = '#F44336'; // Đỏ
-              if (conf > 0.90) color = '#4CAF50'; // Xanh lá
-              else if (conf > 0.60) color = '#FF9800'; // Vàng
+              let color = '#F44336'; // Đỏ (<60%)
+              if (conf > 0.80) color = '#4CAF50'; // Xanh lá (>80%)
+              else if (conf > 0.60) color = '#FF9800'; // Vàng (>60%)
               return (
                 <Text key={item.id} style={{ color: color, fontWeight: 'bold' }}>
                   {item.sign}{' '}
@@ -173,23 +213,50 @@ export default function DetectionScreen({ navigation }: any) {
         )}
       </View>
 
+      {/* Action Buttons Row */}
       <View style={styles.actionButtonsRow}>
-        <Button
-          mode="contained-tonal"
-          icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
-          onPress={() => setIsHistoryDialogOpen(true)}
-          style={styles.actionBtn}
-        >
-          {t('detection.results')}
-        </Button>
-        <Button
-          mode="contained-tonal"
-          icon={() => <ListTodo color={theme.colors.primary} size={20} />}
-          onPress={() => setIsDebugDialogOpen(true)}
-          style={styles.actionBtn}
-        >
-          {t('detection.queue')}
-        </Button>
+        {detectionMode === 'auto' ? (
+          <>
+            {/* Auto Mode: Nút Result để lưu kết quả vào history rồi xóa hết dữ liệu hiện tại */}
+            <Button
+              mode="contained"
+              icon={() => <Save color="white" size={20} />}
+              onPress={onSaveAutoSession}
+              style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
+              labelStyle={{ color: 'white', fontWeight: 'bold' }}
+              disabled={sessionHistory.length === 0}
+            >
+              Lưu kết quả
+            </Button>
+            <Button
+              mode="contained-tonal"
+              icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
+              onPress={() => setIsHistoryDialogOpen(true)}
+              style={styles.actionBtn}
+            >
+              {t('detection.results')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              mode="contained-tonal"
+              icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
+              onPress={() => setIsHistoryDialogOpen(true)}
+              style={styles.actionBtn}
+            >
+              {t('detection.results')}
+            </Button>
+            <Button
+              mode="contained-tonal"
+              icon={() => <ListTodo color={theme.colors.primary} size={20} />}
+              onPress={() => setIsDebugDialogOpen(true)}
+              style={styles.actionBtn}
+            >
+              {t('detection.queue')}
+            </Button>
+          </>
+        )}
       </View>
 
       <DetectionDialogs
@@ -291,5 +358,39 @@ const styles = StyleSheet.create({
     fontSize: 24,
     letterSpacing: 2,
     textAlign: 'right', // Ép chữ dồn sang phải để luôn thấy chữ mới nhất
-  }
+  },
+  // Auto Mode styles
+  autoResultOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 30,
+    elevation: 30,
+  },
+  autoResultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  autoResultText: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  autoResultConf: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

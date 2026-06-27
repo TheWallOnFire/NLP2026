@@ -66,17 +66,19 @@ export default function MediaScanner({
             </View>
           )}
           {/* Scanning Reticle */}
-          <View style={styles.reticleContainer} pointerEvents="none">
-            <View style={styles.reticle}>
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
-              {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
-                <Animated.View style={[styles.scanLine, scanAnimStyle]} />
-              )}
+          {detectionMode !== 'auto' && (
+            <View style={styles.reticleContainer} pointerEvents="none">
+              <View style={styles.reticle}>
+                <View style={[styles.corner, styles.topLeft]} />
+                <View style={[styles.corner, styles.topRight]} />
+                <View style={[styles.corner, styles.bottomLeft]} />
+                <View style={[styles.corner, styles.bottomRight]} />
+                {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
+                  <Animated.View style={[styles.scanLine, scanAnimStyle]} />
+                )}
+              </View>
             </View>
-          </View>
+          )}
         </View>
       ) : (
         <View style={styles.uploadWrapper}>

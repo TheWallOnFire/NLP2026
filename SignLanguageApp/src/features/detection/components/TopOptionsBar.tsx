@@ -58,7 +58,7 @@ export default function TopOptionsBar({
         <Menu.Item onPress={() => { setDetectionMode('picture'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.imageUpload')} />
         <Menu.Item onPress={() => { setDetectionMode('video'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title={t('detection.videoUpload')} />
         <Menu.Item onPress={() => { setDetectionMode('batch'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="Batch Upload (Folder)" />
-        <Menu.Item onPress={() => { setDetectionMode('auto'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(true); }} title="Auto Detection" />
+        <Menu.Item onPress={() => { setDetectionMode('auto'); setIsModeMenuOpen(false); setSelectedMedia(null); setIsLiveScanning(false); }} title="Auto Detection" />
       </Menu>
 
       <Menu

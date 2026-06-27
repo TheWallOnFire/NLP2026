@@ -12,6 +12,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
 import { useDetectionUIState } from './useDetectionUIState';
+import { useAutoDetection } from './useAutoDetection';
 
 import { useSignLanguageModel } from './useSignLanguageModel';
 import { triggerSelectionFeedback, triggerImpactFeedback } from '../../../utils/feedback';
@@ -101,6 +102,7 @@ export function useDetectionLogic(navigation: any) {
   const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
   const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
   const updateSettings = useSettingsStore(state => state.updateSettings);
+  const camera = useRef<any>(null);
 
   useEffect(() => setSessionHistory([]), [activePackId]);
 
@@ -159,6 +161,8 @@ export function useDetectionLogic(navigation: any) {
   const lastRenderedWord = useRef<string | null>(null);
   const lastFrameProcessedTime = useRef(0);
   const lastLoggedWord = useRef<string | null>(null);
+  // Auto Mode: Ref để chuyển tiếp kết quả detection sang auto handler
+  const autoDetectionResultPendingRef = useRef<{ word: string; conf: number } | null>(null);
 
   const handleDetection = useCallback((index: number, conf: number) => {
     const words = packWords[activePackId || '']?.map(w => w.word) || [];
@@ -181,6 +185,19 @@ export function useDetectionLogic(navigation: any) {
 
       // Yêu cầu của user: Bỏ hẳn Anti-Flicker, lấy luôn kết quả của khung hình hiện tại (1 Vote) để đạt tốc độ thời gian thực tuyệt đối
       const smoothedWord = word;
+
+      // === AUTO MODE: Chuyển hướng kết quả sang Auto Detection Handler ===
+      if (detectionMode === 'auto' && isLiveScanning) {
+        // Cập nhật UI cơ bản
+        if (isMounted.current) {
+          setDetectedWord(smoothedWord);
+          setConfidence(conf);
+        }
+        // Kết quả sẽ được xử lý bởi autoDetection.handleAutoDetectionResult 
+        // (được gọi thông qua useEffect bên dưới)
+        autoDetectionResultPendingRef.current = { word: smoothedWord, conf };
+        return;
+      }
 
       if (true) {
         if (isMounted.current) {
@@ -248,7 +265,7 @@ export function useDetectionLogic(navigation: any) {
     } else if (index !== undefined) {
       console.warn(`Model trả về index [${index}] vượt quá mảng từ vựng (Bug 10). Vui lòng cập nhật bộ từ!`);
     }
-  }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode]);
+  }, [activePackId, packWords, ttsSettings, thresholdValue, detectionMode, isLiveScanning]);
 
   const handleModelError = useCallback((errorMsg: string) => {
     setSnackbarMsg(errorMsg);
@@ -258,6 +275,35 @@ export function useDetectionLogic(navigation: any) {
 
   const { isModelReady, boxedModel, modelShape, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, handleModelError);
   const [debugData, setDebugData] = useState<any>(null);
+
+  // === AUTO MODE INTEGRATION ===
+  const isAutoModeActive = detectionMode === 'auto' && isLiveScanning;
+  
+  const autoDetection = useAutoDetection({
+    isActive: isAutoModeActive,
+    cameraRef: camera,
+    facing,
+    handDetectionModel: null, // Sử dụng sign language model làm proxy
+    runSignDetection: runDetection,
+    activePackId,
+    isModelReady,
+    onAutoResult: (result) => {
+      if (isMounted.current) {
+        // Lưu kết quả auto detection vào sessionHistory
+        setSessionHistory(prev => {
+          const newItem = { id: result.id, sign: result.sign, conf: result.confidence };
+          const newHistory = [newItem, ...prev];
+          if (newHistory.length > 50) newHistory.length = 50;
+          return newHistory;
+        });
+      }
+    },
+    onStateChange: (state) => {
+      if (developerDebugMode) {
+        console.log(`[Auto Mode] State changed to: ${state === 0 ? 'SEARCHING' : 'LOCKING'}`);
+      }
+    },
+  });
 
   const appState = useRef(AppState.currentState);
   const [isAppActive, setIsAppActive] = useState(appState.current === 'active');
@@ -323,7 +369,7 @@ export function useDetectionLogic(navigation: any) {
   const scanAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: scanAnimValue.value * 200 }]
   }));
-  const camera = useRef<any>(null);
+  // camera ref đã được khai báo ở trên (trước useAutoDetection)
 
   useEffect(() => {
     navigation.setOptions({ autoHideHomeIndicator: true, headerShown: false });
@@ -576,7 +622,7 @@ export function useDetectionLogic(navigation: any) {
     let isActive = true;
     let timerId: NodeJS.Timeout;
 
-    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video' || detectionMode === 'auto') && isLiveScanning) {
+    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
       cancelAnimation(scanAnimValue); // Fix Bug 38: Xóa hàng đợi Worklet trước khi gán mới
       scanAnimValue.value = withRepeat(
         withSequence(
@@ -592,14 +638,14 @@ export function useDetectionLogic(navigation: any) {
         const state = scannerState.current;
         if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
         
-        if ((state.detectionMode === 'video' || state.detectionMode === 'live' || state.detectionMode === 'auto') && !isProcessing) {
+        if ((state.detectionMode === 'video' || state.detectionMode === 'live') && !isProcessing) {
           await handleManualScan();
         }
         
         if (isActive) timerId = setTimeout(loop, getInterval());
       };
 
-      if (detectionMode === 'video' || detectionMode === 'live' || detectionMode === 'auto') {
+      if (detectionMode === 'video' || detectionMode === 'live') {
         timerId = setTimeout(loop, 500);
       }
     } else {
@@ -821,19 +867,49 @@ export function useDetectionLogic(navigation: any) {
     setFlash(!flash);
   };
 
-  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch') => {
+  const handleDetectionModeChange = (mode: 'live' | 'picture' | 'video' | 'batch' | 'auto') => {
     clearQueue();
     // Fix Bug 31: Xóa bóng ma State (Stale Closure) khi đổi Mode
     recentPredictions.current = [];
     setDetectedWord(null);
     setConfidence(0);
     setDetectionMode(mode);
+    // Reset Auto Mode state khi chuyển mode
+    if (mode !== 'auto') {
+      autoDetection.resetAutoState();
+    }
   };
+
+  // === AUTO MODE: Xử lý kết quả detection pending ===
+  useEffect(() => {
+    if (!isAutoModeActive) return;
+    
+    const checkPending = setInterval(() => {
+      const pending = autoDetectionResultPendingRef.current;
+      if (pending) {
+        autoDetectionResultPendingRef.current = null;
+        autoDetection.handleAutoDetectionResult(pending.word, pending.conf);
+      }
+    }, 50);
+    
+    return () => clearInterval(checkPending);
+  }, [isAutoModeActive, autoDetection.handleAutoDetectionResult]);
+
+  // Auto Mode: Lưu kết quả vào history
+  const onSaveAutoSession = useCallback(() => {
+    if (sessionHistory.length > 0) {
+      const text = sessionHistory.map(h => h.sign).reverse().join(' ');
+      saveCameraSession(text, activePackId || undefined);
+      setSnackbarMsg('Đã lưu kết quả auto detection vào lịch sử!');
+      setSessionHistory([]);
+      autoDetection.clearAutoResults();
+    }
+  }, [sessionHistory, activePackId, saveCameraSession, autoDetection.clearAutoResults]);
 
   return {
     theme, developerDebugMode, facing, flash, hasPermission, requestPermission, device,
     activePackId, activePack, setActivePack, customModelUri, setCustomModelUri, downloadedPacks,
-    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession,
+    sessionHistory, setSessionHistory, onSaveSession, onSaveMediaSession, onSaveAutoSession,
     debugData, isDebugDialogOpen, setIsDebugDialogOpen,
     isHistoryDialogOpen, setIsHistoryDialogOpen,
     isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
@@ -855,6 +931,9 @@ export function useDetectionLogic(navigation: any) {
     player, scanAnimStyle, camera, isAppActive, isFocused,
     onPressManualScan, pickImage, pickVideo, pickBatchImages, handleUrlImage, pickModelFile,
     toggleCameraFacing, toggleFlash, clearQueue, packWords, modelShape,
-    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen
+    batchResults, isBatchResultDialogOpen, setIsBatchResultDialogOpen,
+    // Auto Mode exports
+    autoDetection,
+    isAutoModeActive,
   };
 }
