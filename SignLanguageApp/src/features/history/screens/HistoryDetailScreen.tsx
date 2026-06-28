@@ -7,12 +7,14 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useHistoryStore } from '../store/useHistoryStore';
 import { Image } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
 
 export default function HistoryDetailScreen() {
   const theme = useTheme();
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { historyId } = route.params || {};
+  const { t } = useTranslation();
 
   const historyItem = useHistoryStore((state) => 
     state.history.find(h => h.id === historyId)
@@ -44,7 +46,7 @@ export default function HistoryDetailScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.header}>
           <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
-          <Text variant="titleLarge">Không tìm thấy dữ liệu</Text>
+          <Text variant="titleLarge">{t('history.noDataFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -87,32 +89,32 @@ export default function HistoryDetailScreen() {
           />
           <Card.Content>
             <View style={styles.metricRow}>
-              <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Ngày:</Text>
+              <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.date')}</Text>
               <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{historyItem.date}</Text>
             </View>
             <View style={styles.metricRow}>
-              <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Bắt đầu lúc:</Text>
+              <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.startTime')}</Text>
               <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{historyItem.time}</Text>
             </View>
             {historyItem.type === 'test' && historyItem.testStats ? (
               <>
                 <View style={styles.metricRow}>
-                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Điểm số:</Text>
+                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.scoreDetails')}</Text>
                   <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{historyItem.testStats.score} / {historyItem.testStats.total}</Text>
                 </View>
                 <View style={styles.metricRow}>
-                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Độ chính xác:</Text>
+                  <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.accuracy')}</Text>
                   <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{historyItem.testStats.total > 0 ? Math.round((historyItem.testStats.score / historyItem.testStats.total) * 100) : 0}%</Text>
                 </View>
               </>
             ) : historyItem.type === 'test' ? (
               <View style={styles.metricRow}>
-                <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Điểm số:</Text>
+                <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.scoreDetails')}</Text>
                 <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>{signs.length} / {signs.length}</Text>
               </View>
             ) : (
               <View style={styles.metricRow}>
-                <Text variant="bodyMedium" style={{ opacity: 0.7 }}>Tổng số từ:</Text>
+                <Text variant="bodyMedium" style={{ opacity: 0.7 }}>{t('history.totalWordsDetails')}</Text>
                 <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{signs.length}</Text>
               </View>
             )}
@@ -176,7 +178,7 @@ export default function HistoryDetailScreen() {
                 />
               ) : (historyItem.imageUri || historyItem.videoUri) ? (
                 <View style={{ width: '100%', height: 150, backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text variant="bodyMedium" style={{ opacity: 0.5 }}>Ảnh/video đã xóa</Text>
+                  <Text variant="bodyMedium" style={{ opacity: 0.5 }}>{t('history.mediaDeleted')}</Text>
                 </View>
               ) : null}
             </View>

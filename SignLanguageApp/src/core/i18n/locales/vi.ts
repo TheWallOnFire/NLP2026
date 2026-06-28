@@ -86,7 +86,14 @@ export default {
       signToTest: "Ký hiệu: {{word}}",
       testFinished: "Bài kiểm tra kết thúc!",
       yourScore: "Điểm của bạn",
-      backToSetup: "Quay lại cài đặt"
+      backToSetup: "Quay lại cài đặt",
+      setupFlashcards: "Cài đặt thẻ học",
+      completed: "Hoàn thành",
+      practiceWordFlashcards: "Luyện từ vựng (Flashcards)",
+      practiceWordFlashcardsDesc: "Học qua thẻ ghi nhớ và Camera",
+      preparing: "Chuẩn bị...",
+      selectVocabType: "1. Chọn loại từ vựng:",
+      numberOfCards: "2. Số lượng thẻ:"
     },
     history: {
       title: "Toàn bộ lịch sử",
@@ -118,7 +125,14 @@ export default {
       testResult: "Kết quả chi tiết",
       correct: "Đúng",
       incorrect: "Sai",
-      confusedWith: "Nhầm với: "
+      confusedWith: "Nhầm với: ",
+      noDataFound: "Không tìm thấy dữ liệu",
+      date: "Ngày:",
+      startTime: "Bắt đầu lúc:",
+      scoreDetails: "Điểm số:",
+      accuracy: "Độ chính xác:",
+      totalWordsDetails: "Tổng số từ:",
+      mediaDeleted: "Ảnh/video đã xóa"
     },
     dashboard: {
       hello: "Xin chào",
@@ -188,7 +202,12 @@ export default {
       mediaSavingDisabled: "Lưu trữ bị tắt",
       calculating: "Đang tính toán...",
       clearing: "Đang xóa...",
-      importing: "Đang nhập..."
+      importing: "Đang nhập...",
+      wipeAllDataDesc: "Xóa toàn bộ dữ liệu và tiến trình ứng dụng",
+      developerDebug: "Nhà phát triển / Gỡ lỗi",
+      mlDiagnosticTool: "Công cụ Kiểm thử ML",
+      mlDiagnosticDesc: "Kiểm thử độ ổn định (Determinism) của Model",
+      version: "Sign Language App v1.0.0"
     },
     detection: {
       error: "Lỗi",
@@ -253,7 +272,17 @@ export default {
       invalidTflite: "Vui lòng chọn một tệp mô hình .tflite hợp lệ.",
       mlInferenceError: "Lỗi Inference ML",
       modelLoadError: "Lỗi tải Model",
-      corruptedModel: "Tệp Model bạn vừa chọn không đúng định dạng .tflite chuẩn hoặc bị hỏng."
+      corruptedModel: "Tệp Model bạn vừa chọn không đúng định dạng .tflite chuẩn hoặc bị hỏng.",
+      batchUploadFolder: "Tải lên Hàng loạt (Thư mục)",
+      autoDetection: "Nhận diện Tự động",
+      noResultsYet: "Chưa có kết quả...",
+      orSaveToOldSession: "Hoặc lưu vào phiên cũ:",
+      noOldSessions: "Không có phiên cũ nào.",
+      batchZipResults: "Kết quả quét Batch ZIP",
+      noData: "Không có dữ liệu",
+      totalImages: "Tổng cộng: {{count}} ảnh",
+      closeBtn: "Đóng",
+      pleaseWaitLag: "Vui lòng đợi (Có thể lag nhẹ)..."
     }
   }
 };

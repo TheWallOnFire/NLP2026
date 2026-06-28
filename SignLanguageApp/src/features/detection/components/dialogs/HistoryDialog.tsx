@@ -99,7 +99,7 @@ export default function HistoryDialog({
                   )}
                 </View>
               ) : (
-                 <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>Chưa có kết quả.</Text>
+                 <Text style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>{t('detection.noResultsYet')}</Text>
               )}
             </View>
           ) : isSelectingSession ? (
@@ -116,7 +116,7 @@ export default function HistoryDialog({
               >
                 Tạo phiên mới
               </Button>
-              <Text variant="labelMedium" style={{ marginTop: 12, opacity: 0.7 }}>Hoặc lưu vào phiên cũ:</Text>
+              <Text variant="labelMedium" style={{ marginTop: 12, opacity: 0.7 }}>{t('detection.orSaveToOldSession')}</Text>
               {globalHistory.filter(h => h.mode === 'live' && h.type === 'detection').map((item) => (
                 <Button 
                   key={item.id} 
@@ -135,7 +135,7 @@ export default function HistoryDialog({
                 </Button>
               ))}
               {globalHistory.filter(h => h.mode === 'live' && h.type === 'detection').length === 0 && (
-                <Text style={{ fontStyle: 'italic', opacity: 0.5 }}>Không có phiên cũ nào.</Text>
+                <Text style={{ fontStyle: 'italic', opacity: 0.5 }}>{t('detection.noOldSessions')}</Text>
               )}
             </View>
           ) : isExportingText ? (

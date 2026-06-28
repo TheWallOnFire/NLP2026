@@ -68,15 +68,28 @@ Toàn bộ hệ thống giờ đây được vận hành trên một Vòng lặp
 - **Lỗi Tuột khung khi Nắm tay (Fist Drop):** Mô hình `palm_detection` kén dáng tay, dễ tuột khung khi tay nắm lại. Đã khắc phục bằng thuật toán **Hysteresis Tracking (Ngưỡng đệm)**: Yêu cầu ngưỡng cao (`0.65`) lúc tìm tay mới, nhưng tự động hạ sập ngưỡng (`0.2`) lúc đã bắt được mục tiêu. Nhờ vậy, khung xanh sẽ "cố chấp" dính chặt lấy bàn tay kể cả khi người dùng nắm đấm lại làm tụt điểm Logit.
 
 
-Xử lý logic tracking bàn tay với việc nắm bàn tay sẽ mất dấu thì làm như sau thì sao:
-1.  Khi màn hình ko có tay sẽ tự tìm bàn tay bằng vòng lặp tìm bàn tay (Sử dụng AI), nếu detect được tay thì vào bước 2.
-2.  Sau khi tìm được bàn tay sẽ khóa vị trí, đánh dấu lại trên màn hình bằng target box, vào vòng lặp track vị trí ở bước 3.
-3.  Nếu bàn tay di chuyển thì sẽ di chuyển vị trí đánh dấu và target box trên màn hình theo bàn tay, dựa trên **Thuật toán CamShift**. Để đảm bảo không mất dấu bàn tay ngay cả khi nắm lại, và giải quyết triệt để sự thay đổi ánh sáng, thuật toán áp dụng:
-    - **Hệ màu HSV:** Tách biệt và chỉ bám theo kênh `H` (Hue - Sắc độ màu da), bỏ qua sự thay đổi cường độ ở kênh `V` (Độ sáng) để tránh lóa hay chìm vào bóng tối.
-    - **Lọc nhiễu độ sáng (Masking):** Bỏ qua các pixel quá đen hoặc quá chói lóa trước khi đưa vào tính toán, giúp tâm CamShift luôn ổn định.
-    - **Mẫu động (Adaptive Histogram):** Liên tục pha trộn (update) 5% màu da thực tế ở mỗi frame mới vào Mẫu cũ, giúp Tracking "tiến hóa" từ từ khi người dùng đi từ phòng đèn trắng sang đèn vàng mà không bị đứt đoạn.
-    - **Vật lý Lò xo (Spring Tracking UI):** Dù tọa độ ngầm bám tay với tỷ lệ 1:1, nhưng Khung xanh hiển thị (Target Box) được áp dụng bộ giảm xóc Lò xo (`withSpring`). Điều này biến chuyển động giật cục (Robotic) thành chuyển động trượt hữu cơ mềm mại, hấp thụ độ rung lắc của tay mà không làm sai lệch vùng ảnh Crop.
-4.  **Điều kiện Thoát (Reset):** Khi bàn tay di chuyển khỏi khung camera, hoặc vào bóng tối hoàn toàn khiến diện tích vùng màu da của CamShift rơi về 0 (báo mất dấu), hệ thống sẽ tự động Reset lại: xóa vị trí, gỡ Target Box và quay về Bước 1.
+## Kiến trúc Luồng Camera và Xử lý AI (Camera Pipeline)
 
-lỗi:
-- khi khóa được bàn tay, khoảng 1s -2s sau mới bắt đầu nhận diện được.
+Để giải quyết triệt để độ trễ (lag), hiện tượng mất dấu khi nắm tay, và tối ưu hóa hiệu năng, luồng xử lý hình ảnh được cấu trúc thành **Máy trạng thái (State Machine)** và **2 Vòng lặp (Loops)** chạy song song độc lập:
+
+### 1. Luồng Theo dõi Mục tiêu (Tracking Loop)
+- **Tốc độ:** Chạy liên tục tốc độ cao (10-15 FPS).
+- **Mục đích:** Điều khiển Khung Xanh (Target Box) bám sát bàn tay. **Tuyệt đối KHÔNG** gọi AI phân tích chữ ở luồng này để tránh cản trở UI.
+- **Quy trình Hoạt động:**
+  - **[Giai đoạn 1] SEARCHING (Quét tìm):** Khi chưa có tay, hệ thống dùng AI `palm_detection` quét toàn màn hình. Khi phát hiện tay, lưu tọa độ và nhảy sang giai đoạn 2.
+  - **[Giai đoạn 2] TRACKING (Khóa mục tiêu):** Tắt hoàn toàn AI `palm_detection`. Chuyển sang sử dụng thuật toán **CamShift** (thuần JS) để theo vết khối màu da.
+- **Sức mạnh của CamShift (Xử lý nắm tay & ánh sáng):**
+  - **Hệ màu HSV & Masking:** Chuyển đổi màu sang HSV, lọc bỏ hoàn toàn các điểm lóa (Flash) và vùng quá tối. Chỉ bám theo kênh Sắc độ (Hue) của da.
+  - **Mẫu động (Adaptive Histogram):** Bộ nhớ màu da liên tục pha trộn thêm 5% màu thực tế ở mỗi khung hình. Giúp khung xanh không bị đứt đoạn khi người dùng đi từ phòng đèn trắng sang đèn vàng.
+  - **Bám dính tuyệt đối:** Nhờ chỉ tính toán "Trọng tâm màu da", hệ thống không hề bị tuột khung ngay cả khi người dùng nắm chặt tay thành nắm đấm.
+  - **Vật lý Lò xo (Spring UI):** Tọa độ xuất ra màn hình được bọc qua bộ giảm xóc Lò xo (`withSpring`). Khung Xanh sẽ lướt đi mềm mại như nước, hấp thụ mọi độ rung lắc của tay.
+- **Thoát (Reset):** Khi bàn tay di chuyển chạm vào hoặc vượt ra khỏi biên giới của camera (Out of Bounds), hệ thống sẽ lập tức hủy bỏ Khung Xanh, báo mất dấu và đưa toàn bộ quy trình quay về Giai đoạn 1 để tìm kiếm lại từ đầu bằng AI. Điều này tránh việc CamShift nhận diện sai màu nền khi tay đã rời khỏi khung hình.
+
+### 2. Luồng Nhận diện Ngôn ngữ (Sign Recognition Loop)
+- **Tốc độ:** Chạy ngầm tốc độ thấp (2-3 FPS).
+- **Mục đích:** Cắt ảnh và gọi AI phân loại ký tự (A, B, C...) mà không làm khựng màn hình.
+- **Quy trình Hoạt động:**
+  - Liên tục nghe ngóng Luồng 1. Nếu Luồng 1 báo cáo đang **TRACKING**, Luồng 2 sẽ trích xuất tọa độ Khung Xanh hiện hành.
+  - Chụp Snapshot và gọi `ImageManipulator` cắt (Crop) chuẩn một bức ảnh `224x224` chứa đúng bàn tay. Việc này chỉ thực hiện **ĐÚNG 1 LẦN**, triệt tiêu được 300ms xử lý thừa thãi trước đây.
+  - Thay vì dùng `runSync` khóa cứng màn hình, hệ thống gọi `await tfliteModel.run()` để tống toàn bộ gánh nặng tính toán hàng triệu phép tính ma trận sang Background Thread (C++ Thread Pool). 
+  - Giao diện (JS Thread) nhờ vậy luôn rảnh tay để đảm bảo khung xanh di chuyển mượt mà 60 FPS.

@@ -42,8 +42,6 @@ export default function SettingsScreen({ navigation }: any) {
           <SettingsMenuSections 
             theme={theme}
             t={t}
-            settings={settings}
-            updateSettings={settings.updateSettings}
             navigation={navigation}
             cacheSize={cacheSize}
             isClearing={isClearing}
@@ -61,7 +59,7 @@ export default function SettingsScreen({ navigation }: any) {
             <List.Item
               title={t('settings.resetAllFactorySettings')}
               titleStyle={{ color: theme.colors.error, fontWeight: 'bold' }}
-              description="Wipe all app data and progress"
+              description={t('settings.wipeAllDataDesc')}
               left={props => <List.Icon {...props} icon={() => <AlertTriangleIcon size={24} color={theme.colors.error} />} />}
               onPress={handleClearAllData}
             />
@@ -69,10 +67,10 @@ export default function SettingsScreen({ navigation }: any) {
         </View>
 
         <List.Section>
-          <List.Subheader>Developer / Debug</List.Subheader>
+          <List.Subheader>{t('settings.developerDebug')}</List.Subheader>
           <List.Item
-            title="ML Diagnostic Tool"
-            description="Kiểm thử độ ổn định (Determinism) của Model"
+            title={t('settings.mlDiagnosticTool')}
+            description={t('settings.mlDiagnosticDesc')}
             left={props => <List.Icon {...props} icon="bug" />}
             onPress={() => navigation.navigate(ROUTES.ML_DIAGNOSTIC)}
           />
@@ -81,7 +79,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Divider style={styles.divider} />
 
         <View style={styles.footer}>
-          <Text variant="bodySmall" style={styles.versionText}>Sign Language App v1.0.0</Text>
+          <Text variant="bodySmall" style={styles.versionText}>{t('settings.version')}</Text>
         </View>
       </ScrollView>
     </View>

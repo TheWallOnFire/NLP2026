@@ -183,9 +183,10 @@ export function useSignLanguageModel(
             // Fix Bug 31: Nhường Event Loop cho React UI Thread render animation trước khi luồng JS bị khóa chết 300ms bởi runSync
             await new Promise(r => setTimeout(r, 0));
             
-            // Truyền đúng chuẩn ArrayBuffer gốc (Không dùng .slice() vì sẽ sinh lỗi ép kiểu JSI)
+            // Fix Bug 4: Giải phóng JS Thread (Đồng bộ sang Bất đồng bộ)
+            // Thay vì runSync (khóa chết màn hình 300ms), dùng await tfliteModel.run để ném vào Background C++ Thread!
             const infStartTime = Date.now();
-            const outputs = tfliteModel.runSync([inputData.buffer]);
+            const outputs = await tfliteModel.run([inputData.buffer]);
             const inferenceTime = Date.now() - infStartTime;
             
             const parseStartTime = Date.now();

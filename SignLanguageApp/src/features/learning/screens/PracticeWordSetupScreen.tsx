@@ -54,12 +54,12 @@ export default function PracticeWordSetupScreen({ route, navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Setup Flashcards" />
+        <Appbar.Content title={t('learning.setupFlashcards')} />
       </Appbar.Header>
 
       <View style={styles.content}>
         <Surface style={styles.card} elevation={2}>
-          <Text variant="titleMedium" style={styles.label}>1. Chọn loại từ vựng:</Text>
+          <Text variant="titleMedium" style={styles.label}>{t('learning.selectVocabType')}</Text>
           <SegmentedButtons
             value={filterType}
             onValueChange={(val) => setFilterType(val as any)}
@@ -84,7 +84,7 @@ export default function PracticeWordSetupScreen({ route, navigation }: any) {
         </Surface>
 
         <Surface style={styles.card} elevation={2}>
-          <Text variant="titleMedium" style={styles.label}>2. Số lượng thẻ:</Text>
+          <Text variant="titleMedium" style={styles.label}>{t('learning.numberOfCards')}</Text>
           <View style={styles.counterRow}>
             <View style={styles.btnCol}>
               <Button mode="outlined" onPress={() => adjustCount(-5)} disabled={wordCount <= 1 || maxWords === 0}>-5</Button>

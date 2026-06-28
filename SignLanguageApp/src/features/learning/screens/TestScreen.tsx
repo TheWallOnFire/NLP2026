@@ -74,7 +74,7 @@ export default function TestScreen({ route, navigation }: any) {
       {warmupTime > 0 ? (
         <View style={[styles.overlay, { zIndex: 10, backgroundColor: 'rgba(0,0,0,0.8)' }]}>
           <Text variant="displayLarge" style={{ color: 'white', fontWeight: 'bold' }}>{warmupTime}</Text>
-          <Text variant="titleMedium" style={{ color: 'white', marginTop: 16 }}>Chuẩn bị...</Text>
+          <Text variant="titleMedium" style={{ color: 'white', marginTop: 16 }}>{t('learning.preparing')}</Text>
         </View>
       ) : null}
 

@@ -23,26 +23,29 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
     
     const sizeStart = Date.now();
     const size = await getImageSize();
-    const manipActions: any[] = [];
     
-    if (size.w > 0 && size.h > 0) {
-      const shortest = Math.min(size.w, size.h);
-      // Fix Bug 16: Ép kiểu nguyên (Floor) để tránh lỗi văng App khi truyền tọa độ lẻ (Float) vào Native C++
-      const originX = Math.floor((size.w - shortest) / 2);
-      const originY = Math.floor((size.h - shortest) / 2);
-      manipActions.push({ crop: { originX, originY, width: shortest, height: shortest } });
-    }
-    
-    manipActions.push({ resize: { width, height } });
+    // Fix Bug 3. Xử lý ảnh lặp lại: Nếu ảnh ĐÃ được cắt chuẩn 224x224 từ Luồng Nhận Diện (useAutoDetection), BỎ QUA hoàn toàn bước này để tiết kiệm 300ms!
+    if (size.w === width && size.h === height) {
+      finalUriToLoad = uri;
+    } else {
+      const manipActions: any[] = [];
+      
+      if (size.w > 0 && size.h > 0) {
+        const shortest = Math.min(size.w, size.h);
+        const originX = Math.floor((size.w - shortest) / 2);
+        const originY = Math.floor((size.h - shortest) / 2);
+        manipActions.push({ crop: { originX, originY, width: shortest, height: shortest } });
+      }
+      
+      manipActions.push({ resize: { width, height } });
 
-    const manipResult = await ImageManipulator.manipulateAsync(
-      uri,
-      manipActions,
-      { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
-    );
-    finalUriToLoad = manipResult.uri;
-    const manipTime = Date.now() - sizeStart;
-    // console.log(`[ML Profiler] Crop/Resize: ${manipTime}ms`);
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        manipActions,
+        { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
+      );
+      finalUriToLoad = manipResult.uri;
+    }
   } catch (manipErr) {
     console.warn(`[ML Debug] Lỗi ImageManipulator, fallback ảnh gốc:`, manipErr);
   }

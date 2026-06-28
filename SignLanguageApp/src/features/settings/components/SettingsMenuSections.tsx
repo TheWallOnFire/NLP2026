@@ -3,27 +3,37 @@ import { Alert, Linking } from 'react-native';
 import { List, Switch, Divider } from 'react-native-paper';
 import { Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, Shield, Trash2, Globe } from 'lucide-react-native';
 import { ROUTES } from '../../../constants/routes';
+import Slider from '@react-native-community/slider';
+import { useSettingsStore } from '../store/useSettingsStore';
 
-interface SettingsMenuSectionsProps {
-  theme: any;
-  t: any;
-  settings: any;
-  updateSettings: any;
-  navigation: any;
-  cacheSize: string | null;
-  isClearing: boolean;
-  isImporting: boolean;
-  calculateCacheSize: () => void;
-  handleClearCache: () => void;
-  handleImport: () => void;
-  confirmClearHistory: () => void;
-}
+const SettingSlider = React.memo(({ label, value, min, max, step, color, theme, onSave }: any) => {
+  const [localVal, setLocalVal] = React.useState(value);
+  React.useEffect(() => { setLocalVal(value); }, [value]);
+
+  return (
+    <View style={{ paddingHorizontal: 24, paddingVertical: 12 }}>
+      <Text style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8, fontSize: 14, fontWeight: 'bold' }}>
+        {label}
+      </Text>
+      <Slider
+        style={{ width: '100%', height: 40 }}
+        minimumValue={min}
+        maximumValue={max}
+        step={step}
+        value={localVal}
+        onValueChange={setLocalVal}
+        onSlidingComplete={onSave}
+        minimumTrackTintColor={color}
+        maximumTrackTintColor={theme.colors.surfaceVariant}
+        thumbTintColor={color}
+      />
+    </View>
+  );
+});
 
 export default function SettingsMenuSections({
   theme,
   t,
-  settings,
-  updateSettings,
   navigation,
   cacheSize,
   isClearing,
@@ -32,24 +42,37 @@ export default function SettingsMenuSections({
   handleClearCache,
   handleImport,
   confirmClearHistory
-}: SettingsMenuSectionsProps) {
+}: any) {
+  // Pull sliced states to prevent massive re-renders across all sections!
+  const language = useSettingsStore(state => state.language);
+  const themeState = useSettingsStore(state => state.theme);
+  const sound = useSettingsStore(state => state.sound);
+  const camera = useSettingsStore(state => state.camera);
+  const detection = useSettingsStore(state => state.detection);
+  const haptics = useSettingsStore(state => state.haptics);
+  const storage = useSettingsStore(state => state.storage);
+  const permissions = useSettingsStore(state => state.permissions);
+  const systemAlerts = useSettingsStore(state => state.systemAlerts);
+  const developerDebugMode = useSettingsStore(state => state.developerDebugMode);
+  const updateSettings = useSettingsStore(state => state.updateSettings);
+
   return (
     <List.Section>
       {/* Language */}
       <List.Accordion
         title={t('settings.language')}
-        description={settings.language === 'vi' ? t('settings.vietnamese') : t('settings.english')}
+        description={language === 'vi' ? t('settings.vietnamese') : t('settings.english')}
         left={props => <List.Icon {...props} icon={() => <Globe size={24} color={theme.colors.primary} />} />}
       >
         <List.Item
           title={t('settings.english')}
           onPress={() => updateSettings({ language: 'en' })}
-          right={props => settings.language === 'en' ? <Check size={20} color={theme.colors.primary} /> : null}
+          right={props => language === 'en' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
         <List.Item
           title={t('settings.vietnamese')}
           onPress={() => updateSettings({ language: 'vi' })}
-          right={props => settings.language === 'vi' ? <Check size={20} color={theme.colors.primary} /> : null}
+          right={props => language === 'vi' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
       </List.Accordion>
       <Divider />
@@ -57,43 +80,49 @@ export default function SettingsMenuSections({
       {/* 1. Theme */}
       <List.Accordion
         title={t('settings.theme')}
-        description={`${t('settings.current')}: ${t(`settings.${settings.theme}`)}`}
+        description={`${t('settings.current')}: ${t(`settings.${themeState}`)}`}
         left={props => <List.Icon {...props} icon={() => <Sun size={24} color={theme.colors.primary} />} />}
       >
         <List.Item
           title={t('settings.light')}
           onPress={() => updateSettings({ theme: 'light' })}
-          right={props => settings.theme === 'light' ? <Check size={20} color={theme.colors.primary} /> : null}
+          right={props => themeState === 'light' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
         <List.Item
           title={t('settings.dark')}
           onPress={() => updateSettings({ theme: 'dark' })}
-          right={props => settings.theme === 'dark' ? <Check size={20} color={theme.colors.primary} /> : null}
+          right={props => themeState === 'dark' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
         <List.Item
           title={t('settings.mixed')}
           onPress={() => updateSettings({ theme: 'mixed' })}
-          right={props => settings.theme === 'mixed' ? <Check size={20} color={theme.colors.primary} /> : null}
+          right={props => themeState === 'mixed' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
       </List.Accordion>
       <Divider />
 
-      {/* 2. Sound & Voice */}
+      {/* 2. Sound & Voice (Dạng Bar - Tối ưu) */}
       <List.Accordion
         title={t('settings.soundAndVoice')}
         left={props => <List.Icon {...props} icon={() => <Volume2 size={24} color={theme.colors.primary} />} />}
       >
         <List.Item
           title={t('settings.systemSounds')}
-          right={() => <Switch value={settings.sound.systemSounds} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, systemSounds: val } })} />}
+          right={() => <Switch value={sound.systemSounds} onValueChange={(val) => updateSettings({ sound: { ...sound, systemSounds: val } })} />}
         />
-        <List.Item
-          title={t('settings.learningFeedback')}
-          right={() => <Switch value={settings.sound.learningFeedback} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, learningFeedback: val } })} />}
+        
+        <SettingSlider 
+          label={`Volume (${(sound.volume * 100).toFixed(0)}%)`}
+          value={sound.volume} min={0} max={1} step={0.05}
+          color={theme.colors.primary} theme={theme}
+          onSave={(val: number) => updateSettings({ sound: { ...sound, volume: val } })}
         />
-        <List.Item
-          title={t('settings.captureNotification')}
-          right={() => <Switch value={settings.sound.captureNotification} onValueChange={(val) => updateSettings({ sound: { ...settings.sound, captureNotification: val } })} />}
+
+        <SettingSlider 
+          label={`Voice Speech Rate (${sound.voiceRate.toFixed(1)}x)`}
+          value={sound.voiceRate} min={0.5} max={2.0} step={0.1}
+          color={theme.colors.secondary} theme={theme}
+          onSave={(val: number) => updateSettings({ sound: { ...sound, voiceRate: val } })}
         />
       </List.Accordion>
       <Divider />
@@ -101,18 +130,18 @@ export default function SettingsMenuSections({
       {/* 3. Camera & Detection */}
       <List.Accordion
         title={t('settings.cameraAndDetection')}
-        description={`${settings.camera?.defaultFacing === 'front' ? t('settings.frontCamera') : t('settings.backCamera')} • ${settings.detection?.speed.toUpperCase()}`}
+        description={`${camera?.defaultFacing === 'front' ? t('settings.frontCamera') : t('settings.backCamera')} • ${detection?.speed.toUpperCase()}`}
         left={props => <List.Icon {...props} icon={() => <Camera size={24} color={theme.colors.primary} />} />}
       >
         <List.Item
           title={t('settings.frontCamera')}
-          onPress={() => updateSettings({ camera: { ...settings.camera, defaultFacing: 'front' } })}
-          right={props => settings.camera?.defaultFacing === 'front' ? <Check size={20} color={theme.colors.primary} /> : null}
+          onPress={() => updateSettings({ camera: { ...camera, defaultFacing: 'front' } })}
+          right={props => camera?.defaultFacing === 'front' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
         <List.Item
           title={t('settings.backCamera')}
-          onPress={() => updateSettings({ camera: { ...settings.camera, defaultFacing: 'back' } })}
-          right={props => settings.camera?.defaultFacing === 'back' ? <Check size={20} color={theme.colors.primary} /> : null}
+          onPress={() => updateSettings({ camera: { ...camera, defaultFacing: 'back' } })}
+          right={props => camera?.defaultFacing === 'back' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
         <Divider style={{ marginVertical: 8 }} />
         <List.Subheader>{t('settings.detectionSpeed')}</List.Subheader>
@@ -120,8 +149,8 @@ export default function SettingsMenuSections({
           <List.Item
             key={speed}
             title={speed.toUpperCase()}
-            onPress={() => updateSettings({ detection: { ...settings.detection, speed } })}
-            right={props => settings.detection?.speed === speed ? <Check size={20} color={theme.colors.primary} /> : null}
+            onPress={() => updateSettings({ detection: { ...detection, speed } })}
+            right={props => detection?.speed === speed ? <Check size={20} color={theme.colors.primary} /> : null}
           />
         ))}
       </List.Accordion>
@@ -131,7 +160,7 @@ export default function SettingsMenuSections({
       <List.Item
         title={t('settings.hapticFeedback')}
         left={props => <List.Icon {...props} icon={() => <Vibrate size={24} color={theme.colors.primary} />} />}
-        right={() => <Switch value={settings.haptics} onValueChange={(val) => updateSettings({ haptics: val })} />}
+        right={() => <Switch value={haptics} onValueChange={(val) => updateSettings({ haptics: val })} />}
       />
       <Divider />
 
@@ -142,7 +171,7 @@ export default function SettingsMenuSections({
       >
         <List.Item
           title={t('settings.localLogging')}
-          right={() => <Switch value={settings.storage.localLogging} onValueChange={(val) => updateSettings({ storage: { ...settings.storage, localLogging: val } })} />}
+          right={() => <Switch value={storage.localLogging} onValueChange={(val) => updateSettings({ storage: { ...storage, localLogging: val } })} />}
         />
         <List.Item
           title={t('settings.exportData')}
@@ -165,25 +194,25 @@ export default function SettingsMenuSections({
       >
         <List.Item
           title={t('settings.cameraAccess')}
-          description={settings.permissions.camera ? t('settings.granted') : t('settings.denied')}
-          right={() => <Switch value={settings.permissions.camera} onValueChange={(val) => {
-            updateSettings({ permissions: { ...settings.permissions, camera: val } });
+          description={permissions.camera ? t('settings.granted') : t('settings.denied')}
+          right={() => <Switch value={permissions.camera} onValueChange={(val) => {
+            updateSettings({ permissions: { ...permissions, camera: val } });
             if (val) Linking.openSettings();
           }} />}
         />
         <List.Item
           title={t('settings.microphoneAccess')}
-          description={settings.permissions.microphone ? t('settings.granted') : t('settings.denied')}
-          right={() => <Switch value={settings.permissions.microphone} onValueChange={(val) => {
-            updateSettings({ permissions: { ...settings.permissions, microphone: val } });
+          description={permissions.microphone ? t('settings.granted') : t('settings.denied')}
+          right={() => <Switch value={permissions.microphone} onValueChange={(val) => {
+            updateSettings({ permissions: { ...permissions, microphone: val } });
             if (val) Linking.openSettings();
           }} />}
         />
         <List.Item
           title={t('settings.storageAccess')}
-          description={settings.permissions.storage ? t('settings.appCanSave') : t('settings.mediaSavingDisabled')}
-          right={() => <Switch value={settings.permissions.storage} onValueChange={(val) => {
-            updateSettings({ permissions: { ...settings.permissions, storage: val } });
+          description={permissions.storage ? t('settings.appCanSave') : t('settings.mediaSavingDisabled')}
+          right={() => <Switch value={permissions.storage} onValueChange={(val) => {
+            updateSettings({ permissions: { ...permissions, storage: val } });
           }} />}
         />
         <Divider style={{ marginVertical: 8 }} />
@@ -230,11 +259,11 @@ export default function SettingsMenuSections({
       >
         <List.Item
           title={t('settings.dailyReminders')}
-          right={() => <Switch value={settings.systemAlerts.dailyReminders} onValueChange={(val) => updateSettings({ systemAlerts: { ...settings.systemAlerts, dailyReminders: val } })} />}
+          right={() => <Switch value={systemAlerts.dailyReminders} onValueChange={(val) => updateSettings({ systemAlerts: { ...systemAlerts, dailyReminders: val } })} />}
         />
         <List.Item
           title={t('settings.batterySaverMode')}
-          right={() => <Switch value={settings.systemAlerts.powerManagement} onValueChange={(val) => updateSettings({ systemAlerts: { ...settings.systemAlerts, powerManagement: val } })} />}
+          right={() => <Switch value={systemAlerts.powerManagement} onValueChange={(val) => updateSettings({ systemAlerts: { ...systemAlerts, powerManagement: val } })} />}
         />
       </List.Accordion>
       <Divider />
@@ -243,7 +272,7 @@ export default function SettingsMenuSections({
       <List.Item
         title={t('settings.developerDebugMode')}
         left={props => <List.Icon {...props} icon={() => <Bug size={24} color={theme.colors.primary} />} />}
-        right={() => <Switch value={settings.developerDebugMode} onValueChange={(val) => updateSettings({ developerDebugMode: val })} />}
+        right={() => <Switch value={developerDebugMode} onValueChange={(val) => updateSettings({ developerDebugMode: val })} />}
       />
 
     </List.Section>

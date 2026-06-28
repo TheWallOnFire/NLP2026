@@ -84,7 +84,7 @@ export default function PracticeWordFlashcardScreen({ route, navigation }: any) 
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
         <Appbar.Header elevated style={{ width: '100%', position: 'absolute', top: 0 }}>
           <Appbar.BackAction onPress={() => navigation.goBack()} />
-          <Appbar.Content title="Hoàn thành" />
+          <Appbar.Content title={t('learning.completed')} />
         </Appbar.Header>
         <Text variant="headlineMedium">{t('learning.testFinished')}</Text>
         <Text variant="bodyLarge" style={{ marginTop: 10 }}>{t('learning.wordsPracticed', { count: practiceWords.length })}</Text>

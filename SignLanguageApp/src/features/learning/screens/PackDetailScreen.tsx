@@ -91,10 +91,10 @@ export default function PackDetailScreen({ route, navigation }: any) {
           </Card>
 
           <Card style={styles.card} mode="elevated">
-            <Card.Title title="Practice Word (Flashcards)" subtitle="Học qua thẻ ghi nhớ và Camera" />
+            <Card.Title title={t('learning.practiceWordFlashcards')} subtitle={t('learning.practiceWordFlashcardsDesc')} />
             <Card.Actions>
               <Button mode="contained-tonal" onPress={() => navigation.navigate(ROUTES.PRACTICE_WORD_SETUP, { packId })}>
-                Setup Flashcards
+                {t('learning.setupFlashcards')}
               </Button>
             </Card.Actions>
           </Card>

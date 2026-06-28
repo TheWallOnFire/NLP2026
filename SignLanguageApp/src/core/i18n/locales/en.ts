@@ -86,7 +86,14 @@ export default {
       signToTest: "Sign: {{word}}",
       testFinished: "Test Finished!",
       yourScore: "Your score",
-      backToSetup: "Back to Setup"
+      backToSetup: "Back to Setup",
+      setupFlashcards: "Setup Flashcards",
+      completed: "Completed",
+      practiceWordFlashcards: "Practice Word (Flashcards)",
+      practiceWordFlashcardsDesc: "Learn via flashcards and Camera",
+      preparing: "Preparing...",
+      selectVocabType: "1. Select vocabulary type:",
+      numberOfCards: "2. Number of cards:"
     },
     history: {
       title: "All History",
@@ -118,7 +125,14 @@ export default {
       testResult: "Detailed Results",
       correct: "Correct",
       incorrect: "Incorrect",
-      confusedWith: "Confused with: "
+      confusedWith: "Confused with: ",
+      noDataFound: "No data found",
+      date: "Date:",
+      startTime: "Start time:",
+      scoreDetails: "Score:",
+      accuracy: "Accuracy:",
+      totalWordsDetails: "Total words:",
+      mediaDeleted: "Image/video deleted"
     },
     dashboard: {
       hello: "Hello",
@@ -188,7 +202,12 @@ export default {
       mediaSavingDisabled: "Media saving disabled",
       calculating: "Calculating...",
       clearing: "Clearing...",
-      importing: "Importing..."
+      importing: "Importing...",
+      wipeAllDataDesc: "Wipe all app data and progress",
+      developerDebug: "Developer / Debug",
+      mlDiagnosticTool: "ML Diagnostic Tool",
+      mlDiagnosticDesc: "Test model stability (Determinism)",
+      version: "Sign Language App v1.0.0"
     },
     detection: {
       error: "Error",
@@ -253,7 +272,17 @@ export default {
       invalidTflite: "Please select a valid .tflite model file.",
       mlInferenceError: "ML Inference Error",
       modelLoadError: "Model Load Error",
-      corruptedModel: "The selected model file is not a valid .tflite format or is corrupted."
+      corruptedModel: "The selected model file is not a valid .tflite format or is corrupted.",
+      batchUploadFolder: "Batch Upload (Folder)",
+      autoDetection: "Auto Detection",
+      noResultsYet: "No results yet.",
+      orSaveToOldSession: "Or save to old session:",
+      noOldSessions: "No old sessions.",
+      batchZipResults: "Batch ZIP Scan Results",
+      noData: "No data",
+      totalImages: "Total: {{count}} images",
+      closeBtn: "Close",
+      pleaseWaitLag: "Please wait (may lag slightly)..."
     }
   }
 };
