@@ -283,7 +283,6 @@ export function useDetectionLogic(navigation: any) {
     isActive: isAutoModeActive,
     cameraRef: camera,
     facing,
-    handDetectionModel: null, // Sử dụng sign language model làm proxy
     runSignDetection: runDetection,
     activePackId,
     isModelReady,
@@ -297,12 +296,7 @@ export function useDetectionLogic(navigation: any) {
           return newHistory;
         });
       }
-    },
-    onStateChange: (state) => {
-      if (developerDebugMode) {
-        console.log(`[Auto Mode] State changed to: ${state === 0 ? 'SEARCHING' : 'LOCKING'}`);
-      }
-    },
+    }
   });
 
   const appState = useRef(AppState.currentState);

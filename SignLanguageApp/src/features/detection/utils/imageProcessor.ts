@@ -42,7 +42,7 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
     );
     finalUriToLoad = manipResult.uri;
     const manipTime = Date.now() - sizeStart;
-    console.log(`[ML Debug - Profiler] ImageManipulator xử lý Crop/Resize mất ${manipTime}ms. Kết quả: ${finalUriToLoad}`);
+    // console.log(`[ML Profiler] Crop/Resize: ${manipTime}ms`);
   } catch (manipErr) {
     console.warn(`[ML Debug] Lỗi ImageManipulator, fallback ảnh gốc:`, manipErr);
   }
@@ -59,8 +59,6 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
       if (!fileInfo.exists) {
         console.error(`[ML Debug] LỖI: File ảnh không tồn tại trên ổ cứng! Path: ${fileUri}`);
         throw new Error(`File ảnh không tồn tại: ${fileUri}`);
-      } else {
-        console.log(`[ML Debug] File hợp lệ, dung lượng: ${fileInfo.size} bytes. Tiến hành đọc ảnh...`);
       }
     } catch (fsErr) {
       console.warn(`[ML Debug] Không thể kiểm tra fileInfo, tiếp tục đọc ảnh... Lỗi:`, fsErr);
@@ -69,7 +67,7 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
     image = await loadImage({ filePath: cleanPath });
   }
   const loadTime = Date.now() - loadStart;
-  console.log(`[ML Debug - Profiler] Nitro loadImage đọc ảnh vào RAM mất ${loadTime}ms.`);
+  // console.log(`[ML Profiler] Load Image: ${loadTime}ms`);
 
   const pixelStart = Date.now();
   // Bỏ qua resizeAsync vì ImageManipulator đã resize chính xác về width x height rồi
@@ -77,20 +75,9 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   const pixelBuffer = rawData.buffer || rawData; 
   const uint8Array = new Uint8Array(pixelBuffer);
   
-  const pixelTime = Date.now() - pixelStart;
-  console.log(`[ML Debug - Profiler] Trích xuất ${uint8Array.length} bytes RawPixelData mất ${pixelTime}ms.`);
-
   if (uint8Array.length === 0) {
     throw new Error("Lỗi bộ nhớ: Không trích xuất được pixel data (Buffer rỗng, nguy cơ văng TFLite C++).");
   }
-
-  let hasData = false;
-  for (let i = 0; i < 100 && i < uint8Array.length; i++) {
-    if (uint8Array[i] > 0) {
-      hasData = true; break;
-    }
-  }
-  console.log(`[ML Debug] Pixel buffer extracted. Length: ${uint8Array.length}. Has Non-Zero Data: ${hasData}`);
 
   const expectedElements = shape?.reduce((a: number, b: number) => a * b, 1) || (width * height * 3);
   const isRGBA = uint8Array.length === width * height * 4;
@@ -180,9 +167,6 @@ export async function convertPixelsToInputData(
         else float32Array[i] = uint8Array[i] * INV_255;
       }
     }
-    
-    const convertTime = Date.now() - convertStart;
-    console.log(`[ML Debug - Profiler] Ép kiểu ${expectedElements} phần tử sang Float32Array mất ${convertTime}ms.`);
     
     return float32Array;
   } else {

@@ -124,7 +124,6 @@ export default function DetectionScreen({ navigation }: any) {
             boxWidth={autoDetection.boxWidth}
             boxHeight={autoDetection.boxHeight}
             boxVisible={autoDetection.boxVisible}
-            autoState={autoDetection.autoState}
             statusText={autoDetection.statusText}
           />
         )}

@@ -11,9 +11,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useHandDetection } from './useHandDetection';
 
-// Trạng thái máy trạng thái (State Machine)
-const STATE_SEARCHING = 0; // Đang tìm bàn tay
-const STATE_LOCKING = 1;   // Đã phát hiện bàn tay, đang chờ 3 giây
+
 
 // Throttle frame processing (100ms = 10 FPS)
 const FRAME_THROTTLE_MS = 100;
@@ -27,15 +25,18 @@ interface AutoDetectionResult {
 }
 
 interface UseAutoDetectionOptions {
-  isActive: boolean; // Auto mode đang bật
+  isActive: boolean; 
   cameraRef: React.RefObject<any>;
   facing: 'front' | 'back';
-  handDetectionModel: any; // TFLite model cho hand detection (chưa dùng tới, đã bị thay bởi hook useHandDetection)
   runSignDetection: (uri: string, facing?: 'front' | 'back', bypassDuplicateCheck?: boolean) => any;
   activePackId: string | null;
   isModelReady: boolean;
   onAutoResult?: (result: AutoDetectionResult) => void;
-  onStateChange?: (state: number) => void;
+}
+
+enum TrackingState {
+  SEARCHING = 0,
+  TRACKING = 1
 }
 
 export function useAutoDetection({
@@ -46,12 +47,12 @@ export function useAutoDetection({
   activePackId,
   isModelReady,
   onAutoResult,
-  onStateChange,
 }: UseAutoDetectionOptions) {
-  // State Machine: 0 = Searching, 1 = Locking
-  const [autoState, setAutoState] = useState<number>(STATE_SEARCHING);
-  const autoStateRef = useRef<number>(STATE_SEARCHING);
   const [statusText, setStatusText] = useState<string>('Đang tìm bàn tay...');
+  
+  // State Machine
+  const trackingState = useRef<TrackingState>(TrackingState.SEARCHING);
+  const missedFramesCount = useRef<number>(0);
 
   // Hook Hand Detection thực thụ
   const { detectHand, isHandModelReady } = useHandDetection();
@@ -69,12 +70,6 @@ export function useAutoDetection({
 
   // Kết quả auto detection
   const [autoResults, setAutoResults] = useState<AutoDetectionResult[]>([]);
-
-  // Cập nhật ref khi state thay đổi
-  useEffect(() => {
-    autoStateRef.current = autoState;
-    onStateChange?.(autoState);
-  }, [autoState]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -153,11 +148,20 @@ export function useAutoDetection({
         // Fixed Padding = 40 logical pixels (quy đổi sang ảnh gốc)
         const UI_TO_IMG_RATIO = imgW / SCREEN_WIDTH;
         const FIXED_PADDING = 40 * UI_TO_IMG_RATIO;
-        const side = Math.max(rawW, rawH) * 2.0 + FIXED_PADDING;
+        let side = Math.max(rawW, rawH) * 1.5 + FIXED_PADDING;
+
+        // Đảm bảo cạnh khung không vượt quá chiều nhỏ nhất của màn hình
+        side = Math.min(side, Math.min(imgW, imgH));
 
         // Cạnh góc trên bên trái mới (Hình vuông mở rộng)
-        const newRawX = centerX - side / 2;
-        const newRawY = centerY - side / 2;
+        let newRawX = centerX - side / 2;
+        let newRawY = centerY - side / 2;
+
+        // Dịch chuyển (Shift) khung nếu bị tràn lề, giữ nguyên tuyệt đối tỷ lệ 1:1
+        if (newRawX < 0) newRawX = 0;
+        if (newRawY < 0) newRawY = 0;
+        if (newRawX + side > imgW) newRawX = imgW - side;
+        if (newRawY + side > imgH) newRawY = imgH - side;
 
         // Đổi ngược lại thành Ratios [0..1] để UI và Cropper dùng chung
         const finalRatioX = newRawX / imgW;
@@ -172,37 +176,44 @@ export function useAutoDetection({
         boxHeight.value = finalRatioH;
         boxVisible.value = 1;
 
-        // Đảm bảo toạ độ ratio không bị âm hoặc tràn màn hình (Clamp [0..1])
-        const safeX = Math.max(0, Math.min(finalRatioX, 1));
-        const safeY = Math.max(0, Math.min(finalRatioY, 1));
-        const safeW = Math.max(0.01, Math.min(finalRatioW, 1 - safeX));
-        const safeH = Math.max(0.01, Math.min(finalRatioH, 1 - safeY));
+        // ImageManipulator yêu cầu số nguyên (integer)
+        const cropX = Math.floor(newRawX);
+        const cropY = Math.floor(newRawY);
+        const cropSide = Math.floor(side);
 
-        // ImageManipulator yêu cầu số nguyên (integer) và toạ độ nằm hoàn toàn trong ảnh gốc
-        const cropX = Math.floor(safeX * imgW);
-        const cropY = Math.floor(safeY * imgH);
-        let cropW = Math.floor(safeW * imgW);
-        let cropH = Math.floor(safeH * imgH);
-
-        // Fix rounding bounds
-        if (cropX + cropW > imgW) cropW = imgW - cropX;
-        if (cropY + cropH > imgH) cropH = imgH - cropY;
-
+        // BƯỚC 2: Bộ Adapter (Cắt ảnh và Resize chuẩn 224x224)
         const croppedImage = await ImageManipulator.manipulateAsync(
           snapshotUri,
-          [{ crop: { originX: cropX, originY: cropY, width: cropW, height: cropH } }],
+          [
+            { crop: { originX: cropX, originY: cropY, width: cropSide, height: cropSide } },
+            { resize: { width: 224, height: 224 } } // Đồng bộ hóa chuẩn Input cho Model
+          ],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
+
+        // Chuyển sang State: TRACKING (Bước 2 & 3)
+        if (trackingState.current === TrackingState.SEARCHING) {
+          trackingState.current = TrackingState.TRACKING;
+          setStatusText('Đã khóa mục tiêu...');
+        }
+        missedFramesCount.current = 0; // Đặt lại bộ đếm lỗi
 
         // BƯỚC 4: Đưa ảnh đã crop (chỉ chứa cái tay) vào mô hình Sign Language
         runSignDetection(croppedImage.uri, facing, true);
 
-        // (Kết quả sẽ được gọi thông qua handleAutoDetectionResult bên dưới)
       } else {
-        // Bàn tay đã rời khỏi khung hình
-        if (boxVisible.value !== 0) {
-          boxVisible.value = 0;
-          setStatusText('Đang tìm bàn tay...');
+        // Bàn tay bị mất dấu tạm thời
+        if (trackingState.current === TrackingState.TRACKING) {
+           missedFramesCount.current += 1;
+           // Cho phép mất dấu tối đa 3 frame (~300ms) trước khi cắt đuôi (Bước 4)
+           if (missedFramesCount.current >= 3) {
+             trackingState.current = TrackingState.SEARCHING;
+             if (boxVisible.value !== 0) boxVisible.value = 0;
+             setStatusText('Đang tìm bàn tay...');
+           }
+        } else {
+           if (boxVisible.value !== 0) boxVisible.value = 0;
+           setStatusText('Đang tìm bàn tay...');
         }
       }
     } catch (e) {
@@ -245,8 +256,9 @@ export function useAutoDetection({
   useEffect(() => {
     if (!isActive || !isModelReady || !activePackId) {
       // Reset khi tắt auto mode
-      setAutoState(STATE_SEARCHING);
       setStatusText('Đang tìm bàn tay...');
+      trackingState.current = TrackingState.SEARCHING;
+      missedFramesCount.current = 0;
       boxVisible.value = 0;
       setAutoResults([]);
       return;
@@ -286,14 +298,14 @@ export function useAutoDetection({
    * Reset auto detection state
    */
   const resetAutoState = useCallback(() => {
-    setAutoState(STATE_SEARCHING);
-    setStatusText('Đang tìm bàn tay...');
-    boxVisible.value = 0;
+      setStatusText('Đang tìm bàn tay...');
+      trackingState.current = TrackingState.SEARCHING;
+      missedFramesCount.current = 0;
+      boxVisible.value = 0;
   }, [boxVisible]);
 
   return {
     // State
-    autoState,
     statusText,
     autoResults,
 
@@ -309,9 +321,5 @@ export function useAutoDetection({
     clearAutoResults,
     resetAutoState,
     setAutoResults,
-
-    // Constants
-    STATE_SEARCHING,
-    STATE_LOCKING,
   };
 }

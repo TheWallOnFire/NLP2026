@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { StyleSheet, View, LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedStyle, withTiming, SharedValue, interpolate, Extrapolation, withRepeat, withSequence } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withTiming, withSpring, SharedValue, interpolate, Extrapolation, withRepeat, withSequence } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 
 interface AutoModeBoundingBoxProps {
@@ -20,7 +20,6 @@ interface AutoModeBoundingBoxProps {
   boxWidth: SharedValue<number>;
   boxHeight: SharedValue<number>;
   boxVisible: SharedValue<number>;
-  autoState: number; // 0 = Searching, 1 = Locking
   statusText?: string;
 }
 
@@ -30,7 +29,6 @@ export default function AutoModeBoundingBox({
   boxWidth,
   boxHeight,
   boxVisible,
-  autoState,
   statusText,
 }: AutoModeBoundingBoxProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -52,23 +50,23 @@ export default function AutoModeBoundingBox({
     
     return {
       position: 'absolute',
-      left: withTiming(boxX.value * containerSize.width, { duration: 150 }),
-      top: withTiming(boxY.value * containerSize.height, { duration: 150 }),
-      width: withTiming(boxWidth.value * containerSize.width, { duration: 150 }),
-      height: withTiming(boxHeight.value * containerSize.height, { duration: 150 }),
+      left: withSpring(boxX.value * containerSize.width, { damping: 15, stiffness: 120, mass: 0.8 }),
+      top: withSpring(boxY.value * containerSize.height, { damping: 15, stiffness: 120, mass: 0.8 }),
+      width: withSpring(boxWidth.value * containerSize.width, { damping: 15, stiffness: 120, mass: 0.8 }),
+      height: withSpring(boxHeight.value * containerSize.height, { damping: 15, stiffness: 120, mass: 0.8 }),
       opacity,
       borderWidth: 4,
-      borderColor: autoState === 1 ? '#4CAF50' : '#2196F3',
+      borderColor: '#4CAF50',
       borderStyle: 'solid' as const,
       borderRadius: 12,
       zIndex: 999,
       elevation: 999,
     };
-  }, [autoState, containerSize]);
+  }, [containerSize]);
 
-  // Animated pulse effect cho trạng thái Locking
+  // Animated pulse effect (luôn chạy khi hiển thị)
   const pulseStyle = useAnimatedStyle(() => {
-    if (autoState !== 1 || boxVisible.value === 0 || containerSize.width === 0) {
+    if (boxVisible.value === 0 || containerSize.width === 0) {
       return { opacity: 0 };
     }
     
@@ -79,10 +77,10 @@ export default function AutoModeBoundingBox({
     
     return {
       position: 'absolute',
-      left: withTiming(bx - 4, { duration: 150 }),
-      top: withTiming(by - 4, { duration: 150 }),
-      width: withTiming(bw + 8, { duration: 150 }),
-      height: withTiming(bh + 8, { duration: 150 }),
+      left: withSpring(bx - 4, { damping: 15, stiffness: 120, mass: 0.8 }),
+      top: withSpring(by - 4, { damping: 15, stiffness: 120, mass: 0.8 }),
+      width: withSpring(bw + 8, { damping: 15, stiffness: 120, mass: 0.8 }),
+      height: withSpring(bh + 8, { damping: 15, stiffness: 120, mass: 0.8 }),
       borderWidth: 2,
       borderColor: 'rgba(76, 175, 80, 0.4)',
       borderRadius: 14,
@@ -97,7 +95,7 @@ export default function AutoModeBoundingBox({
       zIndex: 998,
       elevation: 998,
     };
-  }, [autoState]);
+  }, [containerSize]);
 
   // Corner decorations animated style
   const cornerStyle = useAnimatedStyle(() => {
@@ -114,24 +112,21 @@ export default function AutoModeBoundingBox({
       {/* Main bounding box */}
       <Animated.View style={boundingBoxStyle}>
         {/* Corner decorations cho visual effect */}
-        <View style={[styles.corner, styles.topLeft, { borderColor: autoState === 1 ? '#4CAF50' : '#2196F3' }]} />
-        <View style={[styles.corner, styles.topRight, { borderColor: autoState === 1 ? '#4CAF50' : '#2196F3' }]} />
-        <View style={[styles.corner, styles.bottomLeft, { borderColor: autoState === 1 ? '#4CAF50' : '#2196F3' }]} />
-        <View style={[styles.corner, styles.bottomRight, { borderColor: autoState === 1 ? '#4CAF50' : '#2196F3' }]} />
+        <View style={[styles.corner, styles.topLeft, { borderColor: '#4CAF50' }]} />
+        <View style={[styles.corner, styles.topRight, { borderColor: '#4CAF50' }]} />
+        <View style={[styles.corner, styles.bottomLeft, { borderColor: '#4CAF50' }]} />
+        <View style={[styles.corner, styles.bottomRight, { borderColor: '#4CAF50' }]} />
       </Animated.View>
 
       {/* Status indicator */}
       <View style={styles.statusContainer}>
         <View style={[
           styles.statusBadge, 
-          { backgroundColor: autoState === 1 ? 'rgba(76, 175, 80, 0.85)' : 'rgba(33, 150, 243, 0.85)' }
+          { backgroundColor: 'rgba(76, 175, 80, 0.85)' }
         ]}>
-          <View style={[
-            styles.statusDot, 
-            { backgroundColor: autoState === 1 ? '#A5D6A7' : '#90CAF9' }
-          ]} />
+          <View style={[styles.statusDot, { backgroundColor: '#A5D6A7' }]} />
           <Text style={styles.statusText}>
-            {statusText || (autoState === 1 ? '🔒 Đã khóa' : '🔍 Đang tìm...')}
+            {statusText || 'Bám sát mục tiêu'}
           </Text>
         </View>
       </View>

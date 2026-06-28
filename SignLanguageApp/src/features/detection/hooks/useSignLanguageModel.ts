@@ -135,7 +135,7 @@ export function useSignLanguageModel(
           const startTime = Date.now();
 
           if (developerDebugMode) {
-            console.log(`[ML Debug] Bắt đầu xử lý ảnh. Hàng chờ còn lại: ${frameQueue.current.length}`);
+            console.log(`[SignLanguage] 1. Bắt đầu xử lý. Queue còn: ${frameQueue.current.length}`);
           }
 
           try {
@@ -175,9 +175,9 @@ export function useSignLanguageModel(
               const first5 = Array.from(inputData.slice(0, 5)).map(v => v.toFixed(6));
               const modelInfo = activePack ? `[${activePack.name} - v${activePack.version}]` : (customModelUri ? '[Custom Model]' : '[Unknown Model]');
               
-              console.log(`[ML Debug] --- Bắt đầu Inference: ${modelInfo} ---`);
-              console.log(`[ML Debug] Input Tensor -> Shape: ${JSON.stringify(shape)}, DataType: ${dataType}, ArrayLength: ${inputData.length}, Sum: ${sum.toFixed(6)}`);
-              console.log(`[ML Debug] Input Data Preview (${inputData.length} phần tử): [${first5.join(', ')}...]`);
+              console.log(`[SignLanguage] 2. Bắt đầu Inference: ${modelInfo}`);
+              console.log(`[SignLanguage] 3. Input Tensor -> Shape: ${JSON.stringify(shape)}, DataType: ${dataType}, Sum: ${sum.toFixed(4)}`);
+              console.log(`[SignLanguage] 4. Input Preview: [${first5.join(', ')}...]`);
             }
 
             // Fix Bug 31: Nhường Event Loop cho React UI Thread render animation trước khi luồng JS bị khóa chết 300ms bởi runSync
@@ -187,13 +187,13 @@ export function useSignLanguageModel(
             const infStartTime = Date.now();
             const outputs = tfliteModel.runSync([inputData.buffer]);
             const inferenceTime = Date.now() - infStartTime;
-            if (developerDebugMode) console.log(`[ML Debug - Profiler] TFLite C++ Core runSync tốn ${inferenceTime}ms.`);
             
             const parseStartTime = Date.now();
             const outDataType = tfliteModel.outputs?.[0]?.dataType;
             const result = parseInferenceOutput(outputs, outDataType);
             const parseTime = Date.now() - parseStartTime;
-            if (developerDebugMode) console.log(`[ML Debug - Profiler] Đọc và giải mã Output Tensor tốn ${parseTime}ms.`);
+            
+            if (developerDebugMode) console.log(`[SignLanguage] 5. Profiler -> Inf: ${inferenceTime}ms, Parse: ${parseTime}ms`);
 
             if (developerDebugMode) {
               let outLength = 0;
@@ -214,7 +214,7 @@ export function useSignLanguageModel(
                    outPreview = ` Preview: [${first5Out.join(', ')}...]`;
                 }
               }
-              console.log(`[ML Debug] Output Tensor -> DataType: ${outDataType}, ArrayLength: ${outLength}.${outPreview}`);
+              console.log(`[SignLanguage] 6. Output Tensor -> DataType: ${outDataType}, Length: ${outLength}.${outPreview}`);
             }
 
             const totalTime = Date.now() - startTime;
@@ -241,8 +241,8 @@ export function useSignLanguageModel(
                 return `[${word} (Idx ${t.idx}): ${t.val.toFixed(3)}]`;
               }).join(', ');
               
-              console.log(`[ML Debug] Model inference xong. Kết quả: ${maxWord} (Idx: ${safeMaxIdx}), maxVal: ${maxVal.toFixed(3)} | Time: ${totalTime}ms (Pre: ${preprocessTime}ms, Inf: ${inferenceTime}ms)`);
-              console.log(`[ML Debug] Output Values (Top 3): ${top3Str}`);
+              console.log(`[SignLanguage] 7. Result: ${maxWord} (Idx: ${safeMaxIdx}), Conf: ${maxVal.toFixed(3)} | Time: ${totalTime}ms`);
+              console.log(`[SignLanguage] 8. Top 3: ${top3Str}`);
               
               // Kiểm tra queue có bị clear ngang chừng không (chuyển mode)
               if (isMountedRef.current && processingItemRef.current === uri) {
@@ -264,7 +264,7 @@ export function useSignLanguageModel(
             }
           } finally {
             if (developerDebugMode) {
-              console.log(`[ML Debug] Hoàn thành trong ${Date.now() - startTime}ms. Queue length: ${frameQueue.current.length}`);
+              console.log(`[SignLanguage] 9. Hoàn thành xử lý trong ${Date.now() - startTime}ms.`);
             }
             processingItemRef.current = null;
             isProcessingRef.current = false;
@@ -297,7 +297,7 @@ export function useSignLanguageModel(
     frameQueue.current.push({ uri, facing });
 
     if (developerDebugMode) {
-      console.log(`[ML Debug] Nhận ảnh mới. Đẩy vào Queue. Tổng Queue: ${frameQueue.current.length}`);
+      console.log(`[SignLanguage] 0. Nhận ảnh mới, đưa vào Queue (Tổng: ${frameQueue.current.length})`);
     }
     
     return { success: true, message: "Đã tiếp nhận và đưa ảnh vào hàng đợi!" };

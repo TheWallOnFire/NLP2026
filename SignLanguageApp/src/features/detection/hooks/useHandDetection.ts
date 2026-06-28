@@ -52,6 +52,7 @@ export function useHandDetection() {
   const [model, setModel] = useState<any>(null);
   const isMounted = useRef(true);
   const isProcessing = useRef(false);
+  const wasHandDetected = useRef(false); // Lưu trạng thái track tay trước đó
 
   // Khởi tạo model khi mount
   useEffect(() => {
@@ -116,12 +117,7 @@ export function useHandDetection() {
       
       // MediaPipe trả về 2 Tensor. Tùy phiên bản mà index 0 hoặc 1 là Regressor hoặc Classifier.
       // Cần check kỹ byteLength hoặc length của từng output.
-      console.log(`[Hand Detection DEBUG] Số lượng Output Tensors: ${outputs.length}`);
-      for(let i=0; i<outputs.length; i++) {
-         console.log(`[Hand Detection DEBUG] Output ${i}: byteLength = ${outputs[i].byteLength}, constructor = ${outputs[i].constructor.name}`);
-      }
-
-      // Fix Lỗi C++ Memory Sharing (Crash/Garbage Values):
+      // console.log(`[Hand Detection] Tensors: ${outputs.length}`);
       // Các phần tử trong mảng outputs thường là các TypedArray view trỏ chung vào 1 ArrayBuffer khổng lồ.
       // Do đó, nếu gọi `new Float32Array(outputs[0].buffer)` mà không truyền offset, ta sẽ đọc từ đầu buffer
       // dẫn đến việc đọc nhầm Regressors thành Classifiers (MaxLogit ra 920, Fake Detection).
@@ -159,21 +155,22 @@ export function useHandDetection() {
       const isPreActivated = maxLogit >= 0 && maxLogit <= 1.0;
       const maxConfidence = isPreActivated ? maxLogit : sigmoid(maxLogit);
 
-      // Tăng ngưỡng nhận diện (THRESHOLD) lên 0.65 để chặn triệt để Fake Detection
-      const DYNAMIC_THRESHOLD = 0.65;
-
-      console.log(`[Hand Detection DEBUG] Max Logit: ${maxLogit}, Confidence: ${maxConfidence}, isPreActivated: ${isPreActivated}, maxIndex: ${maxIndex}`);
+      // Tăng ngưỡng nhận diện lên 0.65 để chặn Bóng ma.
+      // Tuy nhiên, áp dụng Hysteresis Threshold: Nếu khung trước đã có tay, giảm ngưỡng xuống 0.2 
+      // để tiếp tục bám theo kể cả khi người dùng nắm tay lại (làm giảm Confidence).
+      const DYNAMIC_THRESHOLD = wasHandDetected.current ? 0.2 : 0.65;
 
       if (maxConfidence > DYNAMIC_THRESHOLD && maxIndex !== -1) {
-        // Có bàn tay! Tính toán tọa độ.
+        // Có bàn tay! Cập nhật trạng thái đang track
+        wasHandDetected.current = true;
+        console.log(`[Hand] Detected! Conf: ${maxConfidence.toFixed(2)} (Thresh: ${DYNAMIC_THRESHOLD})`);
+
         // Cấu trúc mảng Regressors tại index i: [dx, dy, w, h, (14 thông số cho 7 keypoints)]
         const rOffset = maxIndex * 18;
         const dx = regressorsBuf[rOffset];
         const dy = regressorsBuf[rOffset + 1];
         const w = regressorsBuf[rOffset + 2];
         const h = regressorsBuf[rOffset + 3];
-
-        console.log(`[Hand Detection DEBUG] Raw Regressors - dx: ${dx}, dy: ${dy}, w: ${w}, h: ${h}`);
 
         const anchor = PALM_ANCHORS[maxIndex];
 
@@ -206,7 +203,8 @@ export function useHandDetection() {
           }
         };
       }
-
+      
+      wasHandDetected.current = false;
       return { detected: false };
     } catch (e) {
       console.warn("[Hand Detection] Inference Error:", e);

@@ -38,30 +38,45 @@
 - **Các lỗi UI/UX đã được khắc phục triệt để (Resolved Bugs):**
   - **Lỗi vô hình (Box không hiển thị):** Xảy ra khi bàn tay nằm ở rìa màn hình. Đã fix bằng kỹ thuật **Squash Transform** (ép tỷ lệ camera thay vì cắt bỏ vùng rìa), giúp AI nhìn thấy toàn cảnh 100%.
   - **Lỗi khung bị kẹt ở tâm màn hình:** Xảy ra do thuật toán cũ nhân sai tọa độ tuyệt đối với `SCREEN_WIDTH` và `SCREEN_HEIGHT`. Đã fix bằng **Hệ trục tọa độ Tương đối (Relative Ratios)** kết hợp với `onLayout` để đo đạc chuẩn xác không gian Camera vật lý.
+  - **Chuyển động giật cục (Robotic Tracking):** Khung xanh từng bị giật và cứng nhắc khi tay di chuyển nhanh do dùng `withTiming` (tuyến tính). Đã nâng cấp lên hệ thống **Vật lý Lò xo (Spring Physics)** với `withSpring(damping: 15, stiffness: 120, mass: 0.8)`. Giờ đây khung ngắm bám dính vào tay một cách tự nhiên, hữu cơ như nam châm từ tính.
 
 ### 3. Luồng xử lý 
 
-#### Luồng 1: Giai đoạn Khởi Tạo (AI Detection Initialization)
+#### Vòng Lặp Tự Động Toàn Diện (Continuous Auto-Detection Loop)
 
-- **Trạng thái Tìm kiếm (Searching):** 
-  - Hệ thống ở trạng thái rình rập, sử dụng **MediaPipe Palm Detection** (AI) quét với tần số thấp (10 FPS) để tìm "Lòng bàn tay" đang xòe.
-  - Ngay khi phát hiện được bàn tay (Logit > Threshold), AI sẽ đóng khung Bounding Box đầu tiên.
-- **Chuyển giao Quyền lực (Handoff):**
-  - Tọa độ Bounding Box ban đầu được xem là **Tọa độ Neo (Anchor Box)**.
-  - Hệ thống lập tức **tạm ngủ (Sleep)** mô hình AI MediaPipe để giải phóng CPU.
-  - Khởi động bộ máy **Object Tracker** (Thuật toán toán học bám vết Pixel) và nạp Tọa độ Neo vào cho nó.
+Toàn bộ hệ thống giờ đây được vận hành trên một Vòng lặp duy nhất (Single Loop) cực kỳ kiên cố, chạy ngầm với tần số **10 FPS** (10 lần mỗi giây) mang lại trải nghiệm mượt mà không độ trễ. Vòng lặp bao gồm 3 bước thực thi liên hoàn:
 
-#### Luồng 2: Giai đoạn Theo Vết & Nhận Diện (Object Tracking & Classification)
+- **Bước 1: Khởi tạo Target Box (Định vị & Tracking):** 
+  - *Tìm vị trí tay:* Từng Frame ảnh được ép (Squash) về 192x192 và nạp vào MediaPipe. Hệ thống dò tìm trong 2016 ô neo (SSD Anchors) để chọn ra ô có Logit cao nhất, từ đó bóc tách độ lệch tâm (`dx, dy`) và kích thước thô (`w, h`).
+  - *Tính kích thước Box:* Tọa độ thô được đẩy qua thuật toán **Bounding Box Expansion**. Nó chọn cạnh dài nhất của tay, nhân hệ số 1.5x và cộng đệm 40px, nắn mọi thứ thành một **Hình vuông hoàn hảo** đủ sức chứa mọi dáng xòe ngón tay.
+  - *Tracking:* Tọa độ hình vuông này được quy đổi về tỷ lệ `[0..1]` và đẩy sang Reanimated. Khung ngắm (Target Box) trên màn hình lập tức lướt theo bàn tay bạn trơn tru mượt mà.
 
-- **Bám sát siêu tốc (Real-time Tracking):**
-  - Object Tracker (dự kiến dùng OpenCV CSRT/KCF hoặc thuật toán dời Pixel) hoạt động độc lập ở tần số cao (30-60 FPS). 
-  - Nó không dùng AI mà so sánh sự dịch chuyển màu sắc, khối lượng pixel của bàn tay giữa các Frame liên tiếp để dời khung xanh theo. Dù người dùng nắm tay, rụt ngón, xoay cổ tay, khung ngắm vẫn bám dính như nam châm.
-  - Tọa độ mới được nạp liên tục vào Reanimated Shared Values để đẩy lên giao diện.
+- **Bước 2: Bộ Adapter xử lý Ảnh (Crop & Resize Input):**
+  - *Cắt ảnh (Crop):* `ImageManipulator` dùng đúng tỷ lệ `[0..1]` của Target Box áp lên bức ảnh Camera gốc (độ phân giải cao) để cắt ra một mảnh hình vuông chứa tay.
+  - *Đồng bộ Input Model (Adapter):* Bức ảnh vừa cắt có thể to nhỏ thất thường (phụ thuộc việc tay xa hay gần). Bộ Adapter sẽ lập tức **Resize** tấm ảnh vuông này về đúng "size tiêu chuẩn" mà Sign Language Model yêu cầu (thường là `224x224` hoặc `128x128`). Cuối cùng, ảnh được chuẩn hóa mảng màu Float32 để làm mồi cho AI.
 
-- **Thu hoạch Ký tự (Continuous Classification):**
-  - Dựa trên tọa độ của Tracker, hàm Cropper liên tục cắt ảnh (10 lần/giây) ném vào mạng AI thứ hai: **Sign Language Classifier**.
-  - Ký tự được dịch ra liên tiếp lên màn hình mà không hề có độ trễ giật cục.
+- **Bước 3: Phiên dịch Ký tự (Sign Classification):**
+  - Mảnh ảnh chuẩn `224x224` được nạp thẳng vào mạng nơ-ron **MobileNetV2**.
+  - Ký tự nhận diện được (kèm theo % độ tự tin) lập tức hiển thị lên màn hình. Toàn bộ chu trình (từ quét tay -> tạo Box -> Adapter ảnh -> ra chữ) diễn ra liên tục 10 lần mỗi giây, mang lại cảm giác mượt mà tuyệt đối mà không có bất kỳ khoảng giật cục (Locking) nào.
 
-- **Cơ chế Fallback (Chống trôi khung - Anti-Drift):**
-  - *Lỗ hổng của Tracker:* Nếu tay di chuyển quá nhanh hoặc đi ngang qua vật thể trùng màu (khuôn mặt), khung xanh có thể bám nhầm và trôi đi mất (Drift).
-  - *Giải pháp:* Nếu mô hình Sign Language báo cáo điểm tự tin (Confidence) thấp hơn 20% trong 3 giây liên tiếp (nghĩa là khung xanh đang cắt vào vùng không có ý nghĩa), hệ thống sẽ **Tiêu diệt Tracker**, xóa khung xanh, và đánh thức AI MediaPipe dậy (Quay lại Luồng 1) để tìm bàn tay lại từ đầu.
+### 4. Các lỗi Thuật Toán & Logic đã khắc phục (Algorithmic Fixes)
+
+- **Lỗi Bóng Ma (Fake Detection / Exploding Activations):** Hệ thống liên tục nhận diện ra tay dù không có người ở đó, điểm Logit vọt lên con số không tưởng `922.0`. Đã khắc phục bằng 2 nhát chém:
+  1. **Sửa C++ Memory Sharing:** Các Tensors của TFLite Nitro trỏ chung vào 1 khối RAM (ArrayBuffer). Việc đọc thẳng mảng mà không áp dụng `view.byteOffset` đã khiến hệ thống nhầm tọa độ `dx, w` thành điểm Logit.
+  2. **Sửa Chuẩn hóa dải màu (Color Normalization):** Mô hình được Train trên dải màu `[0, 1]`, nhưng code cũ lại chuẩn hóa `[-1, 1]`. Sự sai lệch Input này khiến các Neural Layer bị "nổ tung". Đổi hệ số về `[0, 1]` đã lập tức triệt tiêu hoàn toàn Bóng Ma.
+
+- **Lỗi Tuột khung khi Nắm tay (Fist Drop):** Mô hình `palm_detection` kén dáng tay, dễ tuột khung khi tay nắm lại. Đã khắc phục bằng thuật toán **Hysteresis Tracking (Ngưỡng đệm)**: Yêu cầu ngưỡng cao (`0.65`) lúc tìm tay mới, nhưng tự động hạ sập ngưỡng (`0.2`) lúc đã bắt được mục tiêu. Nhờ vậy, khung xanh sẽ "cố chấp" dính chặt lấy bàn tay kể cả khi người dùng nắm đấm lại làm tụt điểm Logit.
+
+
+Xử lý logic tracking bàn tay với việc nắm bàn tay sẽ mất dấu thì làm như sau thì sao:
+1.  Khi màn hình ko có tay sẽ tự tìm bàn tay bằng vòng lặp tìm bàn tay (Sử dụng AI), nếu detect được tay thì vào bước 2.
+2.  Sau khi tìm được bàn tay sẽ khóa vị trí, đánh dấu lại trên màn hình bằng target box, vào vòng lặp track vị trí ở bước 3.
+3.  Nếu bàn tay di chuyển thì sẽ di chuyển vị trí đánh dấu và target box trên màn hình theo bàn tay, dựa trên **Thuật toán CamShift**. Để đảm bảo không mất dấu bàn tay ngay cả khi nắm lại, và giải quyết triệt để sự thay đổi ánh sáng, thuật toán áp dụng:
+    - **Hệ màu HSV:** Tách biệt và chỉ bám theo kênh `H` (Hue - Sắc độ màu da), bỏ qua sự thay đổi cường độ ở kênh `V` (Độ sáng) để tránh lóa hay chìm vào bóng tối.
+    - **Lọc nhiễu độ sáng (Masking):** Bỏ qua các pixel quá đen hoặc quá chói lóa trước khi đưa vào tính toán, giúp tâm CamShift luôn ổn định.
+    - **Mẫu động (Adaptive Histogram):** Liên tục pha trộn (update) 5% màu da thực tế ở mỗi frame mới vào Mẫu cũ, giúp Tracking "tiến hóa" từ từ khi người dùng đi từ phòng đèn trắng sang đèn vàng mà không bị đứt đoạn.
+    - **Vật lý Lò xo (Spring Tracking UI):** Dù tọa độ ngầm bám tay với tỷ lệ 1:1, nhưng Khung xanh hiển thị (Target Box) được áp dụng bộ giảm xóc Lò xo (`withSpring`). Điều này biến chuyển động giật cục (Robotic) thành chuyển động trượt hữu cơ mềm mại, hấp thụ độ rung lắc của tay mà không làm sai lệch vùng ảnh Crop.
+4.  **Điều kiện Thoát (Reset):** Khi bàn tay di chuyển khỏi khung camera, hoặc vào bóng tối hoàn toàn khiến diện tích vùng màu da của CamShift rơi về 0 (báo mất dấu), hệ thống sẽ tự động Reset lại: xóa vị trí, gỡ Target Box và quay về Bước 1.
+
+lỗi:
+- khi khóa được bàn tay, khoảng 1s -2s sau mới bắt đầu nhận diện được.
