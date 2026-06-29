@@ -162,7 +162,13 @@ export function useAutoDetection({
           const finalRatioW = side / imgW;
           const finalRatioH = side / imgH;
 
-          boxX.value = finalRatioX;
+          // Sửa lỗi sai vị trí Box ở Camera trước: Tọa độ UI phải lật ngược lại so với ảnh gốc
+          if (facing === 'front') {
+            boxX.value = 1 - finalRatioX - finalRatioW;
+          } else {
+            boxX.value = finalRatioX;
+          }
+          
           boxY.value = finalRatioY;
           boxWidth.value = finalRatioW;
           boxHeight.value = finalRatioH;
@@ -180,9 +186,18 @@ export function useAutoDetection({
         if (newBox) {
           currentBoxRef.current = newBox;
           
-          boxX.value = newBox.x / imgW;
+          const rawRatioX = newBox.x / imgW;
+          const rawRatioW = newBox.w / imgW;
+
+          // Tương tự, lật box cho CamShift trên UI
+          if (facing === 'front') {
+            boxX.value = 1 - rawRatioX - rawRatioW;
+          } else {
+            boxX.value = rawRatioX;
+          }
+
           boxY.value = newBox.y / imgH;
-          boxWidth.value = newBox.w / imgW;
+          boxWidth.value = rawRatioW;
           boxHeight.value = newBox.h / imgH;
           boxVisible.value = 1;
           
@@ -223,17 +238,24 @@ export function useAutoDetection({
       let safeY = boxY.value;
       let safeSide = boxWidth.value;
 
+      // Đảo ngược quá trình lật UI để lấy tọa độ thực trên ảnh gốc (RAW Image)
+      if (facing === 'front') {
+        safeX = 1 - safeX - safeSide;
+      }
+
       // Đảm bảo không bị văng do sai số Float
       const cropX = Math.max(0, Math.floor(safeX * imgW));
       const cropY = Math.max(0, Math.floor(safeY * imgH));
       const cropSide = Math.min(Math.floor(safeSide * imgW), Math.min(imgW - cropX, imgH - cropY));
 
+      const manipActions: any[] = [
+        { crop: { originX: cropX, originY: cropY, width: cropSide, height: cropSide } },
+        { resize: { width: 224, height: 224 } }
+      ];
+
       const croppedImage = await ImageManipulator.manipulateAsync(
         snapshotUri,
-        [
-          { crop: { originX: cropX, originY: cropY, width: cropSide, height: cropSide } },
-          { resize: { width: 224, height: 224 } } 
-        ],
+        manipActions,
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
 

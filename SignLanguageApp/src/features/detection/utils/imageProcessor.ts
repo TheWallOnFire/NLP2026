@@ -14,18 +14,14 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
   let image;
   let finalUriToLoad = uri;
   
-  // Fix Bug: Center Crop ảnh trước khi Resize để chống bóp méo tỷ lệ (Aspect Ratio Distortion)
   try {
-    const { Image } = require('react-native');
-    const getImageSize = () => new Promise<{w: number, h: number}>((resolve) => {
-      Image.getSize(uri, (w: number, h: number) => resolve({w, h}), () => resolve({w: 0, h: 0}));
-    });
+    // Sửa lỗi: Không dùng Image.getSize của React Native vì nó hay thất bại trên Android (trả về 0,0 gây bỏ qua bước Crop và làm méo/biến dạng ảnh khi Resize).
+    // Dùng ImageManipulator.manipulateAsync([]) để đọc chính xác thông số và cả góc xoay EXIF.
+    const imgInfo = await ImageManipulator.manipulateAsync(uri, []);
+    const size = { w: imgInfo.width, h: imgInfo.height };
     
-    const sizeStart = Date.now();
-    const size = await getImageSize();
-    
-    // Fix Bug 3. Xử lý ảnh lặp lại: Nếu ảnh ĐÃ được cắt chuẩn 224x224 từ Luồng Nhận Diện (useAutoDetection), BỎ QUA hoàn toàn bước này để tiết kiệm 300ms!
     if (size.w === width && size.h === height) {
+      // Nếu đã chuẩn 224x224 (như từ Auto Mode gửi sang), bỏ qua!
       finalUriToLoad = uri;
     } else {
       const manipActions: any[] = [];
@@ -36,7 +32,6 @@ export async function prepareImageForModel(uri: string, shape: number[] | undefi
         const originY = Math.floor((size.h - shortest) / 2);
         manipActions.push({ crop: { originX, originY, width: shortest, height: shortest } });
       }
-      
       manipActions.push({ resize: { width, height } });
 
       const manipResult = await ImageManipulator.manipulateAsync(

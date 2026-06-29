@@ -180,86 +180,71 @@ export function useDetectionLogic(navigation: any) {
       if (frameGap > 1500) {
         recentPredictions.current = [];
       }
-      
       lastFrameProcessedTime.current = now;
 
-      // Yêu cầu của user: Bỏ hẳn Anti-Flicker, lấy luôn kết quả của khung hình hiện tại (1 Vote) để đạt tốc độ thời gian thực tuyệt đối
       const smoothedWord = word;
 
       // === AUTO MODE: Chuyển hướng kết quả sang Auto Detection Handler ===
       if (detectionMode === 'auto' && isLiveScanning) {
-        // Cập nhật UI cơ bản
         if (isMounted.current) {
           setDetectedWord(smoothedWord);
           setConfidence(conf);
         }
-        // Kết quả sẽ được xử lý bởi autoDetection.handleAutoDetectionResult 
-        // (được gọi thông qua useEffect bên dưới)
         autoDetectionResultPendingRef.current = { word: smoothedWord, conf };
         return;
       }
 
-      if (true) {
-        if (isMounted.current) {
-          // Fix Bug 1 UI/UX: Rerender Throttling. Giảm tải từ 30 FPS xuống còn cập nhật khi chữ đổi hoặc mỗi 200ms
-          const shouldUpdateUI = 
-            smoothedWord !== lastRenderedWord.current || 
-            (now - lastUIUpdateTime.current > 200) || 
-            detectionMode === 'picture' || 
-            detectionMode === 'batch';
-            
-          if (shouldUpdateUI) {
-            setDetectedWord(smoothedWord);
-            setConfidence(conf);
-            lastRenderedWord.current = smoothedWord;
-            lastUIUpdateTime.current = now;
-          }
+      if (isMounted.current) {
+        const shouldUpdateUI = 
+          smoothedWord !== lastRenderedWord.current || 
+          (now - lastUIUpdateTime.current > 200) || 
+          detectionMode === 'picture' || 
+          detectionMode === 'batch';
+          
+        if (shouldUpdateUI) {
+          setDetectedWord(smoothedWord);
+          setConfidence(conf);
+          lastRenderedWord.current = smoothedWord;
+          lastUIUpdateTime.current = now;
         }
+      }
 
-        // Yêu cầu của user: Lưu Toàn Bộ vào Result History mà không cần bất kỳ điều kiện phức tạp nào!
-        if (detectionMode === 'picture') {
-          if (isMounted.current) {
+      if (detectionMode === 'picture') {
+        if (isMounted.current) {
+          const uniqueId = `${now}_${Math.random().toString(36).substring(7)}`;
+          setSessionHistory([{ id: uniqueId, sign: smoothedWord, conf: conf }]); 
+          setIsHistoryDialogOpen(true);
+          setIsProcessing(false);
+        }
+      } else {
+        if (isMounted.current) {
+          setSessionHistory(prev => {
             const uniqueId = `${now}_${Math.random().toString(36).substring(7)}`;
-            setSessionHistory([{ id: uniqueId, sign: smoothedWord, conf: conf }]); 
-            setIsHistoryDialogOpen(true);
-            setIsProcessing(false);
-          }
-        } else {
-          if (isMounted.current) {
-            setSessionHistory(prev => {
-              const uniqueId = `${now}_${Math.random().toString(36).substring(7)}`;
-              // Lưu trực tiếp mọi kết quả kèm % tự tin dạng tham số để UI đổi màu
-              const newHistory = [{ id: uniqueId, sign: smoothedWord, conf: conf }, ...prev];
-              if (newHistory.length > 50) newHistory.length = 50; // Giữ tối đa 50 kết quả gần nhất để tránh OOM
-              return newHistory;
-            });
-          }
+            const newHistory = [{ id: uniqueId, sign: smoothedWord, conf: conf }, ...prev];
+            if (newHistory.length > 50) newHistory.length = 50;
+            return newHistory;
+          });
+        }
+      }
+
+      lastDetectionTime.current = now;
+      lastLoggedWord.current = smoothedWord;
+
+      if (conf >= thresholdValue) {
+        if (now - lastHapticTime.current > 800) {
+          setTimeout(() => triggerImpactFeedback(), 0);
+          lastHapticTime.current = now;
         }
         
-        lastDetectionTime.current = now;
-        lastLoggedWord.current = smoothedWord;
-
-        // Vẫn giữ điều kiện cho Rung và Đọc (để tránh điện thoại bị rung liệt mô-tơ và văng App)
-        if (conf >= thresholdValue) {
-          // Fix Bug 42: Chống Spam Rung (Chỉ rung tối đa 1 lần mỗi 800ms)
-          if (now - lastHapticTime.current > 800) {
-            // Fix Khựng UI do Haptics
-            setTimeout(() => triggerImpactFeedback(), 0);
-            lastHapticTime.current = now;
-          }
-          
-          // Fix Bug 48: Chống thắt cổ chai TTS (Dọn sạch hàng đợi TTS cũ trước khi đọc từ mới)
-          if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500) && (lastSpokenWord.current !== smoothedWord)) {
-            // Fix Bug 5 UI/UX: Gọi Speech API trong setTimeout để nó đẩy xuống đáy Callback Queue, không chặn quá trình vẽ Layout của React
-            setTimeout(() => {
-              try {
-                Speech.stop(); // Stop immediately clears the queue
-                Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
-              } catch (e) { console.warn("Speech API failed", e); }
-            }, 16);
-            lastSpeechTime.current = now;
-            lastSpokenWord.current = smoothedWord;
-          }
+        if (ttsSettings?.systemSounds !== false && smoothedWord && smoothedWord.trim() !== '' && (now - lastSpeechTime.current > 1500) && (lastSpokenWord.current !== smoothedWord)) {
+          setTimeout(() => {
+            try {
+              Speech.stop();
+              Speech.speak(smoothedWord, { language: ttsSettings?.ttsLanguage || 'en-US', rate: ttsSettings?.voiceRate || 0.9 });
+            } catch (e) { console.warn("Speech API failed", e); }
+          }, 0);
+          lastSpeechTime.current = now;
+          lastSpokenWord.current = smoothedWord;
         }
       }
     } else if (index !== undefined) {
@@ -396,15 +381,26 @@ export function useDetectionLogic(navigation: any) {
             try {
               const files = await StorageAccessFramework.readDirectoryAsync(dirUri);
               for (const fileUri of files) {
-                if (fileUri.match(/\.(jpg|jpeg|png)$/i)) {
-                  allImageUris.push(fileUri);
-                } else if (!fileUri.match(/\.[a-zA-Z0-9]{2,4}$/)) {
-                  // Cải thiện Regex (Bug 38): Nếu chuỗi không kết thúc bằng đuôi file truyền thống (3-4 chữ cái) thì coi là thư mục
-                  await scanDirectory(fileUri);
+                const extMatch = fileUri.match(/\.([a-zA-Z0-9]+)$/);
+                if (extMatch) {
+                  const ext = extMatch[1].toLowerCase();
+                  if (['jpg', 'jpeg', 'png', 'webp', 'bmp'].includes(ext)) {
+                    allImageUris.push(fileUri);
+                  }
+                } else {
+                  // Cải thiện (Bug 38): URI Android Storage Framework thường không có đuôi mở rộng.
+                  // Dùng try-catch với readDirectoryAsync để kiểm tra xem nó là file hay folder thay vì regex.
+                  try {
+                    await StorageAccessFramework.readDirectoryAsync(fileUri);
+                    // Nếu thành công (không lỗi) => Nó là một thư mục con, duyệt đệ quy tiếp
+                    await scanDirectory(fileUri);
+                  } catch (e) {
+                    // Nếu lỗi (readDirectoryAsync ném ngoại lệ vì nó là File, không phải Thư mục) => Thu thập!
+                    allImageUris.push(fileUri);
+                  }
                 }
               }
             } catch (e: any) {
-              // Báo cáo lỗi thay vì nuốt lỗi (Bug 39)
               console.warn(`Không thể truy cập thư mục: ${dirUri}`, e);
             }
           };
@@ -466,7 +462,12 @@ export function useDetectionLogic(navigation: any) {
         setSnackbarMsg(`Đang xử lý ${i + 1}/${selectedBatchAssets.length}...`);
         
         const fileName = asset.name || `image_${i}.jpg`;
-        const destUri = asset.uri;
+        
+        // Cần lưu File Content URI vào local Cache (file://) để thuật toán Image Resize xử lý được
+        let destUri = asset.uri;
+        if (destUri.startsWith('content://')) {
+           destUri = await saveMediaToAppStorage(destUri);
+        }
 
         latestDetectionRef.current = null; // Reset kết quả ảnh cũ
         if (clearQueue) clearQueue();

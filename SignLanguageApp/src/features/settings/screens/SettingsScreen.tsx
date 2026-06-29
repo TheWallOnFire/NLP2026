@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, List, useTheme, Card, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { Text, List, useTheme, Card, Divider, Portal, Dialog, Button, Paragraph } from 'react-native-paper';
 import { AlertTriangle as AlertTriangleIcon, Settings as SettingsIconLucide } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { ROUTES } from '../../../constants/routes';
 export default function SettingsScreen({ navigation }: any) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const [isAboutVisible, setIsAboutVisible] = React.useState(false);
 
   const {
     settings,
@@ -75,6 +76,32 @@ export default function SettingsScreen({ navigation }: any) {
             onPress={() => navigation.navigate(ROUTES.ML_DIAGNOSTIC)}
           />
         </List.Section>
+
+        <List.Section>
+          <List.Subheader>{t('settings.aboutApp')}</List.Subheader>
+          <List.Item
+            title={t('settings.additionalInfo')}
+            description={t('settings.aboutDesc')}
+            left={props => <List.Icon {...props} icon="information" />}
+            onPress={() => setIsAboutVisible(true)}
+          />
+          <List.Item
+            title="GitHub Repository"
+            description={t('settings.githubSource')}
+            left={props => <List.Icon {...props} icon="github" />}
+            onPress={async () => {
+              const url = 'https://github.com';
+              try {
+                const supported = await Linking.canOpenURL(url);
+                if (supported) {
+                  await Linking.openURL(url);
+                }
+              } catch (e) {
+                console.warn("Cannot open URL", e);
+              }
+            }}
+          />
+        </List.Section>
         
         <Divider style={styles.divider} />
 
@@ -82,6 +109,22 @@ export default function SettingsScreen({ navigation }: any) {
           <Text variant="bodySmall" style={styles.versionText}>{t('settings.version')}</Text>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Dialog visible={isAboutVisible} onDismiss={() => setIsAboutVisible(false)} style={{ backgroundColor: theme.colors.elevation.level3 }}>
+          <Dialog.Title>{t('settings.additionalInfo')}</Dialog.Title>
+          <Dialog.Content>
+            <Paragraph style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>SignLanguageApp v1.0.0</Paragraph>
+            <Paragraph style={{ marginBottom: 16 }}>{t('settings.aboutDesc')}</Paragraph>
+            <Paragraph style={{ opacity: 0.7 }}>
+              This application utilizes an autonomous Agentic AI pipeline for real-time sign language recognition, running completely on-device without blocking the main UI thread.
+            </Paragraph>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsAboutVisible(false)}>{t('detection.close')}</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

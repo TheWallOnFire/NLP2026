@@ -207,7 +207,11 @@ export default {
       developerDebug: "Developer / Debug",
       mlDiagnosticTool: "ML Diagnostic Tool",
       mlDiagnosticDesc: "Test model stability (Determinism)",
-      version: "Sign Language App v1.0.0"
+      version: "Sign Language App v1.0.0",
+      aboutApp: "About",
+      aboutDesc: "Real-time sign language recognition powered by Agentic AI",
+      additionalInfo: "Additional Information",
+      githubSource: "View Source Code"
     },
     detection: {
       error: "Error",

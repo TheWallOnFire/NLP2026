@@ -93,3 +93,36 @@ Toàn bộ hệ thống giờ đây được vận hành trên một Vòng lặp
   - Chụp Snapshot và gọi `ImageManipulator` cắt (Crop) chuẩn một bức ảnh `224x224` chứa đúng bàn tay. Việc này chỉ thực hiện **ĐÚNG 1 LẦN**, triệt tiêu được 300ms xử lý thừa thãi trước đây.
   - Thay vì dùng `runSync` khóa cứng màn hình, hệ thống gọi `await tfliteModel.run()` để tống toàn bộ gánh nặng tính toán hàng triệu phép tính ma trận sang Background Thread (C++ Thread Pool). 
   - Giao diện (JS Thread) nhờ vậy luôn rảnh tay để đảm bảo khung xanh di chuyển mượt mà 60 FPS.
+
+
+
+## Thành phần Agentic AI: Vòng lặp Suy luận (Kiến trúc Nâng cấp)
+
+Kiến trúc Agentic AI được thiết kế theo mô hình tự chủ (Autonomous Pipeline), đảm bảo tối ưu hóa hiệu năng, chống nhiễu (flickering) và mang lại trải nghiệm thời gian thực tốt nhất cho thiết bị di động:
+
+1. **Quan sát (Observation & Throttling)**: 
+   - Thu nhận ảnh liên tục từ camera/thư viện/video.
+   - Áp dụng **Adaptive Framerate**: Tự động giảm tốc độ nạp ảnh (Throttle) nếu phát hiện thiết bị bị nóng hoặc CPU quá tải.
+2. **Kiểm tra điều kiện (Smart Validation)**: 
+   - Kiểm tra tài nguyên: `packId` hợp lệ? `modelReady` (đã load xong)?
+   - Quản lý nghẽn cổ chai (Backpressure): Đảm bảo `queue < 10`. Nếu hàng đợi đầy, áp dụng chiến lược **Drop Frame** (bỏ ảnh cũ nhất, nạp ảnh mới nhất) để độ trễ luôn tiệm cận 0ms.
+   - Không xử lý trùng lặp (`URI` trùng).
+3. **Hành động (Action & Queueing)**: 
+   - Đẩy frame hợp lệ vào `frameQueue` (hoạt động như một Priority Queue). 
+   - Đánh thức bộ xử lý: Gọi `processQueue()` nếu luồng đang ở trạng thái rảnh (Idle).
+4. **Suy luận (Asynchronous Inference)**: 
+   - Tiền xử lý ảnh (Squash Transform 1:1, Normalization).
+   - TFLite Forward pass: Chạy suy luận hoàn toàn trên **C++ Background Thread** (thông qua Nitro Modules) trả về vector 29 chiều, giải phóng 100% JS Thread.
+5. **Ra quyết định (Decision & Temporal Smoothing)**: 
+   - Ngưỡng lọc cứng (Hard Threshold): Chấp nhận dự đoán chỉ khi `maxVal > 0.5`.
+   - **Lọc nhiễu thời gian (Temporal Smoothing)**: Hệ thống phải nhận diện ra *cùng một ký tự* trong ít nhất 2-3 frames liên tiếp mới chốt kết quả hiển thị. Điều này triệt tiêu hoàn toàn bóng ma (Ghosting) và nhiễu sóng (Flickering).
+6. **Phản hồi có điều kiện (Smart Feedback & Cooldown)**: 
+   - Điều kiện: `conf > 0.8`.
+   - Thay vì dùng `rand() < 0.1` (phản hồi hên xui), hệ thống áp dụng cơ chế **Cooldown/Debounce (Ví dụ: 2 giây)**. Nếu người dùng giữ tay ở ký tự 'A', máy chỉ rung/đọc TTS 1 lần và khóa âm thanh 'A' trong 2 giây tới để không gây ồn ào. Nếu đổi sang 'B', phản hồi diễn ra lập tức -> Gọi `Haptic` + `TTS` + `Lịch sử`.
+7. **Lặp vòng (Non-blocking Loop & Telemetry)**: 
+   - Lặp đệ quy qua `setTimeout(() => processQueue(), 0)` để trả lại thời gian tính toán cho UI Event Loop (giúp UI không bao giờ bị đơ).
+   - Ghi nhận Metrics (FPS, Inference time) để Agent tự học và điều chỉnh nhịp điệu của vòng lặp.
+
+**Ví dụ thực tế:**
+`t=1.52s`: AI nhận diện 'A' (0.92 > 0.5) trong 3 frames liên tiếp -> UI chốt hiển thị 'A - 92%'.
+Xét phản hồi: 0.92 > 0.8 VÀ 'A' chưa được đọc trong 2s qua -> Kích hoạt Haptic + Đọc TTS('A') + Lưu Lịch sử. Đặt Cooldown cho 'A'.

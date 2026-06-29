@@ -120,18 +120,26 @@ export function useSignLanguageModel(
     let isActive = true;
     
     const processLoop = async () => {
-      while (isActive) {
-        if (frameQueue.current.length > 0 && tfliteModel && !isProcessingRef.current) {
-          isProcessingRef.current = true;
-          const item = frameQueue.current.shift();
-          
-          if (!item || !item.uri) {
-            isProcessingRef.current = false;
-            continue;
-          }
-          
-          const { uri, facing } = item;
-          processingItemRef.current = uri;
+      if (!isActive) return;
+
+      if (frameQueue.current.length > 0 && tfliteModel && !isProcessingRef.current) {
+        isProcessingRef.current = true;
+        
+        // Agentic AI: Drop Frame strategy (Chống nghẽn cổ chai)
+        while (frameQueue.current.length > 10) {
+           frameQueue.current.shift();
+        }
+
+        const item = frameQueue.current.shift();
+        
+        if (!item || !item.uri) {
+          isProcessingRef.current = false;
+          if (isActive) setTimeout(processLoop, 0);
+          return;
+        }
+        
+        const { uri, facing } = item;
+        processingItemRef.current = uri;
           const startTime = Date.now();
 
           if (developerDebugMode) {
@@ -245,12 +253,14 @@ export function useSignLanguageModel(
               console.log(`[SignLanguage] 7. Result: ${maxWord} (Idx: ${safeMaxIdx}), Conf: ${maxVal.toFixed(3)} | Time: ${totalTime}ms`);
               console.log(`[SignLanguage] 8. Top 3: ${top3Str}`);
               
-              // Kiểm tra queue có bị clear ngang chừng không (chuyển mode)
-              if (isMountedRef.current && processingItemRef.current === uri) {
-                if (safeMaxIdx !== -1) {
+              // Agentic AI: Phân tích & Báo cáo ngay lập tức cho Controller
+              if (safeMaxIdx !== -1 && maxVal >= 0.5) {
+                if (isMountedRef.current && processingItemRef.current === uri) {
                   onDetection(safeMaxIdx, maxVal);
-                } else if (onError) {
-                  onError("Không thể nhận diện ký hiệu hợp lệ từ hình ảnh này.");
+                }
+              } else {
+                if (isMountedRef.current && processingItemRef.current === uri && onError) {
+                  // Chỉ báo lỗi mờ nhạt hoặc không làm gì để hệ thống tự quét tiếp
                 }
               }
             }
@@ -272,10 +282,15 @@ export function useSignLanguageModel(
           }
         }
         
-        // Polling interval
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    };
+        // Agentic AI: Đệ quy bất đồng bộ qua Event Loop (Non-blocking)
+        if (isActive) {
+          if (frameQueue.current.length === 0) {
+            setTimeout(processLoop, 50); // Polling 20Hz khi rảnh rỗi để tiết kiệm Pin
+          } else {
+            setTimeout(processLoop, 0); // Xử lý ngay khi có việc
+          }
+        }
+      };
 
     processLoop();
 
@@ -287,12 +302,8 @@ export function useSignLanguageModel(
   const runDetection = useCallback((uri?: string, facing?: 'front' | 'back', bypassDuplicateCheck: boolean = false) => {
     if (!uri) return { success: false, message: "Không tìm thấy đường dẫn ảnh." };
 
-    if (!bypassDuplicateCheck && frameQueue.current.length > 0 && frameQueue.current[frameQueue.current.length - 1].uri === uri) {
-      return { success: false, message: "Ảnh này đang được xử lý hoặc đã có trong hàng đợi rồi." };
-    }
-
-    if (frameQueue.current.length >= 1) {
-      return { success: false, message: "Hàng đợi đang xử lý, ảnh bị drop để tránh tràn RAM." }; 
+    if (!bypassDuplicateCheck && frameQueue.current.some(f => f.uri === uri)) {
+      return { success: false, message: "Ảnh này đã có trong hàng đợi rồi." };
     }
 
     frameQueue.current.push({ uri, facing });

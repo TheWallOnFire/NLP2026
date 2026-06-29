@@ -207,7 +207,11 @@ export default {
       developerDebug: "Nhà phát triển / Gỡ lỗi",
       mlDiagnosticTool: "Công cụ Kiểm thử ML",
       mlDiagnosticDesc: "Kiểm thử độ ổn định (Determinism) của Model",
-      version: "Sign Language App v1.0.0"
+      version: "Sign Language App v1.0.0",
+      aboutApp: "Thông tin Ứng dụng",
+      aboutDesc: "Nhận diện ngôn ngữ ký hiệu theo thời gian thực (Agentic AI)",
+      additionalInfo: "Additional Information",
+      githubSource: "Xem mã nguồn"
     },
     detection: {
       error: "Lỗi",
