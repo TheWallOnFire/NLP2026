@@ -178,7 +178,7 @@ export default {
       cameraAndDetection: "Camera & Nhận diện",
       frontCamera: "Camera trước",
       backCamera: "Camera sau",
-      detectionSpeed: "Tốc độ nhận diện",
+
       hapticFeedback: "Phản hồi rung",
       storageAndData: "Lưu trữ & Dữ liệu",
       localLogging: "Ghi log cục bộ",

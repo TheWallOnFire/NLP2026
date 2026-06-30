@@ -130,7 +130,7 @@ export default function SettingsMenuSections({
       {/* 3. Camera & Detection */}
       <List.Accordion
         title={t('settings.cameraAndDetection')}
-        description={`${camera?.defaultFacing === 'front' ? t('settings.frontCamera') : t('settings.backCamera')} • ${detection?.speed.toUpperCase()}`}
+        description={`${camera?.defaultFacing === 'front' ? t('settings.frontCamera') : t('settings.backCamera')}`}
         left={props => <List.Icon {...props} icon={() => <Camera size={24} color={theme.colors.primary} />} />}
       >
         <List.Item
@@ -143,16 +143,6 @@ export default function SettingsMenuSections({
           onPress={() => updateSettings({ camera: { ...camera, defaultFacing: 'back' } })}
           right={props => camera?.defaultFacing === 'back' ? <Check size={20} color={theme.colors.primary} /> : null}
         />
-        <Divider style={{ marginVertical: 8 }} />
-        <List.Subheader>{t('settings.detectionSpeed')}</List.Subheader>
-        {(['slow', 'normal', 'fast', 'off'] as const).map(speed => (
-          <List.Item
-            key={speed}
-            title={speed.toUpperCase()}
-            onPress={() => updateSettings({ detection: { ...detection, speed } })}
-            right={props => detection?.speed === speed ? <Check size={20} color={theme.colors.primary} /> : null}
-          />
-        ))}
       </List.Accordion>
       <Divider />
 

@@ -99,7 +99,7 @@ export function useDetectionLogic(navigation: any) {
     confidence, setConfidence
   } = uiState;
 
-  const detectionSpeed = useSettingsStore(state => state.detection?.speed || 'normal');
+
   const storagePermission = useSettingsStore(state => state.permissions?.storage ?? true);
   const updateSettings = useSettingsStore(state => state.updateSettings);
   const camera = useRef<any>(null);
@@ -353,18 +353,8 @@ export function useDetectionLogic(navigation: any) {
     navigation.setOptions({ autoHideHomeIndicator: true, headerShown: false });
   }, [navigation]);
 
-  const getInterval = () => {
-    switch (detectionSpeed) {
-      case 'slow': return 2000;
-      case 'normal': return 1000;
-      case 'fast': return 500;
-      case 'off': return -1;
-      default: return 1000;
-    }
-  };
-
-  const scannerState = useRef({ hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning });
-  scannerState.current = { hasPermission, detectionSpeed, activePackId, detectionMode, isLiveScanning };
+  const scannerState = useRef({ hasPermission, activePackId, detectionMode, isLiveScanning });
+  scannerState.current = { hasPermission, activePackId, detectionMode, isLiveScanning };
 
   const pickBatchImages = async () => {
     try {
@@ -608,12 +598,12 @@ export function useDetectionLogic(navigation: any) {
     let isActive = true;
     let timerId: NodeJS.Timeout;
 
-    if (hasPermission && detectionSpeed !== 'off' && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
+    if (hasPermission && activePackId && (detectionMode === 'live' || detectionMode === 'video') && isLiveScanning) {
       cancelAnimation(scanAnimValue); // Fix Bug 38: Xóa hàng đợi Worklet trước khi gán mới
       scanAnimValue.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: getInterval() === -1 ? 1000 : getInterval() }),
-          withTiming(0, { duration: getInterval() === -1 ? 1000 : getInterval() })
+          withTiming(1, { duration: 1000 }),
+          withTiming(0, { duration: 1000 })
         ),
         -1,
         false
@@ -622,13 +612,13 @@ export function useDetectionLogic(navigation: any) {
       const loop = async () => {
         if (!isActive) return;
         const state = scannerState.current;
-        if (!state.isLiveScanning || state.detectionSpeed === 'off' || !state.hasPermission) return;
+        if (!state.isLiveScanning || !state.hasPermission) return;
         
         if ((state.detectionMode === 'video' || state.detectionMode === 'live') && !isProcessing) {
           await handleManualScan();
         }
         
-        if (isActive) timerId = setTimeout(loop, getInterval());
+        if (isActive) timerId = setTimeout(loop, 1000);
       };
 
       if (detectionMode === 'video' || detectionMode === 'live') {
@@ -647,7 +637,7 @@ export function useDetectionLogic(navigation: any) {
       setDetectedWord(null);
       setConfidence(0);
     };
-  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning, detectionSpeed]);
+  }, [hasPermission, activePackId, detectionMode, isModelReady, isAppActive, isLiveScanning]);
 
   useEffect(() => {
     if (!isDebugDialogOpen && !developerDebugMode) return;
@@ -664,7 +654,7 @@ export function useDetectionLogic(navigation: any) {
       return;
     }
     
-    if ((detectionMode === 'live' || detectionMode === 'video') && detectionSpeed !== 'off') {
+    if (detectionMode === 'live' || detectionMode === 'video') {
       if (detectionMode === 'video' && !selectedMedia) {
         Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectVideoFirst'));
         return;
@@ -893,7 +883,7 @@ export function useDetectionLogic(navigation: any) {
         runDetection(imageToAnalyze, undefined);
       }
     },
-    detectedWord, confidence, detectionSpeed, updateSettings,
+    detectedWord, confidence, updateSettings,
     detectionMode, setDetectionMode: handleDetectionModeChange,
     isLiveScanning, setIsLiveScanning,
     selectedMedia, setSelectedMedia, selectedBatchAssets,

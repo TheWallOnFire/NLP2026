@@ -90,19 +90,14 @@ export function useHandDetection() {
     isProcessing.current = true;
 
     try {
-      // BƯỚC QUAN TRỌNG ĐỂ SỬA LỖI KHUNG Ở GIỮA VÀ BỊ MẤT TAY Ở GÓC:
-      // prepareImageForModel mặc định sẽ "Center Crop" ảnh thành hình vuông, làm mất vùng tay ở rìa màn hình.
-      // Giải pháp: Ép (Squash) toàn bộ ảnh chữ nhật thành hình vuông 192x192 trước, 
-      // để model có thể nhìn thấy toàn bộ màn hình camera.
-      const squashResult = await ImageManipulator.manipulateAsync(
-        imageUri,
-        [{ resize: { width: INPUT_SIZE, height: INPUT_SIZE } }],
-        { format: ImageManipulator.SaveFormat.JPEG, compress: 1.0 }
-      );
+      // Lấy kích thước gốc để tính toán tọa độ bù (Center Crop)
+      const imgInfo = await ImageManipulator.manipulateAsync(imageUri, []);
+      const imgW = imgInfo.width;
+      const imgH = imgInfo.height;
 
-      // Chuẩn bị ảnh: Đưa ảnh đã squash vào buffer
+      // Chuẩn bị ảnh: prepareImageForModel mặc định sẽ Center Crop thành hình vuông
       const shape = [1, INPUT_SIZE, INPUT_SIZE, 3];
-      const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(squashResult.uri, shape, facing);
+      const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(imageUri, shape, facing);
       
       // Palm Detection Model Google thường dùng Normalization [0, 1] hoặc [-1, 1].
       // Đã đổi sang [0, 1] để kiểm tra xem logit có về bình thường không.
@@ -183,14 +178,17 @@ export function useHandDetection() {
         const boxWidth = w / INPUT_SIZE;
         const boxHeight = h / INPUT_SIZE;
 
-        // Vì ta đã SQUASH ảnh (resize không crop), tọa độ [0..1] của TFLite (centerX, centerY) 
-        // chính là tọa độ chuẩn hóa (Normalized Ratios) của toàn bộ khung Camera.
-        // Ta trả về trực tiếp Ratios [0..1] thay vì nhân với SCREEN_WIDTH/HEIGHT
-        // để Component UI tự động scale theo kích thước thực tế của View (Camera Container).
-        const finalX = centerX - boxWidth / 2;
-        const finalY = centerY - boxHeight / 2;
-        const finalW = boxWidth;
-        const finalH = boxHeight;
+        // Vì prepareImageForModel đã "Center Crop" ảnh gốc thành hình vuông,
+        // tọa độ [0..1] trả về là tỷ lệ trên phần ảnh ĐÃ CẮT.
+        // Ta cần cộng thêm phần viền (originX, originY) để map về tỷ lệ của ảnh GỐC.
+        const shortest = Math.min(imgW, imgH);
+        const originX = (imgW - shortest) / 2;
+        const originY = (imgH - shortest) / 2;
+
+        const finalX = ((centerX - boxWidth / 2) * shortest + originX) / imgW;
+        const finalY = ((centerY - boxHeight / 2) * shortest + originY) / imgH;
+        const finalW = (boxWidth * shortest) / imgW;
+        const finalH = (boxHeight * shortest) / imgH;
 
         return {
           detected: true,

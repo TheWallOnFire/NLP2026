@@ -21,6 +21,7 @@ interface AutoModeBoundingBoxProps {
   boxHeight: SharedValue<number>;
   boxVisible: SharedValue<number>;
   statusText?: string;
+  imageRatio?: number;
 }
 
 export default function AutoModeBoundingBox({
@@ -30,6 +31,7 @@ export default function AutoModeBoundingBox({
   boxHeight,
   boxVisible,
   statusText,
+  imageRatio = 3/4,
 }: AutoModeBoundingBoxProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
@@ -47,13 +49,31 @@ export default function AutoModeBoundingBox({
     
     // Nếu chưa có kích thước container, ẩn box
     if (containerSize.width === 0) return { opacity: 0 };
+
+    const viewRatio = containerSize.width / containerSize.height;
+    let scaleX = 1, scaleY = 1, offsetX = 0, offsetY = 0;
+    
+    if (imageRatio > viewRatio) {
+      scaleY = containerSize.height; 
+      scaleX = containerSize.height * imageRatio; 
+      offsetX = (scaleX - containerSize.width) / 2;
+    } else {
+      scaleX = containerSize.width;
+      scaleY = containerSize.width / imageRatio;
+      offsetY = (scaleY - containerSize.height) / 2;
+    }
+
+    const bx = boxX.value * scaleX - offsetX;
+    const by = boxY.value * scaleY - offsetY;
+    const bw = boxWidth.value * scaleX;
+    const bh = boxHeight.value * scaleY;
     
     return {
       position: 'absolute',
-      left: withSpring(boxX.value * containerSize.width, { damping: 15, stiffness: 120, mass: 0.8 }),
-      top: withSpring(boxY.value * containerSize.height, { damping: 15, stiffness: 120, mass: 0.8 }),
-      width: withSpring(boxWidth.value * containerSize.width, { damping: 15, stiffness: 120, mass: 0.8 }),
-      height: withSpring(boxHeight.value * containerSize.height, { damping: 15, stiffness: 120, mass: 0.8 }),
+      left: withSpring(bx, { damping: 15, stiffness: 120, mass: 0.8 }),
+      top: withSpring(by, { damping: 15, stiffness: 120, mass: 0.8 }),
+      width: withSpring(bw, { damping: 15, stiffness: 120, mass: 0.8 }),
+      height: withSpring(bh, { damping: 15, stiffness: 120, mass: 0.8 }),
       opacity,
       borderWidth: 4,
       borderColor: '#4CAF50',
@@ -70,10 +90,23 @@ export default function AutoModeBoundingBox({
       return { opacity: 0 };
     }
     
-    const bx = boxX.value * containerSize.width;
-    const by = boxY.value * containerSize.height;
-    const bw = boxWidth.value * containerSize.width;
-    const bh = boxHeight.value * containerSize.height;
+    const viewRatio = containerSize.width / containerSize.height;
+    let scaleX = 1, scaleY = 1, offsetX = 0, offsetY = 0;
+    
+    if (imageRatio > viewRatio) {
+      scaleY = containerSize.height; 
+      scaleX = containerSize.height * imageRatio; 
+      offsetX = (scaleX - containerSize.width) / 2;
+    } else {
+      scaleX = containerSize.width;
+      scaleY = containerSize.width / imageRatio;
+      offsetY = (scaleY - containerSize.height) / 2;
+    }
+    
+    const bx = boxX.value * scaleX - offsetX;
+    const by = boxY.value * scaleY - offsetY;
+    const bw = boxWidth.value * scaleX;
+    const bh = boxHeight.value * scaleY;
     
     return {
       position: 'absolute',

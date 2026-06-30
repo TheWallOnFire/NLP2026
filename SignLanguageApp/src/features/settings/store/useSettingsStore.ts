@@ -27,7 +27,6 @@ export interface SettingsState {
     exportFormat: string;
   };
   detection: {
-    speed: 'slow' | 'normal' | 'fast' | 'off';
     threshold?: number;
   };
   systemAlerts: {
@@ -66,7 +65,6 @@ const initialSettings: Omit<SettingsState, 'updateSettings' | 'resetSettings'> =
     exportFormat: 'csv',
   },
   detection: {
-    speed: 'normal',
     threshold: 0.5,
   },
   systemAlerts: {

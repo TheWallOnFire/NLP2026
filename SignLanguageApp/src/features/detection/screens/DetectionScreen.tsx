@@ -28,7 +28,7 @@ export default function DetectionScreen({ navigation }: any) {
     isHistoryDialogOpen, setIsHistoryDialogOpen,
     isConfirmImageDialogOpen, setIsConfirmImageDialogOpen,
     imageToAnalyze, imageToAnalyzeSize, confirmImageAnalysis,
-    detectedWord, confidence, detectionSpeed, updateSettings,
+    detectedWord, confidence, updateSettings,
     detectionMode, setDetectionMode,
     isLiveScanning, setIsLiveScanning,
     selectedMedia, setSelectedMedia,
@@ -98,13 +98,12 @@ export default function DetectionScreen({ navigation }: any) {
         )}
 
         <MediaScanner
-          key={`scanner-${modelShape?.[1] || 224}-${detectionSpeed}`}
+          key={`scanner-${modelShape?.[1] || 224}`}
           detectionMode={detectionMode}
           device={device}
           cameraRef={camera}
           flash={flash}
           activePackId={activePackId}
-          detectionSpeed={detectionSpeed}
           isLiveScanning={isLiveScanning}
           scanAnimStyle={scanAnimStyle}
           selectedMedia={selectedMedia}
@@ -125,6 +124,7 @@ export default function DetectionScreen({ navigation }: any) {
             boxHeight={autoDetection.boxHeight}
             boxVisible={autoDetection.boxVisible}
             statusText={autoDetection.statusText}
+            imageRatio={autoDetection.imageRatio}
           />
         )}
 
@@ -162,7 +162,6 @@ export default function DetectionScreen({ navigation }: any) {
         <DetectionSidebar
           theme={theme}
           detectionMode={detectionMode}
-          detectionSpeed={detectionSpeed}
           updateSettings={updateSettings}
           toggleCameraFacing={toggleCameraFacing}
           toggleFlash={toggleFlash}

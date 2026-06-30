@@ -178,7 +178,7 @@ export default {
       cameraAndDetection: "Camera & Detection",
       frontCamera: "Front Camera",
       backCamera: "Back Camera",
-      detectionSpeed: "Detection Speed",
+
       hapticFeedback: "Haptic Feedback",
       storageAndData: "Storage & Data",
       localLogging: "Local Logging",

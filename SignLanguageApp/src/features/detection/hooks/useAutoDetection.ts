@@ -58,6 +58,9 @@ export function useAutoDetection({
   
   // Ref lưu trạng thái tọa độ Pixel thực (dành cho CamShift)
   const currentBoxRef = useRef<{x: number, y: number, w: number, h: number} | null>(null);
+  
+  const [imageRatio, setImageRatio] = useState<number>(3 / 4); // Default to 3:4 portrait
+
 
   // Hook Hand Detection thực thụ
   const { detectHand, isHandModelReady } = useHandDetection();
@@ -127,6 +130,12 @@ export function useAutoDetection({
       const imgInfo = await ImageManipulator.manipulateAsync(snapshotUri, []);
       const imgW = imgInfo.width;
       const imgH = imgInfo.height;
+      
+      // Update image ratio for UI mapping
+      if (imgH > 0 && isMountedRef.current) {
+        const ratio = imgW / imgH;
+        setImageRatio(prev => Math.abs(prev - ratio) > 0.01 ? ratio : prev);
+      }
 
       // NẾU ĐANG TÌM KIẾM (SEARCHING) -> DÙNG AI (MediaPipe)
       if (trackingState.current === TrackingState.SEARCHING) {
@@ -139,17 +148,23 @@ export function useAutoDetection({
           const rawW = width * imgW;
           const rawH = height * imgH;
 
+          // 1. Lòng bàn tay (palm) thường nằm dưới các ngón tay. 
+          // Dịch tâm (Center Y) lên trên một chút (khoảng 20% chiều cao Box) để lấy trọn vẹn cả các ngón tay.
           const centerX = rawX + rawW / 2;
-          const centerY = rawY + rawH / 2;
+          const centerY = rawY + rawH / 2 - (rawH * 0.2);
 
-          const UI_TO_IMG_RATIO = imgW / SCREEN_WIDTH;
-          const FIXED_PADDING = 40 * UI_TO_IMG_RATIO;
-          let side = Math.max(rawW, rawH) * 1.5 + FIXED_PADDING;
+          // 2. Thêm Padding động dựa trên độ phân giải ảnh (an toàn hơn là dùng SCREEN_WIDTH cố định)
+          const PADDING_RATIO = 0.15; // Thêm 15% viền an toàn
+          const extraPadding = Math.min(imgW, imgH) * PADDING_RATIO;
+          
+          // 3. Tăng hệ số Scale từ 1.5 lên 1.8 để đảm bảo bọc kín toàn bộ bàn tay dù đưa sát hay xa camera
+          let side = Math.max(rawW, rawH) * 1.8 + extraPadding;
           side = Math.min(side, Math.min(imgW, imgH));
 
           let newRawX = centerX - side / 2;
           let newRawY = centerY - side / 2;
 
+          // 4. Kìm kẹp (Clamp) chống tràn viền
           if (newRawX < 0) newRawX = 0;
           if (newRawY < 0) newRawY = 0;
           if (newRawX + side > imgW) newRawX = imgW - side;
@@ -163,12 +178,7 @@ export function useAutoDetection({
           const finalRatioW = side / imgW;
           const finalRatioH = side / imgH;
 
-          // Sửa lỗi sai vị trí Box ở Camera trước: Tọa độ UI phải lật ngược lại so với ảnh gốc
-          if (facing === 'front') {
-            boxX.value = 1 - finalRatioX - finalRatioW;
-          } else {
-            boxX.value = finalRatioX;
-          }
+          boxX.value = finalRatioX;
           
           boxY.value = finalRatioY;
           boxWidth.value = finalRatioW;
@@ -185,24 +195,36 @@ export function useAutoDetection({
         const newBox = await trackWithCamShift(snapshotUri, currentBoxRef.current, imgW, imgH);
         
         if (newBox) {
-          currentBoxRef.current = newBox;
-          
-          const rawRatioX = newBox.x / imgW;
-          const rawRatioW = newBox.w / imgW;
+          const EDGE_MARGIN = 10;
+          const isOutOfBounds = 
+            newBox.x <= EDGE_MARGIN || 
+            newBox.y <= EDGE_MARGIN || 
+            (newBox.x + newBox.w) >= (imgW - EDGE_MARGIN) || 
+            (newBox.y + newBox.h) >= (imgH - EDGE_MARGIN);
 
-          // Tương tự, lật box cho CamShift trên UI
-          if (facing === 'front') {
-            boxX.value = 1 - rawRatioX - rawRatioW;
+          if (isOutOfBounds) {
+            // Out of bounds: Immediately reset tracking
+            trackingState.current = TrackingState.SEARCHING;
+            currentBoxRef.current = null;
+            resetCamShiftTracker();
+            if (boxVisible.value !== 0) boxVisible.value = 0;
+            setStatusText(i18n.t('detection.searchingHand'));
+            missedFramesCount.current = 0;
           } else {
-            boxX.value = rawRatioX;
-          }
+            currentBoxRef.current = newBox;
+            
+            const rawRatioX = newBox.x / imgW;
+            const rawRatioW = newBox.w / imgW;
 
-          boxY.value = newBox.y / imgH;
-          boxWidth.value = rawRatioW;
-          boxHeight.value = newBox.h / imgH;
-          boxVisible.value = 1;
-          
-          missedFramesCount.current = 0;
+            boxX.value = rawRatioX;
+
+            boxY.value = newBox.y / imgH;
+            boxWidth.value = rawRatioW;
+            boxHeight.value = newBox.h / imgH;
+            boxVisible.value = 1;
+            
+            missedFramesCount.current = 0;
+          }
         } else {
            missedFramesCount.current += 1;
            if (missedFramesCount.current >= 3) {
@@ -239,10 +261,7 @@ export function useAutoDetection({
       let safeY = boxY.value;
       let safeSide = boxWidth.value;
 
-      // Đảo ngược quá trình lật UI để lấy tọa độ thực trên ảnh gốc (RAW Image)
-      if (facing === 'front') {
-        safeX = 1 - safeX - safeSide;
-      }
+      // Bỏ qua lật UI vì ảnh chụp đã tự động flip ngang khớp với màn hình
 
       // Đảm bảo không bị văng do sai số Float
       const cropX = Math.max(0, Math.floor(safeX * imgW));
@@ -378,5 +397,6 @@ export function useAutoDetection({
     clearAutoResults,
     resetAutoState,
     setAutoResults,
+    imageRatio,
   };
 }

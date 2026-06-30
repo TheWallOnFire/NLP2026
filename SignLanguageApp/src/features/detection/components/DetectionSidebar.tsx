@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 interface DetectionSidebarProps {
   theme: any;
   detectionMode: 'live' | 'picture' | 'video' | 'batch' | 'auto';
-  detectionSpeed: string;
+
   updateSettings: (settings: any) => void;
   toggleCameraFacing: () => void;
   toggleFlash: () => void;
@@ -26,7 +26,7 @@ interface DetectionSidebarProps {
 export default function DetectionSidebar({
   theme,
   detectionMode,
-  detectionSpeed,
+
   updateSettings,
   toggleCameraFacing,
   toggleFlash,
@@ -41,37 +41,13 @@ export default function DetectionSidebar({
   onPressManualScan,
   setIsUrlDialogOpen
 }: DetectionSidebarProps) {
-  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
   const { t } = useTranslation();
 
   return (
     <View style={styles.verticalSidebar}>
       {detectionMode === 'live' || detectionMode === 'auto' ? (
         <>
-          {detectionMode === 'live' && (
-            <Menu
-              visible={isSpeedMenuOpen}
-              onDismiss={() => setIsSpeedMenuOpen(false)}
-              anchor={
-                <IconButton 
-                  icon={
-                    detectionSpeed === 'slow' ? 'turtle' :
-                    detectionSpeed === 'fast' ? 'rabbit' :
-                    detectionSpeed === 'off' ? 'motion-pause-outline' : 'walk'
-                  } 
-                  iconColor="white" 
-                  size={24} 
-                  style={styles.sideBtn} 
-                  onPress={() => setIsSpeedMenuOpen(true)} 
-                />
-              }
-            >
-              <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'slow' } }); setIsSpeedMenuOpen(false); }} title={t('detection.slow')} leadingIcon="turtle" />
-              <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'normal' } }); setIsSpeedMenuOpen(false); }} title={t('detection.normal')} leadingIcon="walk" />
-              <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'fast' } }); setIsSpeedMenuOpen(false); }} title={t('detection.fast')} leadingIcon="rabbit" />
-              <Menu.Item onPress={() => { updateSettings({ detection: { speed: 'off' } }); setIsSpeedMenuOpen(false); }} title={t('detection.offManual')} leadingIcon="motion-pause-outline" />
-            </Menu>
-          )}
+
           <IconButton icon={() => <RotateCcw color="white" size={24} />} style={styles.sideBtn} onPress={toggleCameraFacing} />
           <IconButton icon={() => (flash ? <Zap color="#FFD600" size={24} /> : <ZapOff color="white" size={24} />)} style={styles.sideBtn} onPress={toggleFlash} />
           <IconButton icon={() => <Timer color="white" size={24} />} style={styles.sideBtn} onPress={() => Alert.alert(t('detection.countdownTitle'), t('detection.comingSoon'))} />
@@ -90,7 +66,7 @@ export default function DetectionSidebar({
         icon={
           detectionMode === 'auto' 
             ? (isLiveScanning ? "stop-circle" : "play-circle") 
-            : (detectionMode === 'live' && detectionSpeed !== 'off') 
+            : (detectionMode === 'live') 
               ? (isLiveScanning ? "stop-circle" : "play-circle") 
               : "scan-helper"
         } 

@@ -83,7 +83,9 @@ Toàn bộ hệ thống giờ đây được vận hành trên một Vòng lặp
   - **Mẫu động (Adaptive Histogram):** Bộ nhớ màu da liên tục pha trộn thêm 5% màu thực tế ở mỗi khung hình. Giúp khung xanh không bị đứt đoạn khi người dùng đi từ phòng đèn trắng sang đèn vàng.
   - **Bám dính tuyệt đối:** Nhờ chỉ tính toán "Trọng tâm màu da", hệ thống không hề bị tuột khung ngay cả khi người dùng nắm chặt tay thành nắm đấm.
   - **Vật lý Lò xo (Spring UI):** Tọa độ xuất ra màn hình được bọc qua bộ giảm xóc Lò xo (`withSpring`). Khung Xanh sẽ lướt đi mềm mại như nước, hấp thụ mọi độ rung lắc của tay.
-- **Thoát (Reset):** Khi bàn tay di chuyển chạm vào hoặc vượt ra khỏi biên giới của camera (Out of Bounds), hệ thống sẽ lập tức hủy bỏ Khung Xanh, báo mất dấu và đưa toàn bộ quy trình quay về Giai đoạn 1 để tìm kiếm lại từ đầu bằng AI. Điều này tránh việc CamShift nhận diện sai màu nền khi tay đã rời khỏi khung hình.
+  - **Bảo vệ Tràn viền (Out-of-Bounds Crop Protection):** Bổ sung logic kìm kẹp (Clamp) giới hạn khung tìm kiếm (Search Window) của CamShift. Đảm bảo khu vực nội suy luôn nằm trọn vẹn bên trong độ phân giải của ảnh gốc, giải quyết triệt để lỗi crash hệ thống (`ImageManipulator`) khi tay di chuyển sát ra mép viền phải hoặc dưới của camera.
+- **Ánh xạ Tọa độ Động (Dynamic Coordinate Mapping):** Khắc phục lỗi khung xanh bị lệch, méo và bám đuôi không chuẩn xác do ảnh hưởng của chế độ hiển thị `Cover` (cắt xén khung hình). Hệ thống tính toán trực tiếp hệ số tỷ lệ ảnh (`imageRatio`) và tự động nội suy mức độ Scale/Offset trên UI Thread (Reanimated). Nhờ vậy, tọa độ Tracking từ ảnh gốc được chuyển đổi mượt mà và chính xác tuyệt đối sang hệ quy chiếu của màn hình điện thoại.
+- **Thoát (Reset):** Khi bàn tay di chuyển chạm vào mép camera (với biên độ an toàn `EDGE_MARGIN = 10px`), hệ thống sẽ lập tức nhận diện là Out of Bounds, hủy bỏ Khung Xanh, báo mất dấu và đưa quy trình quay về Giai đoạn 1. Điều này ngăn chặn triệt để hiện tượng thuật toán CamShift bám vào vân nền xung quanh hoặc sinh ra "bóng ma" khi tay đã rời khỏi khung hình.
 
 ### 2. Luồng Nhận diện Ngôn ngữ (Sign Recognition Loop)
 - **Tốc độ:** Chạy ngầm tốc độ thấp (2-3 FPS).
@@ -126,3 +128,6 @@ Kiến trúc Agentic AI được thiết kế theo mô hình tự chủ (Autonom
 **Ví dụ thực tế:**
 `t=1.52s`: AI nhận diện 'A' (0.92 > 0.5) trong 3 frames liên tiếp -> UI chốt hiển thị 'A - 92%'.
 Xét phản hồi: 0.92 > 0.8 VÀ 'A' chưa được đọc trong 2s qua -> Kích hoạt Haptic + Đọc TTS('A') + Lưu Lịch sử. Đặt Cooldown cho 'A'.
+
+- Lỗi:
+  - mode Auto: dùng chung logic với mode live (có speed từ fast,normal,slow,off) dẫn tới việc hoạt động ko đúng, refactor lại

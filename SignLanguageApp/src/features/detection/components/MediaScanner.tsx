@@ -13,7 +13,7 @@ interface MediaScannerProps {
   cameraRef: React.RefObject<any>;
   flash: boolean;
   activePackId: string | null;
-  detectionSpeed: string;
+
   isLiveScanning: boolean;
   scanAnimStyle?: any;
   selectedMedia: string | null;
@@ -31,7 +31,7 @@ export default function MediaScanner({
   cameraRef,
   flash,
   activePackId,
-  detectionSpeed,
+
   isLiveScanning,
   scanAnimStyle,
   selectedMedia,
@@ -73,7 +73,7 @@ export default function MediaScanner({
                 <View style={[styles.corner, styles.topRight]} />
                 <View style={[styles.corner, styles.bottomLeft]} />
                 <View style={[styles.corner, styles.bottomRight]} />
-                {detectionSpeed !== 'off' && activePackId && isLiveScanning && (
+                {activePackId && isLiveScanning && (
                   <Animated.View style={[styles.scanLine, scanAnimStyle]} />
                 )}
               </View>

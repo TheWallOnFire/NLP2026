@@ -40,15 +40,19 @@ export async function trackWithCamShift(
   try {
     const searchW = Math.min(imgW, prevBox.w * 1.5);
     const searchH = Math.min(imgH, prevBox.h * 1.5);
-    const searchX = Math.max(0, prevBox.x - (searchW - prevBox.w) / 2);
-    const searchY = Math.max(0, prevBox.y - (searchH - prevBox.h) / 2);
+    let searchX = Math.floor(Math.max(0, prevBox.x - (searchW - prevBox.w) / 2));
+    let searchY = Math.floor(Math.max(0, prevBox.y - (searchH - prevBox.h) / 2));
+
+    // Đảm bảo không vượt quá viền phải và dưới của ảnh (gây crash ImageManipulator)
+    let finalSearchW = Math.floor(Math.min(searchW, imgW - searchX));
+    let finalSearchH = Math.floor(Math.min(searchH, imgH - searchY));
 
     const cropAction = {
       crop: {
-        originX: Math.floor(searchX),
-        originY: Math.floor(searchY),
-        width: Math.floor(searchW),
-        height: Math.floor(searchH),
+        originX: searchX,
+        originY: searchY,
+        width: finalSearchW,
+        height: finalSearchH,
       },
     };
 
@@ -130,8 +134,8 @@ export async function trackWithCamShift(
     const cx = sumX / mass;
     const cy = sumY / mass;
 
-    const realCx = searchX + (cx / 64) * searchW;
-    const realCy = searchY + (cy / 64) * searchH;
+    const realCx = searchX + (cx / 64) * finalSearchW;
+    const realCy = searchY + (cy / 64) * finalSearchH;
 
     const newW = prevBox.w; 
     const newH = prevBox.h;
