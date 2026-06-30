@@ -9,6 +9,7 @@ import { useUserStore } from '../../profile/store/useUserStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
 import { importCustomPack } from '../../../utils/packImporter';
+import i18n from '../../../core/i18n';
 
 export function useSettingsLogic() {
   const settings = useSettingsStore();
@@ -67,12 +68,12 @@ export function useSettingsLogic() {
               const info = await FileSystem.getInfoAsync(cacheDir);
               if (info.exists) {
                 await FileSystem.deleteAsync(cacheDir, { idempotent: true });
+                await calculateCacheSize();
+                triggerSuccessFeedback();
+                Alert.alert(i18n.t('settings.success'), i18n.t('settings.cacheCleared'));
               }
-              await calculateCacheSize();
-              triggerSuccessFeedback();
-              Alert.alert("Thành công", "Đã xóa toàn bộ cache media.");
             } catch (e) {
-              Alert.alert("Lỗi", "Không thể xóa cache.");
+              Alert.alert(i18n.t('settings.error'), i18n.t('settings.cacheClearFailed'));
             } finally {
               setIsClearing(false);
             }
@@ -89,10 +90,10 @@ export function useSettingsLogic() {
       if (result) {
         initializePackWords(result.pack.id, result.words);
         importCustomPackAction(result.pack);
-        Alert.alert("Success", `Imported ${result.pack.name} successfully!`);
+        Alert.alert(i18n.t('settings.success'), i18n.t('settings.importSuccess', { name: result.pack.name }));
       }
     } catch (error: any) {
-      Alert.alert("Import Failed", error.message || "Failed to import model pack.");
+      Alert.alert(i18n.t('settings.importFailed'), error.message || i18n.t('settings.importFailed'));
     } finally {
       setIsImporting(false);
     }
@@ -100,36 +101,36 @@ export function useSettingsLogic() {
 
   const confirmClearHistory = () => {
     Alert.alert(
-      "Clear History",
-      "Delete all activity history?",
+      i18n.t('settings.clearHistoryTitle'),
+      i18n.t('settings.clearHistoryMessage'),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: clearHistory }
+        { text: i18n.t('common.cancel'), style: "cancel" },
+        { text: i18n.t('common.delete'), style: "destructive", onPress: clearHistory }
       ]
     );
   };
 
   const handleClearAllData = () => {
     Alert.alert(
-      "Reset App Data",
-      "This will permanently delete all your learning progress, history, downloaded models, and personalized settings. You will be returned to the initial state.",
+      i18n.t('settings.resetAppTitle'),
+      i18n.t('settings.resetAppMessage'),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: i18n.t('common.cancel'), style: "cancel" },
         {
-          text: "Reset Everything",
+          text: i18n.t('settings.resetEverything'),
           style: "destructive",
           onPress: async () => {
             try {
               resetPacks();
-              clearHistory();
-              resetProfile();
-              resetAllProgress();
-              settings.resetSettings();
               await AsyncStorage.clear();
+              settings.resetSettings();
+              resetProfile();
+              useHistoryStore.getState().clearHistory();
+              useLearningStore.getState().resetAllProgress();
               triggerSuccessFeedback();
-              Alert.alert("Success", "Your application has been reset to factory defaults.");
+              Alert.alert(i18n.t('settings.success'), i18n.t('settings.factoryResetSuccess'));
             } catch (e) {
-              Alert.alert("Error", "Failed to clear system storage.");
+              Alert.alert(i18n.t('settings.error'), i18n.t('settings.factoryResetFailed'));
             }
           }
         }

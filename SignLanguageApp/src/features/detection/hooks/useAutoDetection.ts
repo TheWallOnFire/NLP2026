@@ -11,6 +11,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useHandDetection } from './useHandDetection';
 import { trackWithCamShift, resetCamShiftTracker } from '../utils/camShiftTracker';
+import i18n from '../../../core/i18n';
 
 
 
@@ -49,7 +50,7 @@ export function useAutoDetection({
   isModelReady,
   onAutoResult,
 }: UseAutoDetectionOptions) {
-  const [statusText, setStatusText] = useState<string>('Đang tìm bàn tay...');
+  const [statusText, setStatusText] = useState<string>(i18n.t('detection.searchingHand'));
   
   // State Machine
   const trackingState = useRef<TrackingState>(TrackingState.SEARCHING);
@@ -175,7 +176,7 @@ export function useAutoDetection({
           boxVisible.value = 1;
 
           trackingState.current = TrackingState.TRACKING;
-          setStatusText('Đã khóa mục tiêu (CamShift)...');
+          setStatusText(i18n.t('detection.targetLocked'));
           missedFramesCount.current = 0;
         }
       } 
@@ -209,7 +210,7 @@ export function useAutoDetection({
              currentBoxRef.current = null;
              resetCamShiftTracker();
              if (boxVisible.value !== 0) boxVisible.value = 0;
-             setStatusText('Đang tìm bàn tay...');
+             setStatusText(i18n.t('detection.searchingHand'));
            }
         }
       }
@@ -247,6 +248,8 @@ export function useAutoDetection({
       const cropX = Math.max(0, Math.floor(safeX * imgW));
       const cropY = Math.max(0, Math.floor(safeY * imgH));
       const cropSide = Math.min(Math.floor(safeSide * imgW), Math.min(imgW - cropX, imgH - cropY));
+
+      if (cropSide <= 0) return; // Fix: Chặn ImageManipulator lỗi khi width/height = 0
 
       const manipActions: any[] = [
         { crop: { originX: cropX, originY: cropY, width: cropSide, height: cropSide } },
@@ -287,7 +290,7 @@ export function useAutoDetection({
     });
 
     onAutoResult?.(resultItem);
-    setStatusText(`Nhận diện: ${sign} (${Math.round(confidence * 100)}%)`);
+    setStatusText(i18n.t('detection.detecting', { word: sign, confidence: Math.round(confidence * 100) }));
 
     // Không cần dùng setTimeout 3 giây nữa, hệ thống sẽ liên tục quét.
     // Nếu khung hình tiếp theo mất dấu tay, performRecognition sẽ tự ẩn box.
@@ -299,7 +302,7 @@ export function useAutoDetection({
    */
   useEffect(() => {
     if (!isActive || !isModelReady || !activePackId) {
-      setStatusText('Đang tìm bàn tay...');
+      setStatusText(i18n.t('detection.searchingHand'));
       trackingState.current = TrackingState.SEARCHING;
       missedFramesCount.current = 0;
       currentBoxRef.current = null;
@@ -351,7 +354,7 @@ export function useAutoDetection({
    * Reset auto detection state
    */
   const resetAutoState = useCallback(() => {
-      setStatusText('Đang tìm bàn tay...');
+      setStatusText(i18n.t('detection.searchingHand'));
       trackingState.current = TrackingState.SEARCHING;
       missedFramesCount.current = 0;
       currentBoxRef.current = null;

@@ -137,14 +137,14 @@ export function useDetectionLogic(navigation: any) {
     if (editedText.trim().length === 0) return;
     
     saveCameraSession(editedText, activePackId || undefined, sessionId);
-    setSnackbarMsg(sessionId ? "Đã lưu vào phiên lịch sử!" : "Đã tạo phiên lịch sử mới!");
+    setSnackbarMsg(sessionId ? i18n.t('detection.savedToSession') : i18n.t('detection.newSessionCreated'));
   };
 
   const onSaveMediaSession = () => {
     if (sessionHistory.length > 0 && pendingMediaUri && detectionMode !== 'live') {
       const signsToSave = detectionMode === 'video' ? sessionHistory.map(h => h.sign).reverse() : [sessionHistory[0].sign];
       addImageVideoSession(detectionMode as 'picture' | 'video', pendingMediaUri, signsToSave, activePackId || undefined);
-      setSnackbarMsg("Đã lưu kết quả!");
+      setSnackbarMsg(i18n.t('detection.resultsSaved'));
       setSessionHistory([]);
       setPendingMediaUri(null);
     }
@@ -300,7 +300,6 @@ export function useDetectionLogic(navigation: any) {
     // Bug 11: Tự động dọn dẹp rác (Cache Bloat) của ImageManipulator khi Component Mount
     const cleanImageCache = async () => {
       try {
-        const FileSystem = require('expo-file-system/legacy');
         const cacheDir = FileSystem.cacheDirectory + 'ImageManipulator';
         const info = await FileSystem.getInfoAsync(cacheDir);
         if (info.exists) {
@@ -388,16 +387,8 @@ export function useDetectionLogic(navigation: any) {
                     allImageUris.push(fileUri);
                   }
                 } else {
-                  // Cải thiện (Bug 38): URI Android Storage Framework thường không có đuôi mở rộng.
-                  // Dùng try-catch với readDirectoryAsync để kiểm tra xem nó là file hay folder thay vì regex.
-                  try {
-                    await StorageAccessFramework.readDirectoryAsync(fileUri);
-                    // Nếu thành công (không lỗi) => Nó là một thư mục con, duyệt đệ quy tiếp
-                    await scanDirectory(fileUri);
-                  } catch (e) {
-                    // Nếu lỗi (readDirectoryAsync ném ngoại lệ vì nó là File, không phải Thư mục) => Thu thập!
-                    allImageUris.push(fileUri);
-                  }
+                  // Fix (Anti-pattern): Bỏ try-catch kiểm tra thư mục. Không quét đệ quy rủi ro.
+                  // Ta chỉ chấp nhận file định dạng rõ ràng, bỏ qua các URL không có đuôi.
                 }
               }
             } catch (e: any) {
@@ -405,7 +396,7 @@ export function useDetectionLogic(navigation: any) {
             }
           };
 
-          setSnackbarMsg("Đang quét ảnh trong thư mục...");
+          setSnackbarMsg(i18n.t('detection.scanningFolder'));
           await scanDirectory(uri);
           
           if (allImageUris.length > 0) {
@@ -417,7 +408,7 @@ export function useDetectionLogic(navigation: any) {
             setSelectedBatchAssets(assets);
             setSelectedMedia(assets[0].uri);
           } else {
-            Alert.alert("Thông báo", "Không tìm thấy file ảnh nào trong thư mục này.");
+            Alert.alert(i18n.t('detection.error'), i18n.t('detection.noImagesFound'));
           }
         }
       } else {
@@ -441,11 +432,11 @@ export function useDetectionLogic(navigation: any) {
 
   const handleBatchScan = async () => {
     if (!selectedBatchAssets || selectedBatchAssets.length === 0) {
-      setSnackbarMsg("Chưa chọn file nào.");
+      setSnackbarMsg(i18n.t('detection.noFilesSelected'));
       return;
     }
     setIsProcessing(true);
-    setSnackbarMsg("Đang chuẩn bị ảnh...");
+    setSnackbarMsg(i18n.t('detection.preparingImages'));
     setBatchResults([]);
 
     try {
@@ -459,7 +450,7 @@ export function useDetectionLogic(navigation: any) {
         await new Promise(resolve => setTimeout(resolve, 16));
         
         const asset = selectedBatchAssets[i];
-        setSnackbarMsg(`Đang xử lý ${i + 1}/${selectedBatchAssets.length}...`);
+        setSnackbarMsg(`${i18n.t('detection.processing')} ${i + 1}/${selectedBatchAssets.length}...`);
         
         const fileName = asset.name || `image_${i}.jpg`;
         
@@ -476,9 +467,9 @@ export function useDetectionLogic(navigation: any) {
         runDetection(destUri, undefined, true);
         
         let attempts = 0;
-        // Thêm điều kiện an toàn, nếu timeout 500 thì thoát và tính là lỗi
-        while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 500) {
-          await new Promise(r => setTimeout(r, 100));
+        // Fix: Tăng khoảng thời gian chờ để nhả Event Loop cho UI
+        while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 250) {
+          await new Promise(r => setTimeout(r, 200));
           attempts++;
         }
         
@@ -505,11 +496,11 @@ export function useDetectionLogic(navigation: any) {
         addBatchSession(results, activePackId || undefined);
       }
       setIsBatchResultDialogOpen(true);
-      setSnackbarMsg(`Hoàn tất xử lý ${results.length} ảnh và đã lưu vào lịch sử!`);
+      setSnackbarMsg(i18n.t('detection.batchComplete'));
       
     } catch (e: any) {
       console.error("Batch scan error:", e);
-      setSnackbarMsg("Lỗi khi xử lý file/thư mục.");
+      setSnackbarMsg(i18n.t('detection.processingError'));
     } finally {
       setIsProcessing(false);
     }
@@ -550,13 +541,13 @@ export function useDetectionLogic(navigation: any) {
               imagePath = `file://${imagePath}`;
             }
             if (imagePath) {
-              if (developerDebugMode) setSnackbarMsg("Đã tự động chụp và xử lý...");
+              if (developerDebugMode) setSnackbarMsg(i18n.t('detection.autoSnapshot'));
               result = runDetection(imagePath, facing, true);
             } else {
-              result = { success: false, message: "Lỗi Camera: Không thể lưu file ảnh tạm." };
+              result = { success: false, message: i18n.t('detection.cameraError') };
             }
           } catch (cameraError: any) {
-            result = { success: false, message: `Lỗi chụp ảnh: ${cameraError.message || cameraError}` };
+            result = { success: false, message: `${i18n.t('detection.snapshotError')}: ${cameraError.message || cameraError}` };
           }
         }
       } else if (actualMedia && detectionMode === 'picture') {
@@ -567,15 +558,15 @@ export function useDetectionLogic(navigation: any) {
         
         // Lấy thông tin file ảnh để hiện trên Dialog
         try {
-          const FileSystem = require('expo-file-system/legacy');
           const Image = require('react-native').Image;
           const fileInfo = await FileSystem.getInfoAsync(finalMedia);
+          const bytes = fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size || 0 : 0;
           Image.getSize(finalMedia, (width: number, height: number) => {
-            setImageToAnalyzeSize({ width, height, bytes: fileInfo.size || 0 });
+            setImageToAnalyzeSize({ width, height, bytes });
             setImageToAnalyze(finalMedia);
             setIsConfirmImageDialogOpen(true);
           }, () => {
-            setImageToAnalyzeSize({ width: 0, height: 0, bytes: fileInfo.size || 0 });
+            setImageToAnalyzeSize({ width: 0, height: 0, bytes });
             setImageToAnalyze(finalMedia);
             setIsConfirmImageDialogOpen(true);
           });
@@ -596,10 +587,10 @@ export function useDetectionLogic(navigation: any) {
           setPendingMediaUri(actualMedia);
           result = runDetection(finalMedia, undefined);
         } catch (thumbErr: any) {
-          result = { success: false, message: "Không thể trích xuất khung hình từ video: " + thumbErr.message };
+          result = { success: false, message: i18n.t('detection.thumbnailError') + ": " + thumbErr.message };
         }
       } else {
-        result = { success: false, message: "Chưa có file ảnh/video nào được chọn." };
+        result = { success: false, message: i18n.t('detection.noMediaSelected') };
       }
 
       if (isManualClick && result) {
@@ -668,7 +659,12 @@ export function useDetectionLogic(navigation: any) {
   }, [isDebugDialogOpen, developerDebugMode, getDebugInfo]);
 
   const onPressManualScan = async () => {
-    if ((detectionMode === 'live' || detectionMode === 'video' || detectionMode === 'auto') && detectionSpeed !== 'off') {
+    if (detectionMode === 'auto') {
+      setIsLiveScanning(prev => !prev);
+      return;
+    }
+    
+    if ((detectionMode === 'live' || detectionMode === 'video') && detectionSpeed !== 'off') {
       if (detectionMode === 'video' && !selectedMedia) {
         Alert.alert(i18n.t('detection.error'), i18n.t('detection.selectVideoFirst'));
         return;
@@ -678,8 +674,8 @@ export function useDetectionLogic(navigation: any) {
         i18n.t('detection.confirmVideoAnalysis'),
         i18n.t('detection.confirmVideoAnalysisDesc'),
         [
-            { text: "Hủy", style: "cancel" },
-            { text: "Bắt đầu", onPress: () => setIsLiveScanning(true) }
+            { text: i18n.t('common.cancel'), style: "cancel" },
+            { text: i18n.t('common.start'), onPress: () => setIsLiveScanning(true) }
           ]
         );
         return;
@@ -734,25 +730,8 @@ export function useDetectionLogic(navigation: any) {
         cleanUrl = cleanUrl.replace('http://', 'https://');
       }
 
-      try { new URL(cleanUrl); } catch (e) { throw new Error("Đường dẫn URL không hợp lệ."); }
-      setSnackbarMsg("Đang kiểm tra kết nối mạng và ảnh...");
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        // Fix Bug 17: Vô hiệu hóa Cache mạng để luôn tải ảnh mới nhất
-        const response = await fetch(cleanUrl, { 
-          method: 'HEAD', 
-          signal: controller.signal,
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        });
-        clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`Server từ chối truy cập.`);
-        const contentType = response.headers.get('content-type');
-        if (contentType && !contentType.startsWith('image/')) throw new Error("Không phải file ảnh.");
-      } catch (e: any) {
-        if (e.name === 'AbortError') throw new Error("Mạng quá yếu.");
-        if (e.message.includes("Server từ chối") || e.message.includes("Không phải file ảnh")) throw e;
-      }
+      try { new URL(cleanUrl); } catch (e) { throw new Error(i18n.t('detection.invalidUrl')); }
+      setSnackbarMsg(i18n.t('detection.checkingNetwork'));
       
       // Fix Bug 23: Sử dụng API chuẩn để bóc tách đuôi file, tránh bị nhiễu bởi Query Parameters (?id=...)
       const parsedUrl = new URL(cleanUrl);
@@ -766,7 +745,7 @@ export function useDetectionLogic(navigation: any) {
         const fileInfo = await FileSystem.getInfoAsync(destUri);
         if (fileInfo.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
       } catch (e) { }
-      setSnackbarMsg("Đang tải ảnh...");
+      setSnackbarMsg(i18n.t('detection.downloading'));
 
       const downloadWithRetry = async (url: string, dest: string, retries = 2, timeoutMs = 15000): Promise<any> => {
         for (let i = 0; i <= retries; i++) {
@@ -782,8 +761,8 @@ export function useDetectionLogic(navigation: any) {
             clearTimeout(timeoutId);
             clearTimeout(innerTimeoutId); // Fix Bug 6: Hủy bộ đếm giờ ngầm để tránh Unhandled Promise Rejection
             if (result.status === 200) return result;
-            if (result.status === 206) throw new Error("Dữ liệu bị rách (Partial Content)."); // Fix Bug 24
-            if (i === retries) throw new Error(`Lỗi: ${result.status}`);
+            if (result.status === 206) throw new Error(i18n.t('detection.partialContentError')); // Fix Bug 24
+            if (i === retries) throw new Error(`${i18n.t('detection.statusError')}: ${result.status}`);
           } catch (error) {
             if (i === retries) throw error;
           }
@@ -792,14 +771,14 @@ export function useDetectionLogic(navigation: any) {
 
       const { uri, headers } = await downloadWithRetry(cleanUrl, destUri);
       const downloadedType = headers['content-type'] || headers['Content-Type'];
-      if (downloadedType && !downloadedType.toLowerCase().includes('image/')) throw new Error("Lỗi định dạng.");
+      if (downloadedType && !downloadedType.toLowerCase().includes('image/')) throw new Error(i18n.t('detection.formatError'));
 
       if (appState.current !== 'active') return;
       setSelectedMedia(uri);
       setIsLiveScanning(false);
       setUrlInput("");
       setIsUrlDialogOpen(false);
-      setSnackbarMsg("Tải thành công! Bắt đầu quét...");
+      setSnackbarMsg(i18n.t('detection.downloadSuccess'));
       await handleManualScan(uri, true);
     } catch (err: any) {
       // Fix Bug 19: Dọn rác tệp tin tải dang dở khi có lỗi Timeout/Mạng
@@ -820,20 +799,17 @@ export function useDetectionLogic(navigation: any) {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setIsProcessing(true); // Fix Bug 50: Hiển thị trạng thái Loading
         try {
-          const file = result.assets[0];
-          const fileName = file.name || file.uri.split('/').pop() || 'custom.tflite';
-          
-          // Fix Bug 37 (GZIP Bomb Limit): Không cho phép tải model vượt quá 200MB để tránh tràn RAM
-          if (file.size && file.size > 200 * 1024 * 1024) {
-             return Alert.alert("Dung lượng quá lớn", "File model không được vượt quá 200MB.");
-          }
-          
-          if (fileName.includes('..') || fileName.includes('/') || !fileName.toLowerCase().endsWith('.tflite')) {
-             return Alert.alert(i18n.t('detection.securityError'), "Chỉ cho phép file model có định dạng .tflite hợp lệ.");
-          }
+          const fileInfo = await FileSystem.getInfoAsync(result.assets[0].uri);
+           if (fileInfo.exists && fileInfo.size && fileInfo.size > 200 * 1024 * 1024) {
+             return Alert.alert(i18n.t('detection.fileTooLarge'), i18n.t('detection.fileTooLargeDesc'));
+           }
+           
+           if (!result.assets[0].name?.toLowerCase().endsWith('.tflite')) {
+             return Alert.alert(i18n.t('detection.securityError'), i18n.t('detection.invalidTflite'));
+           }
 
-          const targetPath = `${FileSystem.documentDirectory}${fileName}`;
-          await FileSystem.copyAsync({ from: file.uri, to: targetPath });
+          const targetPath = `${FileSystem.documentDirectory}${result.assets[0].name}`;
+          await FileSystem.copyAsync({ from: result.assets[0].uri, to: targetPath });
           setCustomModelUri(targetPath);
           Alert.alert(i18n.t('detection.success'), i18n.t('detection.customModelSuccess'));
         } catch (err: any) {
@@ -843,7 +819,7 @@ export function useDetectionLogic(navigation: any) {
         }
       }
     } catch (err: any) { 
-      Alert.alert("Lỗi tải Model", String(err.message || err)); // Fix Bug 48: Ép kiểu string chống văng Object
+      Alert.alert(i18n.t('detection.modelLoadError'), String(err.message || err)); // Fix Bug 48: Ép kiểu string chống văng Object
     }
   };
 
@@ -895,7 +871,7 @@ export function useDetectionLogic(navigation: any) {
     if (sessionHistory.length > 0) {
       const text = sessionHistory.map(h => h.sign).reverse().join(' ');
       saveCameraSession(text, activePackId || undefined);
-      setSnackbarMsg('Đã lưu kết quả auto detection vào lịch sử!');
+      setSnackbarMsg(i18n.t('detection.autoResultsSaved'));
       setSessionHistory([]);
       autoDetection.clearAutoResults();
     }

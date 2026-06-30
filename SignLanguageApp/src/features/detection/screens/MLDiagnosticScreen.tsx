@@ -9,6 +9,7 @@ import { prepareImageForModel, convertPixelsToInputData } from '../utils/imagePr
 import { parseInferenceOutput } from '../utils/modelOutputParser';
 import { useModelStore } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
+import i18n from '../../../core/i18n';
 
 export default function MLDiagnosticScreen({ navigation }: any) {
   const theme = useTheme();
@@ -123,9 +124,9 @@ export default function MLDiagnosticScreen({ navigation }: any) {
     // Tính toán độ nhất quán
     const uniqueHashes = new Set(testResults.map(r => r.hash));
     if (uniqueHashes.size === 1) {
-      Alert.alert("Kết quả", "100 lần chạy ra KẾT QUẢ GIỐNG HỆT NHAU. Pipeline rất ổn định.");
+      Alert.alert(i18n.t('detection.diagnosticResult'), i18n.t('detection.diagnosticStable'));
     } else {
-      Alert.alert("Kết quả", `Phát hiện NỖI NHIỄU: Có ${uniqueHashes.size} kết quả khác biệt trong 100 lần chạy.`);
+      Alert.alert(i18n.t('detection.diagnosticResult'), i18n.t('detection.diagnosticUnstable', { count: uniqueHashes.size }));
     }
   };
 

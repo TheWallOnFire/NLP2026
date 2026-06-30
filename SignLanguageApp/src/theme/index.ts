@@ -1,72 +1,72 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
-// Futuristic Sci-Fi Palette (Neon Blue, Cyan, Violet)
+// Deep Blue & Ocean Palette
 export const lightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#2563EB', // Futuristic Blue
+    primary: '#1A365D', // Deep Navy Blue
     onPrimary: '#FFFFFF',
-    primaryContainer: '#DBEAFE',
-    onPrimaryContainer: '#1E3A8A',
+    primaryContainer: '#D0E4F7', // Soft Ocean Blue
+    onPrimaryContainer: '#0A2540',
     
-    secondary: '#06B6D4', // Cyber Cyan
+    secondary: '#00B4D8', // Bright Cyan for contrast
     onSecondary: '#FFFFFF',
-    secondaryContainer: '#CFFAFE',
-    onSecondaryContainer: '#164E63',
+    secondaryContainer: '#CAF0F8',
+    onSecondaryContainer: '#0077B6',
     
-    tertiary: '#8B5CF6', // Tech Violet
+    tertiary: '#023E8A', // Medium Deep Blue
     onTertiary: '#FFFFFF',
-    tertiaryContainer: '#EDE9FE',
-    onTertiaryContainer: '#4C1D95',
+    tertiaryContainer: '#ADE8F4',
+    onTertiaryContainer: '#03045E',
     
-    error: '#EF4444',
+    error: '#BA1A1A',
     onError: '#FFFFFF',
-    errorContainer: '#FEE2E2',
-    onErrorContainer: '#7F1D1D',
+    errorContainer: '#FFDAD6',
+    onErrorContainer: '#410002',
     
-    background: '#F8FAFC', // Slate 50
-    onBackground: '#0F172A',
+    background: '#F0F4F8', // Very light blue/gray background
+    onBackground: '#1A1C1E',
     surface: '#FFFFFF',
-    onSurface: '#0F172A',
-    surfaceVariant: '#E2E8F0', // Slate 200
-    onSurfaceVariant: '#475569',
-    outline: '#94A3B8', // Slate 400
+    onSurface: '#1A1C1E',
+    surfaceVariant: '#DFE2EB',
+    onSurfaceVariant: '#43474E',
+    outline: '#73777F',
   },
-  roundness: 8, // More rounded for modern look
+  roundness: 12, // Slightly more rounded for modern soft look
 };
 
 export const darkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#3B82F6', // Glowing Blue
-    onPrimary: '#EFF6FF',
-    primaryContainer: '#1D4ED8',
-    onPrimaryContainer: '#BFDBFE',
+    primary: '#48CAE4', // Bright Blue for dark mode contrast
+    onPrimary: '#003258',
+    primaryContainer: '#03045E', // Deepest Ocean Blue
+    onPrimaryContainer: '#D0E4F7',
     
-    secondary: '#22D3EE', // Neon Cyan
-    onSecondary: '#083344',
-    secondaryContainer: '#0891B2',
-    onSecondaryContainer: '#CFFAFE',
+    secondary: '#90E0EF', // Soft glowing cyan
+    onSecondary: '#003649',
+    secondaryContainer: '#004F69',
+    onSecondaryContainer: '#CAF0F8',
     
-    tertiary: '#A78BFA', // Neon Violet
-    onTertiary: '#2E1065',
-    tertiaryContainer: '#6D28D9',
-    onTertiaryContainer: '#EDE9FE',
+    tertiary: '#0077B6', // Vibrant Mid-Blue
+    onTertiary: '#001D35',
+    tertiaryContainer: '#003258',
+    onTertiaryContainer: '#ADE8F4',
     
-    error: '#F87171',
-    onError: '#450A0A',
-    errorContainer: '#991B1B',
-    onErrorContainer: '#FEE2E2',
+    error: '#FFB4AB',
+    onError: '#690005',
+    errorContainer: '#93000A',
+    onErrorContainer: '#FFDAD6',
     
-    background: '#020617', // Deep Space Void
-    onBackground: '#F8FAFC',
-    surface: '#0F172A', // Slate 900
-    onSurface: '#F8FAFC',
-    surfaceVariant: '#1E293B', // Slate 800
-    onSurfaceVariant: '#CBD5E1',
-    outline: '#64748B', // Slate 500
+    background: '#0B132B', // Deep Night Blue instead of pure black/gray
+    onBackground: '#E2E2E6',
+    surface: '#111936', // Slightly lighter deep blue for cards
+    onSurface: '#E2E2E6',
+    surfaceVariant: '#43474E',
+    onSurfaceVariant: '#C3C6CF',
+    outline: '#8D9199',
   },
-  roundness: 8,
+  roundness: 12,
 };

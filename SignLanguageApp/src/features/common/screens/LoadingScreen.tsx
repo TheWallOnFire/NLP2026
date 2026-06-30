@@ -1,86 +1,92 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Dimensions } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
-import { Brain } from 'lucide-react-native';
+import { Camera } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function LoadingScreen() {
   const theme = useTheme();
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1500,
+          toValue: 1.15,
+          duration: 1200,
           useNativeDriver: true,
           easing: Easing.inOut(Easing.ease),
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1500,
+          duration: 1200,
           useNativeDriver: true,
           easing: Easing.inOut(Easing.ease),
         }),
       ])
     ).start();
 
-    // Rotation animation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
+    // Fade and slide in text
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
+        duration: 800,
+        delay: 300,
         useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        delay: 300,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.back(1.5)),
       })
-    ).start();
-
-    // Fade in text
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      delay: 500,
-      useNativeDriver: true,
-    }).start();
+    ]).start();
   }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar style="auto" />
+    <LinearGradient
+      colors={[theme.colors.primary, theme.colors.tertiary, theme.colors.background]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
+      <StatusBar style="light" />
+      
       <View style={styles.content}>
         <Animated.View style={[styles.logoContainer, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={[styles.glassCircle, { borderColor: theme.colors.primary }]}>
-            <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <Brain size={64} color={theme.colors.primary} />
-            </Animated.View>
+          <View style={styles.glassCircle}>
+            <View style={styles.innerCircle}>
+              <Camera size={56} color="#ffffff" strokeWidth={1.5} />
+            </View>
           </View>
         </Animated.View>
         
-        <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
-          <Text variant="headlineMedium" style={styles.title}>The Wall On Fire</Text>
-          <Text variant="bodyLarge" style={styles.subtitle}>AI Sign Language Engine</Text>
+        <Animated.View style={{ 
+          opacity: fadeAnim, 
+          transform: [{ translateY: slideAnim }],
+          alignItems: 'center' 
+        }}>
+          <Text variant="headlineMedium" style={styles.title}>Handsign</Text>
+          <Text variant="headlineMedium" style={styles.titleHighlight}>Detection</Text>
+          <Text variant="bodyMedium" style={styles.subtitle}>AI-Powered Sign Language Engine</Text>
           
-          <View style={styles.loaderBar}>
-            <Animated.View style={[styles.loaderProgress, { backgroundColor: theme.colors.primary }]} />
+          <View style={styles.loaderBarContainer}>
+            <Animated.View style={styles.loaderProgress} />
           </View>
-          
-          <Text variant="labelSmall" style={styles.loadingText}>INITIALIZING NEURAL NETWORKS...</Text>
         </Animated.View>
       </View>
       
       <View style={styles.footer}>
         <Text variant="labelSmall" style={styles.footerText}>POWERED BY NLP 2026</Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -93,56 +99,73 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   logoContainer: {
     marginBottom: 40,
+    shadowColor: '#00D4FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 30,
+    elevation: 15,
   },
   glassCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 2,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
+  },
+  innerCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   title: {
-    fontWeight: '900',
+    fontWeight: '300',
+    color: '#ffffff',
     letterSpacing: 2,
-    marginBottom: 4,
+    marginBottom: -5,
+  },
+  titleHighlight: {
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 3,
+    marginBottom: 10,
   },
   subtitle: {
-    opacity: 0.6,
+    color: 'rgba(255, 255, 255, 0.7)',
     letterSpacing: 1,
-    marginBottom: 30,
+    marginBottom: 40,
   },
-  loaderBar: {
-    width: 200,
-    height: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+  loaderBarContainer: {
+    width: width * 0.6,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: 12,
   },
   loaderProgress: {
-    width: '40%',
+    width: '30%',
     height: '100%',
+    backgroundColor: '#ffffff',
     borderRadius: 2,
-  },
-  loadingText: {
-    opacity: 0.4,
-    letterSpacing: 1,
   },
   footer: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 40,
   },
   footerText: {
-    opacity: 0.3,
-    letterSpacing: 3,
+    color: 'rgba(255, 255, 255, 0.5)',
+    letterSpacing: 4,
+    fontWeight: '600',
   },
 });

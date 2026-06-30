@@ -54,7 +54,18 @@ export default function TestScreen({ route, navigation }: any) {
     );
   }
 
-  if (!testActive) {
+  if (words.length === 0) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text variant="titleMedium" style={styles.scoreText}>{t('learning.noWordsInPack')}</Text>
+        <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 32 }}>
+          {t('learning.backToSetup')}
+        </Button>
+      </View>
+    );
+  }
+
+  if (!testActive && timeLeft === 0) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
         <Text variant="displaySmall" style={styles.scoreText}>{t('learning.testFinished')}</Text>

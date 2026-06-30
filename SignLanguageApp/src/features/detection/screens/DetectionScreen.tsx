@@ -190,7 +190,7 @@ export default function DetectionScreen({ navigation }: any) {
       {/* Chuỗi kết quả - Ký tự điền từ phải qua trái */}
       <View style={styles.historyTextContainer}>
         {sessionHistory.length === 0 ? (
-           <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>Chưa có kết quả...</Text>
+           <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>{t('detection.noResultsYet')}</Text>
         ) : (
           <Text 
             style={styles.historyTextContent} 
@@ -214,48 +214,22 @@ export default function DetectionScreen({ navigation }: any) {
 
       {/* Action Buttons Row */}
       <View style={styles.actionButtonsRow}>
-        {detectionMode === 'auto' ? (
-          <>
-            {/* Auto Mode: Nút Result để lưu kết quả vào history rồi xóa hết dữ liệu hiện tại */}
-            <Button
-              mode="contained"
-              icon={() => <Save color="white" size={20} />}
-              onPress={onSaveAutoSession}
-              style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
-              labelStyle={{ color: 'white', fontWeight: 'bold' }}
-              disabled={sessionHistory.length === 0}
-            >
-              Lưu kết quả
-            </Button>
-            <Button
-              mode="contained-tonal"
-              icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
-              onPress={() => setIsHistoryDialogOpen(true)}
-              style={styles.actionBtn}
-            >
-              {t('detection.results')}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              mode="contained-tonal"
-              icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
-              onPress={() => setIsHistoryDialogOpen(true)}
-              style={styles.actionBtn}
-            >
-              {t('detection.results')}
-            </Button>
-            <Button
-              mode="contained-tonal"
-              icon={() => <ListTodo color={theme.colors.primary} size={20} />}
-              onPress={() => setIsDebugDialogOpen(true)}
-              style={styles.actionBtn}
-            >
-              {t('detection.queue')}
-            </Button>
-          </>
-        )}
+        <Button
+          mode="contained-tonal"
+          icon={() => <HistoryIcon color={theme.colors.primary} size={20} />}
+          onPress={() => setIsHistoryDialogOpen(true)}
+          style={styles.actionBtn}
+        >
+          {t('detection.results')}
+        </Button>
+        <Button
+          mode="contained-tonal"
+          icon={() => <ListTodo color={theme.colors.primary} size={20} />}
+          onPress={() => setIsDebugDialogOpen(true)}
+          style={styles.actionBtn}
+        >
+          {t('detection.queue')}
+        </Button>
       </View>
 
       <DetectionDialogs

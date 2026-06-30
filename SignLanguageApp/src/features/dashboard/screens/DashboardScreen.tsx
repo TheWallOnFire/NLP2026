@@ -32,11 +32,24 @@ export default function DashboardScreen({ navigation }: any) {
             </Text>
             <Text variant="bodyLarge" style={{ opacity: 0.7 }}>{t('dashboard.readyToMaster')}</Text>
           </View>
-          {profile?.avatar ? (
-            <Avatar.Image size={48} source={{ uri: profile.avatar }} style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
-          ) : (
-            <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
-          )}
+          <View style={{
+            padding: 3,
+            borderRadius: 50,
+            borderWidth: 2,
+            borderColor: theme.colors.primary,
+            backgroundColor: theme.colors.background,
+            shadowColor: theme.colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 5,
+          }}>
+            {profile?.avatar ? (
+              <Avatar.Image size={48} source={{ uri: profile.avatar }} style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
+            ) : (
+              <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
+            )}
+          </View>
         </View>
 
         <DashboardProgressCard 

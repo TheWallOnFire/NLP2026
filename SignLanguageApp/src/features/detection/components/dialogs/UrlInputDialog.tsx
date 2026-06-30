@@ -24,7 +24,7 @@ export default function UrlInputDialog({
 
   return (
     <>
-      <Dialog visible={isVisible} onDismiss={onDismiss}>
+      <Dialog visible={isVisible} onDismiss={onDismiss} style={{ borderRadius: 28 }}>
         <Dialog.Title>{t('detection.urlInputTitle')}</Dialog.Title>
         <Dialog.Content>
           <TextInput

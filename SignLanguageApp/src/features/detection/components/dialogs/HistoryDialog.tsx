@@ -42,12 +42,12 @@ export default function HistoryDialog({
   }, [isVisible]);
 
   return (
-    <Dialog visible={isVisible} onDismiss={onDismiss} style={{ maxHeight: '80%' }}>
+    <Dialog visible={isVisible} onDismiss={onDismiss} style={{ maxHeight: '80%', borderRadius: 28, backgroundColor: theme.colors.elevation.level3 }}>
       <Dialog.Title>
         {detectionMode !== 'live' 
-          ? "Xác nhận kết quả"
+          ? t('detection.confirmResults')
           : isSelectingSession 
-            ? "Chọn phiên để lưu" 
+            ? t('detection.selectSessionToSave') 
             : t('detection.detectionResults')}
       </Dialog.Title>
       <Dialog.Content>
@@ -68,7 +68,7 @@ export default function HistoryDialog({
                   {detectionMode === 'video' && history.length > 1 && (
                     <View style={{ width: '100%' }}>
                       <Text variant="labelMedium" style={{ opacity: 0.7, marginBottom: 12, textAlign: 'center' }}>
-                        Toàn bộ kết quả phân tích video:
+                        {t('detection.allVideoResults')}
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
                         {[...history].reverse().map((item, i) => {
@@ -79,19 +79,26 @@ export default function HistoryDialog({
                           else if (conf > 0.6) { bgColor = '#FFF3E0'; textColor = '#E65100'; }
 
                           return (
-                            <Badge 
-                              key={item.id || i} 
-                              size={28} 
-                              style={{ 
-                                backgroundColor: bgColor, 
-                                color: textColor, 
-                                paddingHorizontal: 12,
-                                fontSize: 14,
-                                fontWeight: 'bold'
+                            <View
+                              key={item.id || i}
+                              style={{
+                                backgroundColor: bgColor,
+                                paddingHorizontal: 16,
+                                paddingVertical: 8,
+                                borderRadius: 24,
+                                borderWidth: 1,
+                                borderColor: textColor + '30',
+                                shadowColor: textColor,
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 2,
                               }}
                             >
-                              {item.sign}
-                            </Badge>
+                              <Text style={{ color: textColor, fontSize: 15, fontWeight: 'bold', letterSpacing: 0.5 }}>
+                                {item.sign}
+                              </Text>
+                            </View>
                           );
                         })}
                       </View>
@@ -114,7 +121,7 @@ export default function HistoryDialog({
                   onDismiss();
                 }}
               >
-                Tạo phiên mới
+                {t('detection.createNewSession')}
               </Button>
               <Text variant="labelMedium" style={{ marginTop: 12, opacity: 0.7 }}>{t('detection.orSaveToOldSession')}</Text>
               {globalHistory.filter(h => h.mode === 'live' && h.type === 'detection').map((item) => (
@@ -160,19 +167,26 @@ export default function HistoryDialog({
                   else if (conf > 0.6) { bgColor = '#FFF3E0'; textColor = '#E65100'; }
 
                   return (
-                    <Badge 
-                      key={item.id || i} 
-                      size={28} 
-                      style={{ 
-                        backgroundColor: bgColor, 
-                        color: textColor, 
-                        paddingHorizontal: 12,
-                        fontSize: 14,
-                        fontWeight: 'bold'
+                    <View
+                      key={item.id || i}
+                      style={{
+                        backgroundColor: bgColor,
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 24,
+                        borderWidth: 1,
+                        borderColor: textColor + '30',
+                        shadowColor: textColor,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 2,
                       }}
                     >
-                      {item.sign}
-                    </Badge>
+                      <Text style={{ color: textColor, fontSize: 15, fontWeight: 'bold', letterSpacing: 0.5 }}>
+                        {item.sign}
+                      </Text>
+                    </View>
                   );
                 })}
               </View>

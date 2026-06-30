@@ -4,6 +4,7 @@ import { useModelStore, ModelPack } from '../../learning/store/useModelStore';
 import { useLearningStore } from '../../learning/store/useLearningStore';
 import { ROUTES } from '../../../constants/routes';
 import { triggerSelectionFeedback } from '../../../utils/feedback';
+import i18n from '../../../core/i18n';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -45,7 +46,7 @@ export function useModelManagerLogic(navigation: any) {
 
       const invalidCount = Object.values(newMap).filter(v => !v).length;
       if (invalidCount > 0) {
-        Alert.alert("Scan Complete", `Found ${invalidCount} packs with content issues. These have been disabled.`);
+        Alert.alert(i18n.t('settings.scanComplete'), i18n.t('settings.foundInvalidPacks', { count: invalidCount }));
       }
     }, 800);
   };
@@ -55,8 +56,8 @@ export function useModelManagerLogic(navigation: any) {
 
     if (!words || !Array.isArray(words) || words.length === 0) {
       Alert.alert(
-        "Content Error",
-        `Sorry, the content for "${pack.name}" is currently unavailable or corrupted. Please try again later.`,
+        i18n.t('settings.error'),
+        i18n.t('settings.contentError', { name: pack.name }),
         [{ text: "OK" }]
       );
       return;
@@ -65,8 +66,8 @@ export function useModelManagerLogic(navigation: any) {
     const isValid = words.every(w => w && typeof w.id === 'string' && typeof w.word === 'string');
     if (!isValid) {
       Alert.alert(
-        "Format Error",
-        `The pack "${pack.name}" contains invalid data format and cannot be loaded.`,
+        i18n.t('settings.error'),
+        i18n.t('settings.formatError', { name: pack.name }),
         [{ text: "OK" }]
       );
       return;
@@ -84,12 +85,12 @@ export function useModelManagerLogic(navigation: any) {
 
   const handleDeletePack = (pack: ModelPack) => {
     Alert.alert(
-      "Remove Pack",
-      `Are you sure you want to remove "${pack.name}"? This will delete your progress for this pack and move it back to the Explore tab.`,
+      i18n.t('settings.removePack'),
+      i18n.t('settings.removePackDesc', { name: pack.name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: i18n.t('common.cancel'), style: "cancel" },
         {
-          text: "Remove",
+          text: i18n.t('common.delete'),
           style: "destructive",
           onPress: () => {
             deletePack(pack.id);

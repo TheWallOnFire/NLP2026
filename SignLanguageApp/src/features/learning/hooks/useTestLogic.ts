@@ -5,6 +5,7 @@ import { useModelStore } from '../store/useModelStore';
 import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import { useSettingsStore } from '../../settings/store/useSettingsStore';
+import i18n from '../../../core/i18n';
 
 export function useTestLogic(packId: string, duration: number, mode: string, cameraRef: any) {
   const words = useLearningStore(state => state.packWords[packId]) || [];
@@ -71,7 +72,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
     if (timeLeft === 0 && testActive) {
       setTestActive(false);
       addHistoryItem({
-        sign: `Bài kiểm tra: ${pack?.name || 'Gói từ'}`,
+        sign: i18n.t('learning.testSession', { name: pack?.name || i18n.t('learning.defaultPackName') }),
         packId,
         mode: 'test',
         date: new Date().toLocaleDateString('vi-VN'),
@@ -130,7 +131,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
     
     if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
       setSnackbarColor("green");
-      setSnackbarMsg(`Chính xác! (${Math.round(det.conf * 100)}%)`);
+      setSnackbarMsg(i18n.t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
       triggerSuccessFeedback();
       setScore(prev => prev + 1);
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true, correctness: Math.round(det.conf * 100) }]);
@@ -139,7 +140,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       }, 500);
     } else {
       setSnackbarColor("red");
-      setSnackbarMsg(`Chưa chính xác! (${det?.wordStr || 'Không rõ'})`);
+      setSnackbarMsg(i18n.t('learning.incorrectFeedback', { word: det?.wordStr || i18n.t('learning.unknown'), confidence: Math.round((det?.conf || 0) * 100) }));
       triggerErrorFeedback();
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false, correctness: Math.round((det?.conf || 0) * 100), confusedWith: det?.wordStr }]);
       setTimeout(() => {
@@ -171,11 +172,13 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
         }
         await new Promise(r => setTimeout(r, 100));
         evaluateDetection();
+      } else {
+        setSnackbarMsg(i18n.t('learning.cameraCaptureFailed'));
       }
     } catch (e) {
       console.warn("Camera snapshot failed in test", e);
       setSnackbarColor("red");
-      setSnackbarMsg("Không thể chụp ảnh từ Camera!");
+      setSnackbarMsg(i18n.t('learning.cameraCaptureFailed'));
     } finally {
       setIsProcessing(false);
     }

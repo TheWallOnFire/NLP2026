@@ -18,12 +18,12 @@ export default function BatchResultDialog({ theme, isVisible, onDismiss, results
     <Portal>
       <Modal visible={isVisible} onDismiss={onDismiss} contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.elevation.level3 }]}>
         <View style={styles.header}>
-          <Text variant="titleLarge" style={styles.title}>Kết quả quét Batch ZIP</Text>
+          <Text variant="titleLarge" style={styles.title}>{t('detection.batchZipResults')}</Text>
         </View>
         <Divider />
         <ScrollView style={styles.scrollArea}>
           {results.length === 0 ? (
-            <Text style={styles.emptyText}>Không có dữ liệu</Text>
+            <Text style={styles.emptyText}>{t('detection.noData')}</Text>
           ) : (
             results.map((item, index) => {
               const isHighConf = item.conf >= 0.4;
@@ -48,8 +48,8 @@ export default function BatchResultDialog({ theme, isVisible, onDismiss, results
         </ScrollView>
         <Divider />
         <View style={styles.footer}>
-          <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant}}>Tổng cộng: {results.length} ảnh</Text>
-          <Button mode="contained" onPress={onDismiss}>Đóng</Button>
+          <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant}}>{t('detection.totalImages', { count: results.length })}</Text>
+          <Button mode="contained" onPress={onDismiss}>{t('detection.closeBtn')}</Button>
         </View>
       </Modal>
     </Portal>
@@ -59,7 +59,7 @@ export default function BatchResultDialog({ theme, isVisible, onDismiss, results
 const styles = StyleSheet.create({
   modalContainer: {
     margin: 20,
-    borderRadius: 16,
+    borderRadius: 28,
     maxHeight: '80%',
     overflow: 'hidden',
   },

@@ -19,6 +19,8 @@ interface UserProfile {
   avatar: string;
   birth: string;
   learningTime: number;
+  streakDays: number;
+  lastOpenedDate: string;
   lastAccessedPackId: string | null;
 }
 
@@ -45,6 +47,8 @@ const initialProfile: UserProfile = {
   avatar: '',
   birth: '2002-01-01',
   learningTime: 0,
+  streakDays: 0,
+  lastOpenedDate: '',
   lastAccessedPackId: null,
 };
 

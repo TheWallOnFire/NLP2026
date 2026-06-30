@@ -52,7 +52,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     } else {
       setSnackbarColor("red");
       setSnackbarMsg(t('learning.incorrectFeedback', { 
-        word: det?.wordStr || 'Unknown', 
+        word: det?.wordStr || t('learning.unknown'), 
         confidence: Math.round((det?.conf || 0) * 100) 
       }));
     }
@@ -90,7 +90,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
 
   const handleImageSelected = async (imagePath: string) => {
     try {
-      const FileSystem = require('expo-file-system/legacy');
+      const FileSystem = require('expo-file-system');
       const Image = require('react-native').Image;
       const fileInfo = await FileSystem.getInfoAsync(imagePath);
       Image.getSize(imagePath, (width: number, height: number) => {

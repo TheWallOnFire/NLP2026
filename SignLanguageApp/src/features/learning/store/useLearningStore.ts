@@ -24,12 +24,12 @@ interface LearningState {
 
 const defaultPacksWords: Record<string, Word[]> = {
   'asl-basics': [
-    { id: '1', word: 'Hello', learned: true, favorite: false },
-    { id: '2', word: 'Thank You', learned: true, favorite: true },
+    { id: '1', word: 'Hello', learned: false, favorite: false },
+    { id: '2', word: 'Thank You', learned: false, favorite: false },
     { id: '3', word: 'Please', learned: false, favorite: false },
     { id: '4', word: 'Sorry', learned: false, favorite: false },
     { id: '5', word: 'Yes', learned: false, favorite: false },
-    { id: '6', word: 'No', learned: false, favorite: true },
+    { id: '6', word: 'No', learned: false, favorite: false },
   ],
   'asl-numbers': [
     { id: 'n1', word: 'One', learned: false, favorite: false },

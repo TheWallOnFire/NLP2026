@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, View, Text } from 'react-native';
 import { List, Switch, Divider } from 'react-native-paper';
 import { Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, Download, Cpu, Shield, Trash2, Globe } from 'lucide-react-native';
 import { ROUTES } from '../../../constants/routes';
@@ -176,7 +176,7 @@ export default function SettingsMenuSections({
         <List.Item
           title={t('settings.exportData')}
           left={props => <List.Icon {...props} icon={() => <Download size={20} color={theme.colors.primary} />} />}
-          onPress={() => Alert.alert("Export", "Data exported to CSV")}
+          onPress={() => Alert.alert(t('settings.success'), t('settings.dataExported'))}
         />
         <List.Item
           title={t('settings.deleteAllData')}

@@ -43,7 +43,7 @@ export default function ConfirmImageDialog({
   if (imageSize.bytes > 5 * 1024 * 1024) estimatedTime += 300; // > 5MB
 
   return (
-    <Dialog visible={isVisible} onDismiss={onDismiss} style={{ maxHeight: '80%' }}>
+    <Dialog visible={isVisible} onDismiss={onDismiss} style={{ maxHeight: '80%', borderRadius: 28, backgroundColor: theme.colors.elevation.level3 }}>
       <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>
         Confirm Image?
       </Dialog.Title>
