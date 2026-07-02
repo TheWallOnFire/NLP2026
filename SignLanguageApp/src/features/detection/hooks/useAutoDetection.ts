@@ -148,17 +148,17 @@ export function useAutoDetection({
           const rawW = width * imgW;
           const rawH = height * imgH;
 
-          // 1. Lòng bàn tay (palm) thường nằm dưới các ngón tay. 
-          // Dịch tâm (Center Y) lên trên một chút (khoảng 20% chiều cao Box) để lấy trọn vẹn cả các ngón tay.
+          // Lòng bàn tay (palm) là trọng tâm. Không dịch Y vì hướng tay có thể bất kỳ (ngang, chúc xuống).
+          // Việc nới rộng (Scale & Padding) ở bên dưới sẽ tự lo việc bọc các ngón tay.
           const centerX = rawX + rawW / 2;
-          const centerY = rawY + rawH / 2 - (rawH * 0.2);
+          const centerY = rawY + rawH / 2;
 
           // 2. Thêm Padding động dựa trên độ phân giải ảnh (an toàn hơn là dùng SCREEN_WIDTH cố định)
-          const PADDING_RATIO = 0.15; // Thêm 15% viền an toàn
+          const PADDING_RATIO = 0.05; // 5% viền là đủ để bao các ngón tay
           const extraPadding = Math.min(imgW, imgH) * PADDING_RATIO;
           
-          // 3. Tăng hệ số Scale từ 1.5 lên 1.8 để đảm bảo bọc kín toàn bộ bàn tay dù đưa sát hay xa camera
-          let side = Math.max(rawW, rawH) * 1.8 + extraPadding;
+          // 3. Hệ số Scale 1.5 là mức an toàn cân bằng giữa việc bọc kín bàn tay và tránh bị to quá mức
+          let side = Math.max(rawW, rawH) * 1.5 + extraPadding;
           side = Math.min(side, Math.min(imgW, imgH));
 
           let newRawX = centerX - side / 2;
