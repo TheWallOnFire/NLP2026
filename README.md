@@ -16,10 +16,6 @@
 
 The **Sign Language Detector App** is a powerful offline-first mobile application designed to recognize and interpret hand signs (Alphabets, Numbers, Phrases) in a real-time, interactive environment. Built with React Native and TensorFlow, it empowers users to learn, practice, and test their sign language skills effectively.
 
-### 📥 Download
-
-You can download the latest Android APK from the [Releases Page](https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo/releases). 
-
 ## 🏗️ Project Structure
 
 The repository is structured to separate the mobile application from the AI model training environment:

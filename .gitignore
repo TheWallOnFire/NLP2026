@@ -116,7 +116,6 @@ dmypy.json
 # NLP specific
 *.pkl
 *.pickle
-models/
 checkpoints/
 logs/
 
