@@ -22,19 +22,24 @@ The repository is structured to separate the mobile application from the AI mode
 
 ```text
 NLP2026/
-├── SignLanguageApp_ExpoGo/      # Main React Native Expo application
-│   ├── src/
+├── src/                         # Main React Native Expo application
+│   ├── src/                     # Source code (components, screens, features)
 │   │   ├── assets/              # Media, sounds, and default ML models
 │   │   ├── components/          # Shared reusable UI components
 │   │   ├── constants/           # App-wide constants (e.g., route names)
-│   │   ├── features/            # Domain-driven feature modules (dashboard, detection, learning, etc.)
+│   │   ├── features/            # Domain-driven feature modules
 │   │   ├── navigation/          # React Navigation configuration
 │   │   ├── theme/               # UI styling (Light/Dark mode)
 │   │   ├── types/               # TypeScript type definitions
-│   │   └── utils/               # Helper functions (haptics, audio feedback)
+│   │   └── utils/               # Helper functions
 │   ├── App.tsx                  # App entry point
 │   └── app.json                 # Expo configuration
-├── model/                       # Jupyter notebooks and AI model generation scripts
+├── models/                      # Trained models, generation scripts, and configs
+├── data/                        # Datasets for model training
+├── configs/                     # Global configurations
+├── doc/                         # Additional project documentation
+├── test/                        # Testing scripts
+├── requirements.txt             # Python dependencies for AI environment
 └── README.md                    # Project documentation
 ```
 
@@ -164,26 +169,7 @@ sign_pack_name/
 
 ---
 
-## 🤝 Contributions
-
-Contributions, issues, and feature requests are highly welcome!
-Feel free to check the [issues page](https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo/issues).
-
-**To contribute:**
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
 ## 📄 License
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
-
-## 📬 Contact
-**Author:** Aung Myo Kyaw (Jame)  
-**Project Link:** [https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo](https://github.com/AungMyoKyaw-Jame/SignLanguageApp_ExpoGo)
-
