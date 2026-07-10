@@ -106,18 +106,40 @@ npx expo run:ios
 
 ---
 
+### 🏗️ Local Builds (EAS Local)
+
+If you want to compile the `.apk`, `.aab`, or `.ipa` directly on your machine without using Expo's cloud servers, you can use the `--local` flag.
+
+**Prerequisites for Local Builds:**
+- **Android:** Android Studio, Android SDK, and Java JDK must be installed and configured in your environment variables.
+- **iOS:** Xcode must be installed (macOS only).
+
+**Generate Local Build:**
+```bash
+# Build Android APK/AAB locally
+eas build -p android --profile production --local
+
+# Build iOS IPA locally (macOS only)
+eas build -p ios --profile production --local
+```
+The output file (`.apk`, `.aab`, or `.tar.gz` for iOS simulator) will be saved directly in your project folder.
+
+---
+
 ### ☁️ Cloud Builds (EAS)
 
-Use [Expo Application Services (EAS)](https://expo.dev/eas) for managed cloud builds:
+Alternatively, you can use [Expo Application Services (EAS)](https://expo.dev/eas) to compile the app on the cloud:
 
-**Development Build** (For testing on your own device):
 ```bash
+## Cloud preview build
+eas build -p android --profile preview
+
+
+# Cloud Development Build
 eas build -p android --profile development
 eas build -p ios --profile development
-```
 
-**Production Build** (For App Stores):
-```bash
+# Cloud Production Build
 eas build -p android --profile production
 eas build -p ios --profile production
 ```

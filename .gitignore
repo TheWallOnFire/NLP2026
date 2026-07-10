@@ -120,3 +120,4 @@ checkpoints/
 logs/
 
 *.bat
+/build

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Handsign Detection",
-    "slug": "HandsignDetection",
+    "slug": "SignLanguageApp_ExpoGo",
     "version": "1.0.0",
     "scheme": "signlang",
     "orientation": "portrait",
