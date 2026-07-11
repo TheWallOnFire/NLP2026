@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, Linking } from 'react-native';
 import { Text, List, useTheme, Card, Divider, Portal, Dialog, Button, Paragraph } from 'react-native-paper';
-import { AlertTriangle as AlertTriangleIcon, Settings as SettingsIconLucide } from 'lucide-react-native';
+import { AlertTriangle as AlertTriangleIcon, Settings as SettingsIconLucide, Info } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
@@ -86,7 +86,7 @@ export default function SettingsScreen({ navigation }: any) {
             onPress={() => setIsAboutVisible(true)}
           />
           <List.Item
-            title="GitHub Repository"
+            title={t('settings.githubRepository', 'GitHub Repository')}
             description={t('settings.githubSource')}
             left={props => <List.Icon {...props} icon="github" />}
             onPress={async () => {
@@ -111,17 +111,44 @@ export default function SettingsScreen({ navigation }: any) {
       </ScrollView>
 
       <Portal>
-        <Dialog visible={isAboutVisible} onDismiss={() => setIsAboutVisible(false)} style={{ backgroundColor: theme.colors.elevation.level3 }}>
-          <Dialog.Title>{t('settings.additionalInfo')}</Dialog.Title>
-          <Dialog.Content>
-            <Paragraph style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>SignLanguageApp v1.0.0</Paragraph>
-            <Paragraph style={{ marginBottom: 16 }}>{t('settings.aboutDesc')}</Paragraph>
-            <Paragraph style={{ opacity: 0.7 }}>
-              This application utilizes an autonomous Agentic AI pipeline for real-time sign language recognition, running completely on-device without blocking the main UI thread.
-            </Paragraph>
+        <Dialog 
+          visible={isAboutVisible} 
+          onDismiss={() => setIsAboutVisible(false)} 
+          style={{ backgroundColor: theme.colors.elevation.level3, borderRadius: 28, padding: 8 }}
+        >
+          <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 22, marginTop: 12 }}>
+            {t('settings.additionalInfo')}
+          </Dialog.Title>
+          <Dialog.Content style={{ alignItems: 'center' }}>
+            <View style={{ 
+              backgroundColor: theme.colors.primaryContainer, 
+              padding: 16, 
+              borderRadius: 50, 
+              marginBottom: 20,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Info color={theme.colors.primary} size={48} />
+            </View>
+            <Text variant="titleMedium" style={{ fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+              {t('settings.version')}
+            </Text>
+            <Text variant="bodyMedium" style={{ marginBottom: 16, textAlign: 'center', color: theme.colors.onSurfaceVariant, paddingHorizontal: 8 }}>
+              {t('settings.aboutDesc')}
+            </Text>
+            <Text variant="bodySmall" style={{ opacity: 0.6, textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 }}>
+              {t('settings.appDescriptionLong', 'This application utilizes an autonomous Agentic AI pipeline for real-time sign language recognition, running completely on-device without blocking the main UI thread.')}
+            </Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setIsAboutVisible(false)}>{t('detection.close')}</Button>
+          <Dialog.Actions style={{ justifyContent: 'center', paddingBottom: 16, width: '100%' }}>
+            <Button 
+              mode="contained-tonal" 
+              onPress={() => setIsAboutVisible(false)} 
+              style={{ width: '80%', paddingVertical: 4, borderRadius: 24 }}
+              labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+            >
+              {t('detection.close')}
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

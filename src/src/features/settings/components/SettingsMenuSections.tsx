@@ -5,6 +5,7 @@ import { Check, Sun, Volume2, Camera, Vibrate, HardDrive, Bell, Bug, Database, D
 import { ROUTES } from '../../../constants/routes';
 import Slider from '@react-native-community/slider';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 
 const SettingSlider = React.memo(({ label, value, min, max, step, color, theme, onSave }: any) => {
   const [localVal, setLocalVal] = React.useState(value);
@@ -55,6 +56,9 @@ export default function SettingsMenuSections({
   const systemAlerts = useSettingsStore(state => state.systemAlerts);
   const developerDebugMode = useSettingsStore(state => state.developerDebugMode);
   const updateSettings = useSettingsStore(state => state.updateSettings);
+
+  const { requestPermission: requestCameraPermission } = useCameraPermission();
+  const { requestPermission: requestMicrophonePermission } = useMicrophonePermission();
 
   return (
     <List.Section>
@@ -185,17 +189,37 @@ export default function SettingsMenuSections({
         <List.Item
           title={t('settings.cameraAccess')}
           description={permissions.camera ? t('settings.granted') : t('settings.denied')}
-          right={() => <Switch value={permissions.camera} onValueChange={(val) => {
-            updateSettings({ permissions: { ...permissions, camera: val } });
-            if (val) Linking.openSettings();
+          right={() => <Switch value={permissions.camera} onValueChange={async (val) => {
+            if (val) {
+              const granted = await requestCameraPermission();
+              if (granted) {
+                updateSettings({ permissions: { ...permissions, camera: true } });
+              } else {
+                updateSettings({ permissions: { ...permissions, camera: false } });
+                Alert.alert(t('settings.error'), t('detection.cameraPermissionDesc', 'Vui lòng cấp quyền Camera trong cài đặt.'));
+                Linking.openSettings();
+              }
+            } else {
+              updateSettings({ permissions: { ...permissions, camera: false } });
+            }
           }} />}
         />
         <List.Item
           title={t('settings.microphoneAccess')}
           description={permissions.microphone ? t('settings.granted') : t('settings.denied')}
-          right={() => <Switch value={permissions.microphone} onValueChange={(val) => {
-            updateSettings({ permissions: { ...permissions, microphone: val } });
-            if (val) Linking.openSettings();
+          right={() => <Switch value={permissions.microphone} onValueChange={async (val) => {
+            if (val) {
+              const granted = await requestMicrophonePermission();
+              if (granted) {
+                updateSettings({ permissions: { ...permissions, microphone: true } });
+              } else {
+                updateSettings({ permissions: { ...permissions, microphone: false } });
+                Alert.alert(t('settings.error'), t('detection.microphonePermissionDesc', 'Vui lòng cấp quyền Microphone trong cài đặt.'));
+                Linking.openSettings();
+              }
+            } else {
+              updateSettings({ permissions: { ...permissions, microphone: false } });
+            }
           }} />}
         />
         <List.Item

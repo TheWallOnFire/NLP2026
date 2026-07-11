@@ -54,12 +54,12 @@ export function useSettingsLogic() {
 
   const handleClearCache = async () => {
     Alert.alert(
-      "Xóa Cache",
-      "Xóa toàn bộ ảnh/video đã lưu tạm? Thao tác này không ảnh hưởng đến lịch sử nhận diện.",
+      i18n.t('settings.clearCacheTitle'),
+      i18n.t('settings.clearCacheMessage'),
       [
-        { text: "Hủy", style: "cancel" },
+        { text: i18n.t('common.cancel'), style: "cancel" },
         {
-          text: "Xóa",
+          text: i18n.t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {

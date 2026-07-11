@@ -32,24 +32,26 @@ export default function DashboardScreen({ navigation }: any) {
             </Text>
             <Text variant="bodyLarge" style={{ opacity: 0.7 }}>{t('dashboard.readyToMaster')}</Text>
           </View>
-          <View style={{
-            padding: 3,
-            borderRadius: 50,
-            borderWidth: 2,
-            borderColor: theme.colors.primary,
-            backgroundColor: theme.colors.background,
-            shadowColor: theme.colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 8,
-            elevation: 5,
-          }}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.PROFILE })}
+            style={{
+              padding: 3,
+              borderRadius: 50,
+              borderWidth: 2,
+              borderColor: theme.colors.primary,
+              backgroundColor: theme.colors.background,
+              shadowColor: theme.colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
+            }}>
             {profile?.avatar ? (
               <Avatar.Image size={48} source={{ uri: profile.avatar }} style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
             ) : (
               <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer || '#cccccc' }} />
             )}
-          </View>
+          </TouchableOpacity>
         </View>
 
         <DashboardProgressCard 
@@ -80,7 +82,7 @@ export default function DashboardScreen({ navigation }: any) {
 
             <TouchableOpacity 
               style={[styles.actionButton, { backgroundColor: theme.colors.surfaceVariant }]}
-              onPress={() => navigation.navigate(ROUTES.PROFILE_TAB, { screen: ROUTES.HISTORY })}
+              onPress={() => navigation.navigate(ROUTES.HISTORY)}
             >
               <HistoryIcon color={theme.colors.onSurfaceVariant} size={28} />
               <Text variant="labelLarge" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>{t('dashboard.history')}</Text>
