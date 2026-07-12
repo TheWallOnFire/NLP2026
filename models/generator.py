@@ -11,7 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 # 1. Định nghĩa danh sách các file Keras của bạn và thông tin metadata tương ứng
 def load_config(config_filename="models_config.json"):
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(base_dir, config_filename)
+    config_path = os.path.join(base_dir, "..", "configs", config_filename)
     if not os.path.exists(config_path):
         print(f"Lỗi: Không tìm thấy file cấu hình '{config_path}'")
         return []
@@ -48,7 +48,7 @@ def create_model_pack(info):
     os.makedirs(saved_model_dir, exist_ok=True)
     
     pack_dir = os.path.join(saved_model_dir, pack_name)
-    keras_file_path = os.path.join(base_dir, keras_file)
+    keras_file_path = os.path.join(base_dir, "model", keras_file)
     
     assets_dir = os.path.join(pack_dir, "assets")
     vocab_dir = os.path.join(assets_dir, "vocabulary")

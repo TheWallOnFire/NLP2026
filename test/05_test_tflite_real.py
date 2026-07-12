@@ -4,16 +4,16 @@ import numpy as np
 import cv2
 
 # Extract tflite model
-with zipfile.ZipFile('d:/NLP2026/model/packs/ASL_MobileNetV2_Final.zip', 'r') as z:
-    z.extract('assets/model.tflite', 'd:/NLP2026/model/tmp')
+with zipfile.ZipFile('d:/NLP2026/models/packs/ASL_MobileNetV2_Final.zip', 'r') as z:
+    z.extract('assets/model.tflite', 'd:/NLP2026/models/tmp')
 
-interpreter = tf.lite.Interpreter(model_path='d:/NLP2026/model/tmp/assets/model.tflite')
+interpreter = tf.lite.Interpreter(model_path='d:/NLP2026/models/tmp/assets/model.tflite')
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
 # Load real image
-img_path = 'd:/NLP2026/model/demo/A/demo_image.jpg'
+img_path = 'd:/NLP2026/models/demo/A/demo_image.jpg'
 img = cv2.imread(img_path)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 img = cv2.resize(img, (96, 96))

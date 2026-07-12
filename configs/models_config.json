@@ -1,6 +1,6 @@
 [
   {
-    "keras_file": "best_asl_model.keras",
+    "keras_file": "mobilenet_best.keras",
     "pack_name": "ASL_Best_Model",
     "id": "asl_best_model_001",
     "version": "1.0.0",

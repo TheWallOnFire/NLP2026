@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, classification_report
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Kiểm tra mô hình Sign Language trên tập Train")
-    parser.add_argument('--model', type=str, default='baseline_best.keras')
+    parser.add_argument('--model', type=str, default='models/model/mobilenet_best.keras')
     parser.add_argument('--data', type=str, default='data')
     parser.add_argument('--img_size', type=int, default=96)
     parser.add_argument('--batch_size', type=int, default=32)

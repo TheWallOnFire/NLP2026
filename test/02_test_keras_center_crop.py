@@ -13,7 +13,7 @@ CLASSES = [
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Inference bằng phương pháp Center Crop (Không dùng MediaPipe)")
-    parser.add_argument('--model', type=str, default='baseline_best.keras')
+    parser.add_argument('--model', type=str, default='models/model/mobilenet_best.keras')
     parser.add_argument('--data', type=str, required=True, help='Thư mục chứa ảnh')
     parser.add_argument('--img_size', type=int, default=96)
     return parser.parse_args()

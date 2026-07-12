@@ -3,8 +3,8 @@ import tensorflow as tf
 import os
 import shutil
 
-zip_path = 'd:/NLP2026/model/packs/ASL_MobileNetV2_Final.zip'
-extract_dir = 'd:/NLP2026/model/tmp_clean'
+zip_path = 'd:/NLP2026/models/packs/ASL_MobileNetV2_Final.zip'
+extract_dir = 'd:/NLP2026/models/tmp_clean'
 if os.path.exists(extract_dir):
     shutil.rmtree(extract_dir)
 os.makedirs(extract_dir)

@@ -52,9 +52,9 @@ The AI modeling environment, scripts, and notebooks are located in the `models/`
    cd models
    ```
 3. Here, you can:
-   - Open Jupyter Notebooks in `models/notebook/` to explore training experiments.
+   - Open Jupyter Notebooks in `notebook/` to explore training experiments.
    - Use `crop.py` and `generator.py` for data processing.
-   - Check `models_config.json` to review available model metadata.
+   - Check `../configs/models_config.json` to review available model metadata.
 
 ---
 

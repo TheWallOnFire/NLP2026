@@ -20,7 +20,7 @@ This folder contains the model-related files for the NLP2026 project.
 
 Theo file `models_config.json`, hệ thống đang hỗ trợ các mô hình nhận diện ngôn ngữ ký hiệu ASL (29 lớp gồm A-Z, del, nothing, space):
 
-1. **ASL_Best_Model** (`best_asl_model.keras`): Mô hình CNN cơ bản. Input chuẩn hóa `[0, 1]`.
+1. **ASL_Best_Model** (`mobilenet_best.keras`): Mô hình CNN cơ bản. Input chuẩn hóa `[0, 1]`.
 2. **ASL_EfficientNetB0_Finetuned** (`asl_efficientnetb0_finetuned.keras`): Mô hình dựa trên EfficientNetB0. Input chuẩn hóa `[0, 255]`.
 3. **ASL_MobileNetV2_Final** (`asl_mobilenetv2_final.keras`): Mô hình dựa trên MobileNetV2. Input chuẩn hóa `[0, 1]`.
 

@@ -6,8 +6,8 @@ from sklearn.metrics import classification_report
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 models = [
-    'asl_mobilenetv2_final.keras',
-    'mobilenet_best.keras'
+    'models/model/asl_mobilenetv2_final.keras',
+    'models/model/mobilenet_best.keras'
 ]
 
 data_dir = 'asl_alphabet_train'
