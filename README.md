@@ -127,6 +127,43 @@ sign_pack_name/
 
 ---
 
+## ⚙️ Getting Started
+
+### Environment Setup Instructions
+- **Node.js**: Ensure Node.js (v18+) is installed for React Native / Expo development.
+- **Python**: Ensure Python 3.8+ is installed for AI model training and data processing.
+- **Expo CLI**: Install globally using `npm install -g expo-cli`.
+
+### Dependency Installation Steps
+1. **Frontend (Mobile App)**:
+   ```bash
+   cd src
+   npm install
+   ```
+2. **AI Environment (Model Training)**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### How to Train the Model
+1. Ensure you have the dataset prepared in the `data/` directory.
+2. Run the training script (e.g., executing Python scripts inside `models/` like `generator.py`).
+3. The generated models and `.tflite` optimized weights will be saved for usage.
+
+### How to Run Inference or the Deployed System
+1. Navigate to the `src/` directory.
+2. Start the Expo development server:
+   ```bash
+   npx expo start
+   ```
+3. Use the **Expo Go** app on your Android/iOS device to scan the QR code and run the app. The inference runs entirely locally on your device via TensorFlow Lite.
+
+### Description of Deployment Method
+- **Mobile Application**: The React Native application can be built using **EAS Build** (Expo Application Services) to generate an `.apk` or `.aab` for production deployment.
+- **Model Deployment**: Trained AI models are packaged into `.zip` format containing `.tflite` files and vocabularies. These "Model Packs" are loaded dynamically by the mobile application.
+
+---
+
 ## 🛡️ Non-Functional Requirements
 
 ### ⚡ Performance & Efficiency
@@ -145,6 +182,16 @@ sign_pack_name/
 - **Sensors:** Functioning device camera.
 - **Storage:** Adequate local storage for the base app and downloaded model packs.
 - **Network:** Internet connection required *only* for the initial app download and fetching community packs.
+
+---
+
+## 📏 Code Quality Expectations
+
+- **Code structure**: Code must be well-organized and modular.
+- **Documentation**: Code must be clearly commented where necessary.
+- **Reproducibility**: Environment and builds should be reproducible (Docker is encouraged).
+- **Security**: Hard-coded paths, credentials, or secrets are strictly not allowed. Use environment variables.
+- **Data Management**: Large datasets should not be committed directly to the repository. Please use download scripts to fetch datasets.
 
 ---
 
