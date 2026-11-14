@@ -1,6 +1,6 @@
 import React from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { LayoutGrid, Camera, BookOpen, User, Settings as SettingsIcon, Video } from 'lucide-react-native';
@@ -106,7 +106,7 @@ export default function AppNavigator() {
   const theme = useTheme();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -114,6 +114,6 @@ export default function AppNavigator() {
           <Stack.Screen name={ROUTES.HISTORY_DETAIL} component={HistoryDetailScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-    </SafeAreaView>
+    </View>
   );
 }

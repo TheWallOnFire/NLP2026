@@ -1,157 +1,134 @@
-# SignLanguageApp - Expo Go Edition
+# Sign Language Detector — Mobile Application
 
-This is a React Native (Expo) application designed to simulate translating American Sign Language (ASL) into real-time text and speech. 
+A high-performance, on-device mobile application built with **React Native** and **Expo** for real-time American Sign Language (ASL) detection, interactive learning, and testing.
 
-> [!NOTE]
-> **Expo Go Compatible Version**
-> This version of the application has been specifically modified to run seamlessly on **Expo Go**. Heavy native AI libraries (like `react-native-vision-camera` and `react-native-fast-tflite`) have been removed to eliminate the need for custom native builds (`npx expo run:android`). The detection features in the app currently run in a "mock" mode for UI/UX testing and frontend prototyping.
+---
 
-## Features
-- **Camera Feed:** Built using the standard `expo-camera` to stream live views natively within Expo Go.
-- **Dynamic Model UI:** Features a custom model picker UI. Users can visually load model packs and simulate swapping detection engines.
-- **Text-to-Speech (TTS):** When a sign is detected (mocked), the app uses `expo-speech` to speak the word aloud, enabling immediate communication.
-- **Expo Go Ready:** Runs smoothly out of the box without requiring native compilation, Android Studio, or XCode.
+## 🌟 Key Features
 
-## Getting Started
+- **Real-Time On-Device AI Vision:**
+  - Powered by **`react-native-vision-camera`** (v5) and **`react-native-fast-tflite`** (v3) running natively via C++ Nitro Modules.
+  - Zero-latency, 100% offline edge processing (no cloud servers, maximum user privacy).
+- **Intelligent Dual-Loop Auto Detection:**
+  - **Loop 1 (Tracking):** Full-screen hand localization with **MediaPipe Palm Detection SSD** (192x192, 2016 anchors) combined with an adaptive **CamShift** skin-hue tracker.
+  - **Loop 2 (Recognition):** Square-cropped hand gesture classification via **MobileNetV2** (224x224 / 96x96, 29 ASL classes).
+  - **Spring Physics UI:** Bounding box rendered on the UI Thread using **React Native Reanimated** SharedValues (`withSpring`) for instantaneous visual feedback.
+- **Dynamic Model Packs:**
+  - Load custom `.zip` model packs on the fly without recompiling the app.
+  - Automatic extraction into isolated sandboxes (`packs/{id}/`) and complete clean-wiping on deletion.
+- **Learning & Flashcards:**
+  - Interactive 3D flip flashcards for vocabulary practice.
+  - Camera verification mode with instant accuracy scoring.
+  - Word tracking: Learned state, Favorites, and progress percentages.
+- **Gamified Test Suite:**
+  - **Time Attack:** Sign as many random signs as possible before time expires.
+  - **Fixed Sprint:** Race to complete a preset sequence of words (e.g. 10 or 20).
+  - Detailed post-test summaries with accuracy percentages and session logs.
+- **Multimodal Feedback:**
+  - Text-to-Speech (TTS) audio narration via **`expo-speech`**.
+  - Tactile vibrations via **`expo-haptics`**.
+  - Dual-language support (**English** & **Vietnamese**) via **`react-i18next`**.
+  - Adaptive Material Design 3 theming (Light / Dark / System) via **React Native Paper**.
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+---
 
-2. **Run the app via Expo Go:**
-   ```bash
-   npm start
-   # or
-   npx expo start
-   ```
+## 🏗️ Project Architecture
 
-3. Download the **Expo Go** app on your physical iOS or Android device, and scan the QR code displayed in the terminal to launch the app instantly.
-
-## Project Structure
-- `src/features/detection/`: Contains the core `DetectionScreen` with the `expo-camera` implementation and mock detection interval logic.
-- `src/features/learning/`: Contains the model pack store (Zustand) and dynamic custom model loading UI logic.
-- `src/features/history/`: Contains the global Zustand store tracking past mock translations.
-- `src/navigation/`: The bottom tab navigator integrating all features.
-
+```text
+src/
+├── assets/                     # App icons, splash screens, and default models
+│   └── models/
+│       └── palm_detection.tflite # Bundled MediaPipe palm detection model
+├── src/                        # Modular application source code
+│   ├── components/             # App-wide UI components (ErrorBoundary, etc.)
+│   ├── constants/              # Navigation route names and global constants
+│   ├── core/                   # i18n localization resources (en, vi)
+│   ├── features/               # Feature-based domain modules
+│   │   ├── common/             # Splash / Loading screens
+│   │   ├── dashboard/          # Home dashboard, streak tracking & stats
+│   │   ├── detection/          # Live camera, auto-mode tracking, TFLite inference
+│   │   ├── history/            # Session logs and timeline viewer
+│   │   ├── learning/           # Model packs, flashcards, practice & test modes
+│   │   ├── profile/            # User profile and statistics
+│   │   └── settings/           # App settings, cache cleaner & model manager
+│   ├── navigation/             # Bottom tab & stack navigators
+│   ├── theme/                  # Material Design 3 theme configurations
+│   └── utils/                  # Feedback (haptics/sounds) and ZIP pack importer
+├── app.json                    # Expo application configuration & plugins
+├── App.tsx                     # Application entry point
+├── eas.json                    # EAS Build configuration
+├── metro.config.js             # Metro bundler config (.tflite asset support)
+└── package.json                # Project dependencies and build scripts
+```
 
 ---
 
 ## 🛠️ Build & Development Instructions
 
+Because this app utilizes native C++ libraries (`react-native-fast-tflite`, `react-native-vision-camera`, `react-native-nitro-modules`), it requires an **Expo Development Client** build or **EAS Build** rather than standard Expo Go.
+
 ### Prerequisites
 
-Before you begin, make sure you have the following installed:
+| Tool | Recommended Version | Purpose |
+| :--- | :--- | :--- |
+| **Node.js** | 18+ or 20+ LTS | JavaScript / TypeScript runtime |
+| **npm** | 9+ | Package manager |
+| **Android Studio** | Latest | Android SDK & NDK for local native builds |
+| **EAS CLI** | Latest (`npm install -g eas-cli`) | Cloud builds via Expo Application Services |
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| [Node.js](https://nodejs.org/) | 18+ | JavaScript runtime |
-| [npm](https://www.npmjs.com/) | 9+ | Package manager (ships with Node) |
-| [Expo CLI](https://docs.expo.dev/get-started/installation/) | Latest | `npm install -g expo-cli` |
-| [EAS CLI](https://docs.expo.dev/build/introduction/) | Latest | `npm install -g eas-cli` (for cloud builds) |
-| [Android Studio](https://developer.android.com/studio) | Latest | Android SDK & Emulator (for local Android builds) |
-| [Xcode](https://developer.apple.com/xcode/) | 15+ | iOS Simulator & builds *(macOS only)* |
+### Installation
 
-### 📦 Installation
-
-Clone the repository and install dependencies:
+```bash
+# Navigate to the mobile app directory
+cd src
 
 # Install dependencies
 npm install
 ```
 
----
+### Running with Expo Prebuild (Local Native Development)
 
-### 🖥️ Local Development (Development Mode)
+1. **Generate native Android/iOS directories:**
+   ```bash
+   npx expo prebuild --clean
+   ```
 
-Run the app locally on an emulator or physical device **without** EAS cloud builds:
+2. **Start the Metro development server:**
+   ```bash
+   npx expo start -c
+   ```
 
-**1. Generate native project files:**
-```bash
-# Generate the android/ and ios/ directories from Expo config
-npx expo prebuild
+3. **Build and launch on a connected device or emulator:**
+   ```bash
+   # For Android:
+   npx expo run:android
 
-# Use --clean to regenerate from scratch (recommended after config changes)
-npx expo prebuild --clean
-```
+   # For iOS (macOS only):
+   npx expo run:ios
+   ```
 
-**2. Start the development server:**
-```bash
-# Start the Expo dev server (Metro bundler)
-npx expo start
-
-# Clear Metro cache if you encounter stale bundle issues
-npx expo start -c
-```
-
-**3. Run on a device or emulator:**
-```bash
-# Run directly on a connected Android device / emulator
-npx expo run:android
-
-# Run on iOS Simulator (macOS only)
-npx expo run:ios
-```
-
-> **💡 Tip:** Connect a physical device via USB with USB Debugging enabled, or launch an Android Emulator / iOS Simulator before running the commands above.
-
-#### Available npm Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm start` | Start the Expo development server |
-| `npm run android` | Build & run on Android device/emulator |
-| `npm run ios` | Build & run on iOS Simulator *(macOS only)* |`
-| `npm run web` | Start the app in a web browser |
-
----
-
-### 🏗️ Local Builds (EAS Local)
-
-If you want to compile the `.apk`, `.aab`, or `.ipa` directly on your machine without using Expo's cloud servers, you can use the `--local` flag.
-
-**Prerequisites for Local Builds:**
-- **Android:** Android Studio, Android SDK, and Java JDK must be installed and configured in your environment variables.
-- **iOS:** Xcode must be installed (macOS only).
-
-**Generate Local Build:**
-```bash
-# Build Android APK/AAB locally
-eas build -p android --profile production --local
-
-# Build iOS IPA locally (macOS only)
-eas build -p ios --profile production --local
-```
-The output file (`.apk`, `.aab`, or `.tar.gz` for iOS simulator) will be saved directly in your project folder.
-
----
-
-### ☁️ Cloud Builds (EAS)
-
-Alternatively, you can use [Expo Application Services (EAS)](https://expo.dev/eas) to compile the app on the cloud:
+### Building a Production APK / AAB (via EAS Build)
 
 ```bash
-## Cloud preview build
-eas build -p android --profile preview
-
-
-# Cloud Development Build
-eas build -p android --profile development
-eas build -p ios --profile development
-
-# Cloud Production Build
-eas build -p android --profile production
-eas build -p ios --profile production
+# Build standalone Android APK for physical device testing
+eas build --platform android --profile preview
 ```
 
 ---
 
-### 🐛 Troubleshooting
+## 📦 Model Pack Specification
 
-| Issue | Solution |
-|-------|----------|
-| Metro bundler cache issues | `npx expo start -c` |
-| Stale native code after config change | `npx expo prebuild --clean` |
-| Missing Android SDK | Install via Android Studio → SDK Manager |
-| `eas` command not found | `npm install -g eas-cli` |
-| Permission denied on device | Enable **USB Debugging** in Developer Options |
+A Model Pack is an isolated `.zip` archive structured as follows:
+
+```text
+pack_name.zip
+├── assets/
+│   ├── model.tflite               # TensorFlow Lite model file
+│   ├── metadata.json              # Pack ID, name, version, input_shape, normalization
+│   └── vocabulary/
+│       ├── word_list.json         # Mapping of class index to label string
+│       └── word_images/           # (Optional) PNG demonstration images
+└── README.md                      # Documentation for the pack
+```
+
+Model packs can be generated using `python models/generator.py` and imported into the app from **Settings > Model Manager > Import Custom Pack**.

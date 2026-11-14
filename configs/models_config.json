@@ -9,7 +9,7 @@
     "input_shape": [1, 224, 224, 3],
     "normalization": "[0, 1]",
     "description": "Mô hình CNN nhận diện 29 lớp ngôn ngữ ký hiệu ASL (A-Z, del, nothing, space).",
-    "word_image_url": "file:///d:/NLP2026/model/demo/{word}/demo_image.jpg",
+    "word_image_url": "models/demo/{word}/demo_image.jpg",
     "words": [
       "A",
       "B",
@@ -52,7 +52,7 @@
     "input_shape": [1, 224, 224, 3],
     "normalization": "[0, 255]",
     "description": "Mô hình EfficientNetB0 nhận diện 29 lớp ngôn ngữ ký hiệu ASL. EfficientNet Keras mặc định dùng hệ chuẩn hóa [0, 255].",
-    "word_image_url": "file:///d:/NLP2026/model/demo/{word}/demo_image.jpg",
+    "word_image_url": "models/demo/{word}/demo_image.jpg",
     "words": [
       "A",
       "B",
@@ -95,7 +95,7 @@
     "input_shape": [1, 224, 224, 3],
     "normalization": "[0, 1]",
     "description": "Mô hình MobileNetV2 nhận diện 29 lớp ngôn ngữ ký hiệu ASL. Model đã được Fine-tune lại với hệ chuẩn hóa Keras [0, 1].",
-    "word_image_url": "file:///d:/NLP2026/model/demo/{word}/demo_image.jpg",
+    "word_image_url": "models/demo/{word}/demo_image.jpg",
     "words": [
       "A",
       "B",

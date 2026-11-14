@@ -1,19 +1,20 @@
-# Sign Language App - Expo Go Documentation
+# Mobile App Technical Documentation
 
-Welcome to the documentation for the **Expo Go Edition** of the Sign Language App.
+Welcome to the internal engineering documentation for the **NLP2026 Sign Language Detector** mobile application.
 
-## Overview
-This specific version of the application (`SignLanguageApp_ExpoGo`) is tailored to run directly within the Expo Go sandbox environment. It acts as a lightweight, frontend-focused pipeline for rapid UI/UX prototyping and development without the overhead of native C++ compilation.
+---
 
-## Documentation Index
-Please explore the following documents to understand the details of this project:
+## 📖 Documentation Index
 
-1. [Architecture & State Management](./architecture.md)
-   * Explains how the app is structured, navigation flow, and how Zustand is used for state management.
-2. [Features & UI Components](./features.md)
-   * Details the core features such as the Camera feed, Profile page, Model UI picker, and Text-to-Speech integration.
-3. [Machine Learning Pipeline](./ml-pipeline.md)
-   * Details the offline ML strategy used in this Expo Go environment (the "Bounding Box" + TensorFlow.js approach) versus the mock data currently used for UI testing.
-
-## Why an Expo Go Edition?
-Developing directly with native AI libraries (`react-native-vision-camera`, `react-native-fast-tflite`) requires frequent, slow native rebuilds (`npx expo run:android`). By maintaining this Expo Go version, you can instantly test UI, navigation, and logic changes via over-the-air (OTA) updates using the standard Expo Go app.
+1. **[Architecture & State Management](./architecture.md)**
+   - Explains the feature-driven folder hierarchy (`src/src/features/...`), navigation structure, and Zustand global stores.
+2. **[Machine Learning Pipeline](./ml-pipeline.md)**
+   - Details the real-time on-device dual-loop AI engine: MediaPipe SSD Palm Detection, CamShift skin-color tracking, and MobileNetV2 classification via `react-native-fast-tflite`.
+3. **[Camera & Optics Architecture](./camera.md)**
+   - Explains how `react-native-vision-camera` coordinates with hardware sensors, handles pixel formats, orientation, and memory lifecycle.
+4. **[Comprehensive Feature List](./features.md)**
+   - Outlines the complete feature set: Vision detection modes, Model Pack management, interactive learning flashcards, gamified tests, and accessibility options.
+5. **[Known Issues & Edge Cases Analysis](./bug.md)**
+   - Technical analysis of 30 hardware, ML, and state synchronization edge-cases with mitigation strategies.
+6. **[Autonomous Pipeline & Resolution Log](./fix.md)**
+   - Detailed architectural breakdown of the Auto Mode implementation, SSD anchor decoding, and memory offset parsing fixes.

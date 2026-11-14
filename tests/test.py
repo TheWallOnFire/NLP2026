@@ -2,38 +2,46 @@ import os
 import subprocess
 import sys
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
+
 def main():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)
-    
-    test_files = [f for f in sorted(os.listdir(current_dir)) if f.endswith('.py') and f != 'test.py']
-    
+    test_files = [f for f in sorted(os.listdir(CURRENT_DIR)) if f.endswith('.py') and f != 'test.py']
+
     if not test_files:
-        print("Không tìm thấy file test nào.")
+        print("[!] No test scripts found in tests/ directory.")
         return
 
-    print("=== DANH SÁCH CÁC SCRIPT TEST ===")
+    print("=" * 50)
+    print("      NLP2026 TEST SUITE RUNNER")
+    print("=" * 50)
     for i, f in enumerate(test_files, 1):
-        print(f"{i}. {f}")
-    print("0. Thoát")
-    
+        print(f" [{i}] {f}")
+    print(" [0] Exit")
+
     try:
-        choice = int(input("\nChọn script để chạy (nhập số): "))
-        if choice == 0:
+        raw_input = input("\nSelect a test script to execute (number): ").strip()
+        if not raw_input or raw_input == '0':
+            print("Exiting.")
             return
+
+        choice = int(raw_input)
         if 1 <= choice <= len(test_files):
             selected_script = test_files[choice - 1]
-            script_path = os.path.join(current_dir, selected_script)
-            print(f"\n[*] Đang chạy {selected_script}...\n" + "="*50)
-            
-            # Chạy script với working directory là thư mục model để giữ nguyên các đường dẫn tương đối
-            subprocess.run([sys.executable, script_path], cwd=parent_dir)
+            script_path = os.path.join(CURRENT_DIR, selected_script)
+            print(f"\n[*] Running: {selected_script}")
+            print("=" * 50)
+
+            # Run with PROJECT_ROOT as working directory
+            subprocess.run([sys.executable, script_path], cwd=PROJECT_ROOT)
         else:
-            print("Lựa chọn không hợp lệ.")
+            print("[!] Invalid selection.")
     except ValueError:
-        print("Vui lòng nhập một số hợp lệ.")
+        print("[!] Please enter a valid integer.")
     except KeyboardInterrupt:
-        print("\nĐã hủy.")
+        print("\n[!] Execution canceled.")
+
 
 if __name__ == "__main__":
     main()

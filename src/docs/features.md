@@ -1,50 +1,78 @@
 # Comprehensive Feature List
 
-This document outlines all the intended features for the **Sign Language App**, both implemented and planned. In this **Expo Go Edition**, many of the real-time detection aspects run using a "Bounding Box" + TFJS approach or a mock data pipeline for UI testing, but the overall feature set remains the same.
+This document provides a detailed catalog of the features implemented in the **Sign Language Detector** application.
 
-## 🔍 Vision & Detection
-- **Real-Time Detection (Bounding Box):** Instant hand sign recognition via live camera using a target box. You can configure the speed of detection:
-  - **Slow:** Detects signs every **3 seconds** (best for relaxed practice).
-  - **Normal:** Detects signs every **1 second** (default, balanced speed).
-  - **Fast:** Detects signs **immediately** upon detection (for rapid practice).
-  - **Off:** Manual Trigger mode (detects only when the capture button is pressed).
-- **Image Processing:** Capture photos or upload existing images from your gallery to detect hand signs. Results are not saved automatically to conserve storage.
-- **Video Analysis:** Record clips or upload videos for sequential sign detection. Users are prompted to save the result to the history screen after processing.
-- **Gallery Integration:** Directly browse and select media from your device's native gallery apps.
-- **Dynamic Model Swapping:** Seamlessly switch the active machine learning model pack. The UI displays a loading overlay while the new pack is initialized.
+---
 
-## 🎓 Learning & Testing
-- **Model Pack Collections:** Each installed model pack comes with its own collection of reference words and images.
-- **Learn and Test Hub:** A dedicated space to learn and test against the currently active model pack. The UI updates dynamically based on the pack's vocabulary.
-- **Vocabulary Management:** Organize the words within each pack's collection:
-  - **Learned State:** Automatically marks words as "Learned" once you achieve a certain accuracy threshold during practice.
-  - **Favorites:** Manually mark words as "Favorite" for quick access and focused practice.
-  - **Custom Lists:** Create and manage custom categories of words.
-- **Interactive Learning:**
-  - **Learning Mode:** Practice making the hand sign for a chosen word. If the model detects the correct sign, it marks it as learned and advances to the next word.
-  - **Practice Mode:** Randomly picks a word from your "Learned" or "Favorites" list to reinforce memory.
-- **Test Mode (Gamified):** A "typing game" experience with customizable parameters:
-  - **Word Range:** Test yourself on **All Words**, **Learned Words**, **Favorites**, or **Custom** lists.
-  - **Time Attack:** Sign as many words as possible within a limited time (or endless mode) with random words from the pack.
-  - **Fixed Sprint:** Complete a set number of words (e.g., 10, 20, or all) with random words from the pack.
-  - **Post-Test Summary:** Displays Accuracy (%), Score, Time Taken, and the list of words tested. Users are prompted to save these results to their history.
+## 🔍 1. Vision & Detection
 
-## 📜 Activity History
-- **Timeline View:** A chronological log of all your past detections, learning sessions, and tests. Clicking on any entry opens a detailed view of that specific session.
+- **Autonomous Hand Tracking (Auto Mode - Default):**
+  - Instant full-screen hand detection powered by **MediaPipe Palm Detection SSD** (192x192).
+  - Continuous **CamShift** skin-hue tracking with Adaptive Hue Histogram.
+  - Dynamic spring-loaded bounding box (1.5x/2.0x expanded) rendered on UI Thread at 60 FPS.
+- **Configurable Live Detection:**
+  - **Fast:** Instantaneous classification on captured frames.
+  - **Normal:** 1-second cadence (recommended balance for battery and responsiveness).
+  - **Slow:** 3-second cadence (ideal for beginners).
+  - **Manual Trigger:** Capture only upon tapping the scan shutter.
+- **Static Image Analysis (Picture Mode):**
+  - Choose images from device gallery or capture snapshots.
+  - Inspection dialog displaying dimensions, file size, and target model shape before analysis.
+- **Sequential Video Analysis (Video Mode):**
+  - Select stored videos to automatically extract keyframes at 500ms intervals.
+  - Sequential inference with session summary.
+- **Batch Directory Scanning (Batch Mode):**
+  - Select entire folders to run batch sign recognition across all image files.
+- **Dynamic Model Swapping:**
+  - Instantly switch active AI models and vocabularies on the fly without app restarts.
 
-## ⚙️ Settings & Customization
-- **Theme:** Full support for Light, Dark, and Mixed modes with customizable color palettes.
-- **Sound & Voice:** Adjust sound effects, volume, TTS language, and voice rate.
-  - **System Sounds:** High-quality sound effects for generic UI actions (opening pages, clicking buttons).
-  - **Learning Feedback:** Unique "Correct" and "Incorrect" audio cues to guide you through learning sessions.
-  - **Capture Notification:** A distinct "Shutter/Ping" sound to notify you when a sign has been successfully captured.
-- **Haptics:** Fine-grained control over haptic feedback for correct/incorrect signs and UI interactions.
-- **Storage Management:**
-  - Define custom folders for saving recorded media and progress logs.
-  - Toggle local logging on/off.
-  - Export learning data and history as a CSV file.
-- **System & Alerts:**
-  - **Notification Center:** Daily practice reminders, milestone alerts, and achievement pop-ups.
-  - **Power Management:** A "Battery Saver" mode which limits frame rate and background processing to save device battery.
-- **Data Control:** Options to permanently delete data in history, custom words, and user profiles.
-- **Developer Debug Mode:** Enables verbose system logging and on-screen error tracking for technical troubleshooting.
+---
+
+## 🎓 2. Learning & Testing Hub
+
+- **Curated Model Packs:**
+  - Each pack provides its own unique vocabulary set and reference illustrations.
+- **Vocabulary Mastery Tracking:**
+  - **Learned State:** Words are marked as learned upon meeting detection accuracy thresholds.
+  - **Favorites:** Star specific signs for focused repetition.
+  - **Progress Gauges:** Live calculation of pack completion percentages.
+- **Interactive Flashcards:**
+  - 3D card-flip gesture revealing gesture images and phonetic names.
+  - Integrated live camera preview to practice signing alongside the card.
+- **Practice Verification Mode:**
+  - The app challenges you with a specific word; snapshot verification gives immediate green/red feedback.
+- **Gamified Test Suite:**
+  - **Time Attack:** Sign as many random words as possible within a 60/120s timer.
+  - **Fixed Sprint:** Race through 10 or 20 random words.
+  - **Post-Test Summary:** Displays final accuracy %, score, time elapsed, and confused words.
+
+---
+
+## 📜 3. Activity History & Session Tracking
+
+- **Timeline Log:** Chronological record of camera sessions, picture analyses, and test scores.
+- **Detailed Session View:**
+  - Inspect full word sequences, individual confidence percentages, and timestamps.
+  - View attached thumbnails for picture/video sessions.
+- **Advanced Filtering & Sorting:**
+  - Filter by session type (Detection, Learning, Test).
+  - Sort by date, word count, or pack name.
+
+---
+
+## ⚙️ 4. Settings & System Management
+
+- **Theme & Appearance:** Light mode, Dark mode, and System-Adaptive mode.
+- **Sound & Voice Engine:**
+  - Text-to-Speech (TTS) spoken word cues with adjustable rate and language.
+  - Auditory feedback cues for correct/incorrect gestures.
+- **Tactile Feedback:** Haptic vibration on successful detection and test milestones.
+- **Model Pack Manager:**
+  - Import external `.zip` Model Packs via DocumentPicker.
+  - Verify and unpack models into isolated sandboxes.
+  - Clean deletion of model folders preventing storage bloat.
+- **Diagnostics & Storage:**
+  - Built-in **ML Diagnostic Screen** executing 100 sequential inferences to verify model determinism.
+  - Cache size calculation and one-tap cache cleaner.
+  - Factory reset to safely clear all local databases.
+- **Internationalization:** Complete Vietnamese (`vi-VN`) and English (`en-US`) localization.

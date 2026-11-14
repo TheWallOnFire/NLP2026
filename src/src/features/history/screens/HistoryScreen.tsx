@@ -14,6 +14,27 @@ export default function HistoryScreen() {
   const [sortBy, setSortBy] = useState<string>('time_desc');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
 
+  const getTimeValue = (item: any): number => {
+    if (typeof item.timestamp === 'number' && !isNaN(item.timestamp)) {
+      return item.timestamp;
+    }
+    if (item.date) {
+      try {
+        const parts = String(item.date).split(/[-/]/);
+        if (parts.length === 3) {
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const y = parseInt(parts[2], 10);
+          const dateObj = new Date(y, m, d);
+          if (!isNaN(dateObj.getTime())) return dateObj.getTime();
+        }
+        const parsed = Date.parse(item.date);
+        if (!isNaN(parsed)) return parsed;
+      } catch {}
+    }
+    return 0;
+  };
+
   const filteredAndSortedHistory = useMemo(() => {
     let result = [...history];
 
@@ -24,8 +45,8 @@ export default function HistoryScreen() {
 
     // Sắp xếp
     result.sort((a, b) => {
-      const timeA = a.timestamp || (a.date && a.time ? new Date(`${a.date.split('/').reverse().join('-')}T${a.time}`).getTime() : 0);
-      const timeB = b.timestamp || (b.date && b.time ? new Date(`${b.date.split('/').reverse().join('-')}T${b.time}`).getTime() : 0);
+      const timeA = getTimeValue(a);
+      const timeB = getTimeValue(b);
 
       if (sortBy === 'time_desc') {
         return timeB - timeA;

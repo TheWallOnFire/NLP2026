@@ -48,7 +48,7 @@ export default function MLDiagnosticScreen({ navigation }: any) {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: false, // Nguyên bản
       quality: 1,
     });

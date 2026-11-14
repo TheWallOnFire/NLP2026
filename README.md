@@ -1,225 +1,179 @@
 # 👋 Sign Language Detector App
 
-> **Bridging the communication gap through real-time AI-powered hand sign recognition.**
+> **Bridging the communication gap through real-time AI-powered hand sign recognition on mobile devices.**
 
 <div align="left">
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.8+-green.svg)
-![MediaPipe](https://img.shields.io/badge/Vision-MediaPipe-orange.svg)
-![React Native](https://img.shields.io/badge/React%20Native-3.8+-green.svg)
-![Tensorflow](https://img.shields.io/badge/TensorFlow-Lite-orange.svg)
+![React Native](https://img.shields.io/badge/React%20Native-0.81-blue.svg)
+![Expo](https://img.shields.io/badge/Expo-SDK%2054-black.svg)
+![Vision](https://img.shields.io/badge/Vision-VisionCamera%20v5-orange.svg)
+![TensorFlow Lite](https://img.shields.io/badge/AI-TensorFlow%20Lite-FF6F00.svg)
 
 </div>
 
+---
+
 ## 🌟 Overview
 
-The **Sign Language Detector App** is a powerful offline-first mobile application designed to recognize and interpret hand signs (Alphabets, Numbers, Phrases) in a real-time, interactive environment. Built with React Native and TensorFlow, it empowers users to learn, practice, and test their sign language skills effectively.
+The **Sign Language Detector App** is an offline-first mobile application designed to recognize and interpret American Sign Language (ASL) hand signs in real-time. Powered by a hybrid computer vision pipeline combining **MediaPipe Palm Detection**, **CamShift Adaptive Tracking**, and **MobileNetV2 Classification**, it operates entirely on-device with zero cloud dependencies, ensuring ultra-low latency and user privacy.
+
+---
 
 ## 🏗️ Project Structure
 
-The repository is structured to separate the mobile application from the AI model training environment:
-
 ```text
 NLP2026/
-├── src/                         # Main React Native Expo application
-│   ├── src/                     # Source code (components, screens, features)
-│   │   ├── assets/              # Media, sounds, and default ML models
-│   │   ├── components/          # Shared reusable UI components
-│   │   ├── constants/           # App-wide constants (e.g., route names)
-│   │   ├── features/            # Domain-driven feature modules
-│   │   ├── navigation/          # React Navigation configuration
-│   │   ├── theme/               # UI styling (Light/Dark mode)
-│   │   ├── types/               # TypeScript type definitions
-│   │   └── utils/               # Helper functions
-│   ├── App.tsx                  # App entry point
-│   └── app.json                 # Expo configuration
-├── models/                      # Trained models, generation scripts, and configs
-├── data/                        # Datasets for model training
-├── configs/                     # Global configurations
-├── doc/                         # Additional project documentation
-├── test/                        # Testing scripts
+├── configs/                     # Centralized model & system configurations
+│   └── models_config.json       # Specifications for trained ASL models
+├── data/                        # Dataset acquisition and preprocessing
+│   └── download_dataset.py      # Automated dataset downloader (Kaggle ASL Alphabet)
+├── doc/                         # Architecture, design specs, and tech stack documentation
+│   ├── design.md                # C4 architecture diagrams and pipeline design
+│   ├── proposal.md              # Project proposal, scope, and objectives
+│   ├── tech_stack.md            # Detailed technology stack breakdown
+│   └── README.md                # Documentation index
+├── models/                      # Model training, checkpoints, and packaging
+│   ├── model/                   # Serialized model weights (.keras, model.zip)
+│   ├── notebook/                # Jupyter research notebooks
+│   ├── crop.py                  # Interactive Tkinter image cropper utility
+│   ├── generator.py             # Converter from Keras to mobile TFLite Model Packs
+│   └── README.md                # Model documentation
+├── screenshot/                  # Sample test images and verification captures
+├── src/                         # React Native mobile application
+│   ├── assets/                  # Bundled assets (icons, splash, palm_detection.tflite)
+│   ├── src/                     # Application source code
+│   │   ├── components/          # Shared components (ErrorBoundary, etc.)
+│   │   ├── constants/           # Route constants and app-wide identifiers
+│   │   ├── core/                # i18n localization resources (en, vi)
+│   │   ├── features/            # Feature modules (detection, learning, history, etc.)
+│   │   ├── navigation/          # React Navigation bottom tabs and stacks
+│   │   ├── theme/               # Material Design 3 light & dark themes
+│   │   └── utils/               # Audio/haptic feedback & ZIP pack importer
+│   ├── app.json                 # Expo application configuration & plugins
+│   ├── App.tsx                  # Application entry point
+│   └── package.json             # Mobile app dependencies and scripts
+├── tests/                       # AI and TFLite model test suite
+│   ├── 01_test_keras_dataset.py # Keras model evaluation on dataset
+│   ├── 02_test_keras_center_crop.py # Center-crop image inference
+│   ├── 03_test_tflite_shapes.py # TFLite tensor inspection
+│   ├── 04_test_tflite_dataset.py# TFLite batch dataset evaluation
+│   ├── 05_test_tflite_real.py   # TFLite single-image verification
+│   ├── 06_eval_quick.py         # Comparative benchmark across models
+│   └── test.py                  # Interactive CLI test suite runner
 ├── requirements.txt             # Python dependencies for AI environment
 └── README.md                    # Project documentation
 ```
 
-### 🛠️ Tech Stack
+---
 
-- **Core Framework:** [React Native](https://reactnative.dev/) (via [Expo Go](https://expo.dev/))
-- **Language:** TypeScript
-- **State Management:** [Zustand](https://github.com/pmndrs/zustand) (with `AsyncStorage` for local persistence)
-- **UI & Styling:** [React Native Paper](https://callstack.github.io/react-native-paper/) (Material Design), [Lucide React Native](https://lucide.dev/) (Icons)
-- **AI / Machine Learning:** [TensorFlow.js](https://www.tensorflow.org/js) for React Native, MobileNet, TensorFlow Lite
-- **Hardware Integration:** 
-  - `expo-camera` (Real-time computer vision)
-  - `expo-haptics` (Tactile feedback)
-  - `expo-speech` (Text-to-Speech audio cues)
-  - `expo-image-picker` & `expo-document-picker` (Media & custom Model loading)
+## 🛠️ Tech Stack
+
+### Mobile Frontend
+- **Framework:** [React Native](https://reactnative.dev/) (v0.81) with [Expo SDK 54](https://expo.dev/) (New Architecture & Nitro Modules)
+- **Language:** TypeScript 5.9
+- **State Management:** [Zustand](https://github.com/pmndrs/zustand) with `@react-native-async-storage/async-storage` for local persistence
+- **UI & Design:** [React Native Paper](https://callstack.github.io/react-native-paper/) (Material Design 3), [Lucide React Native](https://lucide.dev/)
+- **Animation:** [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/) (Spring physics on UI Thread)
+- **Localization:** [react-i18next](https://react.i18next.com/) (English & Vietnamese)
+
+### On-Device AI & Hardware Integration
+- **Camera:** `react-native-vision-camera` (v5)
+- **Inference Engine:** `react-native-fast-tflite` (v3) with C++ XNNPACK acceleration
+- **Memory Sharing:** `react-native-nitro-modules` (Zero-copy ArrayBuffers) & `react-native-nitro-image`
+- **Vision Pipeline:**
+  - **MediaPipe Palm Detection SSD:** 192x192 Single-Shot Detector (2,016 anchors)
+  - **CamShift Tracker:** HSV skin-hue color tracking with continuous adaptive histograms
+  - **MobileNetV2 ASL Classifier:** 224x224 input, 29 classes (A–Z, del, nothing, space)
+- **Audio & Haptics:** `expo-speech` (Text-to-Speech), `expo-haptics`, `expo-video`
+
+### Python AI Training & Testing
+- **Core:** Python 3.8+, TensorFlow 2.x, OpenCV (`cv2`), Scikit-learn
+- **Dataset:** Kaggle CLI (`grassknoted/asl-alphabet`)
 
 ---
 
 ## ✨ Key Features
 
 ### 🔍 Vision & Detection
-- **Real-Time Detection (Default):** Instant hand sign recognition via the live camera. You can customize the detection speed:
-    - **Slow:** Detects signs every **3 seconds** (ideal for relaxed, beginner practice).
-    - **Normal:** Detects signs every **1 second** (default, balanced speed).
-    - **Fast:** Detects signs **immediately** (for rapid, advanced practice).
-    - **Manual Trigger:** Detects only when the scan button is explicitly pressed.
-- **Image Processing:** Capture photos or upload existing images from your gallery for static sign detection. *(Note: Results are not saved to device storage automatically to optimize performance and privacy).*
-- **Video Analysis:** Record clips or upload videos for sequential sign detection. Users will be prompted to save the final results to their History.
-- **Dynamic Model Swapping:** Seamlessly switch between different AI models on the fly without restarting the app.
+- **Autonomous Tracking (Auto Mode):** The app automatically locates your hand anywhere in the frame using MediaPipe SSD, locks on with CamShift, and tracks it smoothly at 60 FPS using Reanimated Spring Physics.
+- **Configurable Cadence:** Fast, Normal (1s), Slow (3s), and Manual Shutter trigger modes.
+- **Static & Sequential Processing:** Detect signs from gallery images, camera photos, or sequential video keyframes.
+- **Dynamic Model Swapping:** Switch between different AI models and vocabularies during runtime without restarting.
 
-### 📦 Model Packs
-The app utilizes a modular architecture, allowing custom model packs to be loaded dynamically via `.zip` files.
-- **Import & Extraction:** When you import a custom model pack, the app automatically extracts its contents (including the `.tflite` model, vocabulary, and images) into an isolated, dedicated directory (`packs/{id}/`) on the device.
-- **Clean Deletion:** Because all assets are perfectly contained within this specific folder, deleting a model pack from the Settings > Model Manager completely wipes the folder from your device. This guarantees a clean deletion with no leftover data, preventing storage bloat.
-- **Structure of a Model Pack:**
-```text
-sign_pack_name/
-├── assets/
-│   ├── model.tflite          # The TensorFlow Lite weights file
-│   ├── vocabulary/
-│   │   ├── word_list.json    # JSON mapping of class indices to words
-│   │   ├── word_images/      # (Optional) Reference images for learning
-│   └── metadata.json         # Pack info (language, version, author)
-```
+### 📦 Modular Model Packs
+- Load custom `.zip` Model Packs directly through the app.
+- Extracted into isolated device directories (`packs/{id}/`) with complete clean-wiping on deletion.
 
-### 🎓 Learning & Testing
-- **Curated Vocabularies:** Each loaded model pack comes with its own specific collection of words and signs.
-- **Vocabulary Management:** Track your progress across different packs.
-    - **Learned State:** Words are automatically marked as "Learned" once a specific accuracy threshold is met during practice.
-    - **Favorites:** Manually pin words for quick access and focused repetition.
-    - **Custom Lists:** Create and manage your own categorical word lists.
-- **Interactive Practice:** 
-    - The app prompts you to make a specific sign. If your camera input matches the target word, it marks it as complete and proceeds.
-- **Gamified Test Mode:** Evaluate your skills through interactive challenges:
-    - **Word Range:** Choose to test against *All Words*, *Learned Words*, *Favorites*, or *Custom Lists*.
-    - **Time Attack:** Sign as many random words as possible within a strict time limit.
-    - **Fixed Sprint:** Race to complete a set number of words (e.g., 10 or 20) as quickly as possible.
-    - **Comprehensive Summaries:** View your Accuracy, Final Score, Time elapsed, and easily save the session to your history.
+### 🎓 Learning & Testing Hub
+- **Interactive Flashcards:** 3D flip cards with sign gesture illustrations and audio pronunciation.
+- **Practice Verification:** Live camera verification providing instant accuracy scoring.
+- **Gamified Test Modes:** **Time Attack** and **Fixed Sprint** with post-test accuracy and error summaries.
 
-### 🌐 Store & Community Packs
-- Browse, download, and rate community-contributed model packs directly within the app *(Requires an active internet connection)*.
-
-### 📜 Activity History
-- **Timeline View:** A detailed, chronological log of all past detections, learning sessions, and test scores.
-
-### ⚙️ Settings & Configuration
-*Note: The settings module has been fully decoupled from the user profile for a cleaner, centralized architecture.*
-- **Theming:** Full support for Light, Dark, and System-Adaptive modes.
-- **Sound & Voice:** Complete control over auditory feedback (Volume, System Sounds, Text-To-Speech Language, and Voice Rate).
-- **Haptics:** Toggle device vibrations for correct/incorrect sign feedback.
-- **Privacy Controls:** Easily manage Camera and Microphone permissions.
-- **Data Management:** 
-    - Export your learning history and logs as a `.csv` file.
-    - Safely wipe all local data to reset the app.
-- **System Alerts:** Toggle daily practice reminders and milestone notifications.
-- **Battery Saver Mode:** Limits camera frame rates and background processing to preserve battery life.
-- **Developer Tools:** Enable verbose system logging and on-screen debug tracking to troubleshoot issues.
-
----
-
-## 🛠️ Technical Highlights
-
-- **Dynamic Model Loading:** A decoupled AI architecture allowing users to swap heavy TensorFlow Lite detection models during runtime without app rebuilds.
-- **Local-First Processing:** 100% of the image processing and landmark detection occurs locally on the device, ensuring zero latency and absolute user privacy.
+### 📜 Activity History & Settings
+- Comprehensive session timeline with filtering and sorting.
+- Dark, Light, and System themes.
+- Built-in **ML Diagnostic Screen** for 100x stability testing.
+- One-tap cache cleanup and factory reset.
 
 ---
 
 ## ⚙️ Getting Started
 
-### Environment Setup Instructions
-- **Node.js**: Ensure Node.js (v18+) is installed for React Native / Expo development.
-- **Python**: Ensure Python 3.8+ is installed for AI model training and data processing.
-- **Expo CLI**: Install globally using `npm install -g expo-cli`.
+### 1. Prerequisites
+- **Node.js:** v18+ or v20+ LTS
+- **Python:** v3.8+
+- **Android Studio / Xcode:** For compiling native builds (or use EAS Build for cloud builds)
 
-### Dependency Installation Steps
-1. **Frontend (Mobile App)**:
-   ```bash
-   cd src
-   npm install
-   ```
-2. **AI Environment (Model Training)**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 2. Python AI Environment Setup
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
 
-### How to Train the Model
-1. Ensure you have the dataset prepared in the `data/` directory.
-2. Run the training script (e.g., executing Python scripts inside `models/` like `generator.py`).
-3. The generated models and `.tflite` optimized weights will be saved for usage.
+# (Optional) Download dataset from Kaggle
+python data/download_dataset.py
 
-### How to Run Inference or the Deployed System
-1. Navigate to the `src/` directory.
-2. Start the Expo development server:
-   ```bash
-   npx expo start
-   ```
-3. Use the **Expo Go** app on your Android/iOS device to scan the QR code and run the app. The inference runs entirely locally on your device via TensorFlow Lite.
+# Convert Keras models into mobile TFLite Model Packs
+python models/generator.py
 
-### Description of Deployment Method
-- **Mobile Application**: The React Native application can be built using **EAS Build** (Expo Application Services) to generate an `.apk` or `.aab` for production deployment.
-- **Model Deployment**: Trained AI models are packaged into `.zip` format containing `.tflite` files and vocabularies. These "Model Packs" are loaded dynamically by the mobile application.
+# Run the interactive AI test suite
+python tests/test.py
+```
 
----
+### 3. Mobile App Setup (Expo Dev Client)
+Because the app relies on native C++ modules (`react-native-fast-tflite`, `react-native-vision-camera`), run it using an **Expo Development Client** or **EAS Build**:
 
-## 🛡️ Non-Functional Requirements
+```bash
+# Navigate to mobile app directory
+cd src
 
-### ⚡ Performance & Efficiency
-- **Low Latency:** Real-time detection is optimized to maintain a minimum of 15-30 FPS on modern mobile devices.
-- **Resource Management:** Controlled CPU/GPU allocation prevents thermal throttling during extended practice sessions.
+# Install npm dependencies
+npm install
 
-### 🔒 Privacy & Security
-- **Zero-Cloud Dependency:** User images or video streams are **never** uploaded to external servers.
-- **Secure Local Storage:** Learning history and imported model packs are isolated within secure, app-specific directories.
+# Generate native Android and iOS projects
+npx expo prebuild --clean
 
-### 📶 Offline Availability
-- **100% Offline Core:** Once a model pack is downloaded, all core features (Detection, Learning, Testing, History) function seamlessly without an internet connection.
+# Start Metro bundler with clean cache
+npx expo start -c
 
-### 📱 Hardware Requirements
-- **OS:** Android 8.0 (Oreo) or higher.
-- **Sensors:** Functioning device camera.
-- **Storage:** Adequate local storage for the base app and downloaded model packs.
-- **Network:** Internet connection required *only* for the initial app download and fetching community packs.
+# Run on connected Android device or emulator
+npx expo run:android
+
+# Or run on iOS simulator (macOS only)
+npx expo run:ios
+```
 
 ---
 
-## 📏 Code Quality Expectations
+## 🛡️ Non-Functional Requirements & Security
 
-- **Code structure**: Code must be well-organized and modular.
-- **Documentation**: Code must be clearly commented where necessary.
-- **Reproducibility**: Environment and builds should be reproducible (Docker is encouraged).
-- **Security**: Hard-coded paths, credentials, or secrets are strictly not allowed. Use environment variables.
-- **Data Management**: Large datasets should not be committed directly to the repository. Please use download scripts to fetch datasets.
-
----
-
-## 🚀 Roadmap / Checklist
-
-### Completed ✅
-- [x] Basic UI structure and navigation (Bottom tabs: Dashboard, Detection, Learning, Profile, Settings)
-- [x] State management using Zustand with persistent storage
-- [x] Decoupled Settings module from Profile
-- [x] Dark/Light mode theme support and haptic feedback
-- [x] Local storage for activity history and logging
-- [x] Core detection UI (Camera access, gallery image/video picker)
-- [x] Dynamic loading of custom `.tflite` model files via Document Picker
-
-### In Progress / Pending ⏳
-- [ ] Integrate actual TensorFlow Lite model inference for real-time detection (currently using mock logic)
-- [ ] Implement "Test Mode" gamification engine (Time Attack & Fixed Sprint)
-- [ ] Implement full Data Export feature (CSV generation)
-- [ ] Build the Online Store & Community Pack downloading system
-- [ ] Explore Sentence-level sign recognition (interpreting continuous sequences)
-- [ ] Cloud sync functionality for cross-device backup
+- **100% Offline Core:** All detection, learning, and history features operate without an active internet connection.
+- **Privacy First:** Camera frames and images remain strictly on the user's device and are never transmitted over the network.
+- **No Hardcoded Secrets or Paths:** Dynamic relative paths and environment configurations are used throughout the codebase.
+- **Zero Storage Bloat:** Intermediate image manipulation caches are purged automatically on app launch and session transitions.
 
 ---
 
 ## 📄 License
 Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-## Demo
-https://drive.google.com/file/d/1QxoV5ykbva00UyodJBAsX7HikY9P7Lk4/view?usp=sharing

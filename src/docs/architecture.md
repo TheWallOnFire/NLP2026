@@ -1,35 +1,61 @@
 # Architecture & State Management
 
 ## Project Structure
-The `SignLanguageApp_ExpoGo` project follows a feature-based folder structure under the `src/` directory, which promotes modularity and separation of concerns.
+
+The mobile application follows a feature-driven, domain-separated folder structure located under `src/src/`:
 
 ```text
 src/
-├── features/
-│   ├── detection/    # Camera view and ML inference/mock logic
-│   ├── history/      # Logs and timelines of past translation sessions
-│   ├── learning/     # Custom model loader and practice features
-│   └── profile/      # User settings, preferences, and profile UI
-├── navigation/       # Tab and Stack navigators (React Navigation)
-└── utils/            # Helper functions (e.g., feedback, haptics, formatting)
+├── assets/                     # Default static assets & bundled TFLite models
+│   └── models/palm_detection.tflite
+├── src/                        # Modular source code
+│   ├── components/             # App-wide reusable UI components (e.g. ErrorBoundary)
+│   ├── constants/              # Navigation routes and global constants
+│   ├── core/                   # i18n localization resources (en, vi)
+│   ├── features/               # Feature domain modules
+│   │   ├── common/             # Shared screens (Loading/Splash)
+│   │   ├── dashboard/          # Home dashboard, streak tracker & quick actions
+│   │   ├── detection/          # Live vision, auto-mode tracking, TFLite inference
+│   │   ├── history/            # Session history timelines and detail cards
+│   │   ├── learning/           # Model packs, flashcards, practice & test engines
+│   │   ├── profile/            # User profile, statistics, and preferences
+│   │   └── settings/           # App configuration, storage & model pack manager
+│   ├── navigation/             # Bottom tab & stack navigators (React Navigation)
+│   ├── theme/                  # Material Design 3 light & dark theme definitions
+│   └── utils/                  # Feedback (haptics/audio) and ZIP pack importer
+├── app.json                    # Expo project configuration
+├── App.tsx                     # Root component, theme provider & app lifecycle
+└── package.json                # Project dependencies and build scripts
 ```
 
+---
+
 ## State Management
-We use **Zustand** for global state management because of its lightweight nature and minimal boilerplate. The stores are typically configured to persist data locally using `AsyncStorage`.
+
+Global state is managed via **Zustand** stores, coupled with `AsyncStorage` via the `persist` middleware for seamless offline persistence.
 
 ### Core Stores
-1. **`useUserStore`** (`src/features/profile/store/useUserStore.ts`):
-   - Manages user profile details, experience points, current level, and settings (theme, haptics).
-   - This ensures the Profile page and other UI elements instantly react to preference changes.
-   
-2. **`useModelStore`** (`src/features/learning/store/useModelStore.ts`):
-   - Keeps track of the currently active `.tflite` model pack.
-   - Saves the URI of custom user-selected models across app restarts.
-   
-3. **`useHistoryStore`**:
-   - Stores the chronological log of previous detections, which feeds into the Activity History timeline.
 
-## Navigation
-The app relies on **React Navigation**.
-- **`AppNavigator.tsx`**: The root controller that manages the primary Bottom Tab Navigation. It is wrapped in a `SafeAreaView` to ensure UI elements respect device notches and status bars natively.
-- **Headerless Design**: To provide a modern and immersive experience, all standard React Navigation headers are disabled (`headerShown: false`). Custom, inline UI headers are used directly within each screen.
+1. **`useSettingsStore`** (`src/src/features/settings/store/useSettingsStore.ts`):
+   - Manages app theme (Light, Dark, Mixed), active language (`en`, `vi`), audio/TTS settings, camera facing preference, and developer debug mode.
+   
+2. **`useModelStore`** (`src/src/features/learning/store/useModelStore.ts`):
+   - Tracks installed Model Packs, the currently active pack ID, custom model URIs, and manages sandboxed pack deletion.
+
+3. **`useLearningStore`** (`src/src/features/learning/store/useLearningStore.ts`):
+   - Maintains vocabulary lists for each pack, tracking learned word state, favorite bookmarks, and completion progress percentages.
+
+4. **`useHistoryStore`** (`src/src/features/history/store/useHistoryStore.ts`):
+   - Stores activity logs across camera detection sessions, image/video analysis, and gamified test scores.
+
+5. **`useUserStore`** (`src/src/features/profile/store/useUserStore.ts`):
+   - Manages user profile details, daily streaks, total practice time, and user level metrics.
+
+---
+
+## Navigation Architecture
+
+Navigation is powered by **React Navigation v7**:
+- **`AppNavigator.tsx`**: The top-level controller housing the bottom tab bar (Detection, Learning, Home Dashboard, Profile, Settings) and detail stack routes (`History`, `HistoryDetail`).
+- **Headerless Screen Layouts**: Standard React Navigation headers are disabled (`headerShown: false`) in favor of bespoke, theme-aware appbars on each screen.
+- **Safe Area Insets**: Edge-to-edge rendering handled with `react-native-safe-area-context` on individual screen views.

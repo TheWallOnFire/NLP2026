@@ -1,48 +1,43 @@
-# Camera Integration Plan
+# Camera Architecture & Hardware Optimization
 
-## 1. Overview
-The current version of **SignLanguageApp** utilizes `expo-camera` to provide a live camera feed compatible with **Expo Go**. Real-time ASL detection is presently mocked to facilitate UI/UX testing and frontend prototyping without requiring custom native builds.
+This document outlines the camera hardware integration, frame processing pipeline, and lifecycle safety measures implemented with `react-native-vision-camera`.
 
-This document outlines the roadmap for migrating from the current mocked environment to a fully native, real-time machine learning inference pipeline.
+---
 
-## 2. Current Architecture (Expo Go)
-- **Camera Module:** `expo-camera`
-- **Detection Logic:** Mocked intervals triggering predefined sign translations.
-- **Benefits:** Seamless testing on physical devices via Expo Go; rapid UI iteration.
-- **Limitations:** Cannot process individual video frames natively; incapable of running on-device TFLite models against the live feed.
+## 1. Native Camera Engine: `react-native-vision-camera` (v5)
 
-## 3. Proposed Native Architecture (Post-Eject / Custom Dev Client)
-To achieve real-time, on-device ASL translation, we must transition to an architecture that supports frame processors and direct C++ / JNI bindings for machine learning models.
+The application utilizes **VisionCamera v5** to interface directly with Android Camera2 / iOS AVFoundation hardware APIs.
 
-### 3.1. Required Libraries
-- **`react-native-vision-camera`**: Replaces `expo-camera`. Provides robust frame processing capabilities, allowing us to hook into the camera feed frame-by-frame.
-- **`react-native-fast-tflite`**: A high-performance TFLite library designed to work perfectly alongside Vision Camera frame processors.
-- **`react-native-worklets`**: Required for executing frame processing logic synchronously on a separate UI/Vision thread.
+### Key Capabilities:
+- **Constraint Locking:** Camera frame rate is locked (`constraints: [{ fps: 30 }]`) to eliminate unnecessary thermal stress from 60Hz/120Hz high-refresh sensors.
+- **Dynamic Device Switching:** Seamlessly toggles between front-facing and back-facing lenses with instant state persistence.
+- **Torch / Flash Control:** Hardware torch support with a 3-minute automatic timeout safety guard to prevent overheating.
+- **Snapshot Integration:** High-speed snapshot capture (`takeSnapshot({ quality: ... })`) fed into C++ Nitro raw pixel buffers for machine learning.
 
-### 3.2. Transition Strategy
-1. **Create an Expo Custom Development Client:** We will no longer be able to use the standard Expo Go app. We will configure an Expo prebuild step (`npx expo run:android` / `npx expo run:ios`).
-2. **Swap Camera Components:** Replace all instances of `expo-camera` in `src/features/detection/` with `<Camera>` from `react-native-vision-camera`.
-3. **Implement Frame Processor:**
-   - Attach a `useFrameProcessor` hook to the camera.
-   - Resize and format the incoming frames (e.g., to 224x224 RGB) to match the model's expected input tensor.
-4. **Integrate TFLite Model:**
-   - Load the user-selected `.tflite` model (managed by the `learning` feature store).
-   - Pass the formatted frame into the model for inference.
-   - Extract the highest confidence prediction.
-5. **Debouncing & Smoothing:** Implement a moving average or debouncing function to prevent erratic UI updates and ensure the TTS engine isn't overwhelmed by fluctuating predictions.
+---
 
-## 4. UI/UX Considerations
-- **Bounding Boxes & Landmarks:** Once native detection is implemented, consider drawing bounding boxes around hands or overlaying pose landmarks using an SVG or Canvas overlay synced with the frame processor.
-- **Camera Permissions:** Ensure graceful fallbacks and informative UI prompts when camera permissions are denied or restricted.
-- **Performance Monitoring:** Add an FPS counter during development to monitor the overhead of the TFLite inference.
+## 2. Lifecycle & Memory Safety Guards
 
-## 5. Next Steps
-1. Finalize UI/UX testing on Expo Go.
-2. Branch the repository for native integration.
-3. Install `react-native-vision-camera` and configure the custom dev client.
-4. Implement a dummy frame processor to benchmark base camera performance.
-5. Integrate `react-native-fast-tflite` and test with a lightweight hand-detection or ASL classification model.
+### 2.1. AppState & Background Freezing
+When the user minimizes the app or switches to another application:
+1. `AppState` listener triggers an immediate queue flush (`clearQueue()`).
+2. Video players pause playback (`player.pause()`).
+3. Pending snapshot timers and frame loops are aborted to prevent native JNI security exceptions from revoked hardware permissions.
 
-npx expo run:android
-# or
-npx expo run:ios
+### 2.2. Cache Bloat Prevention
+Both `takeSnapshot` and `ImageManipulator` write intermediate JPEG files to `cacheDirectory`:
+- On application startup (`App.tsx`), `initApp` scans `cacheDirectory` and deletes leftover `crop_*` and `media_*` artifacts.
+- In `useDetectionLogic.ts`, mount and unmount hooks purge `ImageManipulator/` and `Camera/` cache subdirectories to guarantee zero storage bloat over prolonged sessions.
+
+---
+
+## 3. UI Reticle vs. Autonomous Tracking Modes
+
+The camera screen operates in two primary visual modes:
+
+1. **Auto Mode (Default):**
+   - The static central frame is disabled.
+   - The **Dynamic Square Box** dynamically appears, expands to 1.5x/2.0x around the user's hand, and smoothly follows the hand across the screen using Reanimated Spring Physics.
+2. **Live Reticle Mode:**
+   - Displays a classic rectangular scanning target with an animated laser sweep.
+   - Best suited for fixed-station or tripod practice.
