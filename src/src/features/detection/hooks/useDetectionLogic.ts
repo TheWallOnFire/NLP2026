@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import { useVideoPlayer } from 'expo-video';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
@@ -416,7 +417,7 @@ export function useDetectionLogic(navigation: any) {
       } else {
         // Fallback for iOS
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsMultipleSelection: true,
           selectionLimit: 50, // Tránh OOM khi chọn quá nhiều ảnh (Bug 43)
           quality: 0.8,
@@ -561,18 +562,12 @@ export function useDetectionLogic(navigation: any) {
         
         // Lấy thông tin file ảnh để hiện trên Dialog
         try {
-          const Image = require('react-native').Image;
           const fileInfo = await FileSystem.getInfoAsync(finalMedia);
           const bytes = fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size || 0 : 0;
-          Image.getSize(finalMedia, (width: number, height: number) => {
-            setImageToAnalyzeSize({ width, height, bytes });
-            setImageToAnalyze(finalMedia);
-            setIsConfirmImageDialogOpen(true);
-          }, () => {
-            setImageToAnalyzeSize({ width: 0, height: 0, bytes });
-            setImageToAnalyze(finalMedia);
-            setIsConfirmImageDialogOpen(true);
-          });
+          const imgInfo = await ImageManipulator.manipulateAsync(finalMedia, []);
+          setImageToAnalyzeSize({ width: imgInfo.width, height: imgInfo.height, bytes });
+          setImageToAnalyze(finalMedia);
+          setIsConfirmImageDialogOpen(true);
         } catch (e) {
           setImageToAnalyze(finalMedia);
           setIsConfirmImageDialogOpen(true);

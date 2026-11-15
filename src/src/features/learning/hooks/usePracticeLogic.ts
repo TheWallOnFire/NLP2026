@@ -4,21 +4,23 @@ import { useSettingsStore } from '../../settings/store/useSettingsStore';
 import { triggerSuccessFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useTranslation } from 'react-i18next';
 
 export function usePracticeLogic(packId: string, wordId: string | undefined, cameraRef: any) {
   const { t } = useTranslation();
   const words = useLearningStore(state => state.packWords[packId]) || [];
   const markLearned = useLearningStore(state => state.markLearned);
-  
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [isProcessing, setIsProcessing] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
   const [snackbarColor, setSnackbarColor] = useState<"default" | "green" | "red">("default");
-  
+
   const thresholdValue = useSettingsStore(state => state.detection?.threshold || 0.5);
-  const latestDetection = useRef<{wordStr: string, conf: number} | null>(null);
+  const latestDetection = useRef<{ wordStr: string, conf: number } | null>(null);
 
   const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
@@ -43,7 +45,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
   const evaluateDetection = useCallback(() => {
     if (!currentWord) return;
     const det = latestDetection.current;
-    
+
     if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
       setSnackbarColor("green");
       setSnackbarMsg(t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
@@ -51,9 +53,9 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
       markLearned(packId, currentWord.id, true);
     } else {
       setSnackbarColor("red");
-      setSnackbarMsg(t('learning.incorrectFeedback', { 
-        word: det?.wordStr || t('learning.unknown'), 
-        confidence: Math.round((det?.conf || 0) * 100) 
+      setSnackbarMsg(t('learning.incorrectFeedback', {
+        word: det?.wordStr || t('learning.unknown'),
+        confidence: Math.round((det?.conf || 0) * 100)
       }));
     }
   }, [currentWord, thresholdValue, packId, markLearned, handleSkip]);
@@ -77,7 +79,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     latestDetection.current = null;
     clearQueue();
     runDetection(imageToAnalyze, facing, true);
-    
+
     let attempts = 0;
     while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 50) {
       await new Promise(r => setTimeout(r, 100));
@@ -90,18 +92,11 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
 
   const handleImageSelected = async (imagePath: string) => {
     try {
-      const FileSystem = require('expo-file-system');
-      const Image = require('react-native').Image;
       const fileInfo = await FileSystem.getInfoAsync(imagePath);
-      Image.getSize(imagePath, (width: number, height: number) => {
-        setImageToAnalyzeSize({ width, height, bytes: fileInfo.size || 0 });
-        setImageToAnalyze(imagePath);
-        setIsConfirmImageDialogOpen(true);
-      }, () => {
-        setImageToAnalyzeSize({ width: 0, height: 0, bytes: fileInfo.size || 0 });
-        setImageToAnalyze(imagePath);
-        setIsConfirmImageDialogOpen(true);
-      });
+      const imgInfo = await ImageManipulator.manipulateAsync(imagePath, []);
+      setImageToAnalyzeSize({ width: imgInfo.width, height: imgInfo.height, bytes: fileInfo.size || 0 });
+      setImageToAnalyze(imagePath);
+      setIsConfirmImageDialogOpen(true);
     } catch (e) {
       setImageToAnalyzeSize({ width: 0, height: 0, bytes: 0 });
       setImageToAnalyze(imagePath);
@@ -114,7 +109,7 @@ export function usePracticeLogic(packId: string, wordId: string | undefined, cam
     try {
       const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
       let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
-      
+
       if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
         imagePath = `file://${imagePath}`;
       }

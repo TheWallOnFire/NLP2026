@@ -9,6 +9,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { Dimensions } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useHandDetection } from './useHandDetection';
 import { trackWithCamShift, resetCamShiftTracker } from '../utils/camShiftTracker';
 import i18n from '../../../core/i18n';
@@ -74,6 +75,7 @@ export function useAutoDetection({
 
   // Refs cho timing
   const handDetectionLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionLoopRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
   // Kết quả auto detection
@@ -85,6 +87,7 @@ export function useAutoDetection({
     return () => {
       isMountedRef.current = false;
       if (handDetectionLoopRef.current) clearTimeout(handDetectionLoopRef.current);
+      if (recognitionLoopRef.current) clearTimeout(recognitionLoopRef.current);
     };
   }, []);
 
@@ -123,8 +126,9 @@ export function useAutoDetection({
   const performTracking = useCallback(async () => {
     if (!isMountedRef.current || !isActive || !isModelReady || !activePackId || !isHandModelReady) return;
 
+    let snapshotUri: string | null = null;
     try {
-      const snapshotUri = await takeSnapshot();
+      snapshotUri = await takeSnapshot();
       if (!snapshotUri) return;
 
       const imgInfo = await ImageManipulator.manipulateAsync(snapshotUri, []);
@@ -238,6 +242,10 @@ export function useAutoDetection({
       }
     } catch (e) {
       console.warn('[Auto Mode] Tracking error:', e);
+    } finally {
+      if (snapshotUri) {
+        FileSystem.deleteAsync(snapshotUri, { idempotent: true }).catch(() => {});
+      }
     }
   }, [isActive, isModelReady, activePackId, isHandModelReady, takeSnapshot, detectHand, facing, boxX, boxY, boxWidth, boxHeight, boxVisible]);
 
@@ -248,8 +256,9 @@ export function useAutoDetection({
   const performSignRecognition = useCallback(async () => {
     if (!isMountedRef.current || !isActive || trackingState.current !== TrackingState.TRACKING) return;
 
+    let snapshotUri: string | null = null;
     try {
-      const snapshotUri = await takeSnapshot();
+      snapshotUri = await takeSnapshot();
       if (!snapshotUri) return;
 
       const imgInfo = await ImageManipulator.manipulateAsync(snapshotUri, []);
@@ -284,6 +293,10 @@ export function useAutoDetection({
       runSignDetection(croppedImage.uri, facing, true);
     } catch (e) {
       console.warn('[Auto Mode] Sign Recognition error:', e);
+    } finally {
+      if (snapshotUri) {
+        FileSystem.deleteAsync(snapshotUri, { idempotent: true }).catch(() => {});
+      }
     }
   }, [isActive, takeSnapshot, runSignDetection, facing, boxX, boxY, boxWidth]);
 
@@ -338,7 +351,8 @@ export function useAutoDetection({
       if (!isTrackingLoopActive || !isMountedRef.current) return;
       await performTracking();
       if (isTrackingLoopActive && isMountedRef.current) {
-        handDetectionLoopRef.current = setTimeout(trackingLoop, 2000);
+        const interval = trackingState.current === TrackingState.TRACKING ? FRAME_THROTTLE_MS : 300;
+        handDetectionLoopRef.current = setTimeout(trackingLoop, interval);
       }
     };
 
@@ -347,18 +361,19 @@ export function useAutoDetection({
       if (!isRecognitionLoopActive || !isMountedRef.current) return;
       await performSignRecognition();
       if (isRecognitionLoopActive && isMountedRef.current) {
-        setTimeout(recognitionLoop, 1000); 
+        recognitionLoopRef.current = setTimeout(recognitionLoop, 800); 
       }
     };
 
     // Khởi động 2 luồng độc lập
-    handDetectionLoopRef.current = setTimeout(trackingLoop, 500);
-    setTimeout(recognitionLoop, 800);
+    handDetectionLoopRef.current = setTimeout(trackingLoop, 300);
+    recognitionLoopRef.current = setTimeout(recognitionLoop, 600);
 
     return () => {
       isTrackingLoopActive = false;
       isRecognitionLoopActive = false;
       if (handDetectionLoopRef.current) clearTimeout(handDetectionLoopRef.current);
+      if (recognitionLoopRef.current) clearTimeout(recognitionLoopRef.current);
     };
   }, [isActive, isModelReady, activePackId, performTracking, performSignRecognition]);
 

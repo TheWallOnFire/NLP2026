@@ -19,7 +19,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const [testResults, setTestResults] = useState<{ word: string, isCorrect: boolean, correctness?: number, confusedWith?: string }[]>([]);
   const [currentWord, setCurrentWord] = useState<any>(null);
   const [testActive, setTestActive] = useState(false);
-  
+
   // Warm-up Timer
   const [warmupTime, setWarmupTime] = useState(3);
   const isMounted = useRef(true);
@@ -32,11 +32,15 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const [snackbarMsg, setSnackbarMsg] = useState("");
   const [snackbarColor, setSnackbarColor] = useState<"green" | "red">("green");
 
-  const latestDetection = useRef<{wordStr: string, conf: number} | null>(null);
+  const latestDetection = useRef<{ wordStr: string, conf: number } | null>(null);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
-    return () => { isMounted.current = false; };
+    return () => {
+      isMounted.current = false;
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -51,7 +55,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   useEffect(() => {
     if (warmupTime > 0) {
       const timer = setTimeout(() => {
-         if (isMounted.current) setWarmupTime(prev => prev - 1);
+        if (isMounted.current) setWarmupTime(prev => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -77,6 +81,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
         mode: 'test',
         date: new Date().toLocaleDateString('vi-VN'),
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
         type: 'test',
         testStats: {
           score,
@@ -128,14 +133,15 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const evaluateDetection = useCallback(() => {
     if (!currentWord || !isMounted.current) return;
     const det = latestDetection.current;
-    
+
     if (det && det.wordStr === currentWord.word && det.conf >= thresholdValue) {
       setSnackbarColor("green");
       setSnackbarMsg(i18n.t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
       triggerSuccessFeedback();
       setScore(prev => prev + 1);
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: true, correctness: Math.round(det.conf * 100) }]);
-      setTimeout(() => {
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = setTimeout(() => {
         if (isMounted.current) nextWord();
       }, 500);
     } else {
@@ -143,7 +149,8 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       setSnackbarMsg(i18n.t('learning.incorrectFeedback', { word: det?.wordStr || i18n.t('learning.unknown'), confidence: Math.round((det?.conf || 0) * 100) }));
       triggerErrorFeedback();
       setTestResults(prev => [...prev, { word: currentWord.word, isCorrect: false, correctness: Math.round((det?.conf || 0) * 100), confusedWith: det?.wordStr }]);
-      setTimeout(() => {
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = setTimeout(() => {
         if (isMounted.current) nextWord();
       }, 500);
     }
@@ -155,7 +162,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
     try {
       const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
       let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
-      
+
       if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
         imagePath = `file://${imagePath}`;
       }
@@ -164,7 +171,7 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
         latestDetection.current = null;
         clearQueue();
         runDetection(imagePath, facing, true);
-        
+
         let attempts = 0;
         while ((getDebugInfo().isProcessing || getDebugInfo().queueLength > 0) && attempts < 50) {
           await new Promise(r => setTimeout(r, 100));

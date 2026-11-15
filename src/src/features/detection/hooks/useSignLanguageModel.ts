@@ -21,10 +21,11 @@ export function useSignLanguageModel(
   const { packWords } = useLearningStore();
   const { developerDebugMode } = useSettingsStore();
   const [tfliteModel, setTfliteModel] = useState<any>(null);
-  const frameQueue = useRef<{uri: string, facing?: 'front' | 'back'}[]>([]);
+  const frameQueue = useRef<{ uri: string, facing?: 'front' | 'back' }[]>([]);
   const isProcessingRef = useRef(false);
   const processingItemRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
+  const processLoopRef = useRef<(() => Promise<void>) | null>(null);
 
   // Debug Metrics
   const [metrics, setMetrics] = useState({
@@ -32,7 +33,7 @@ export function useSignLanguageModel(
     inferenceTime: 0,
     totalTime: 0,
     fps: 0,
-    top3: [] as {idx: number, val: number}[]
+    top3: [] as { idx: number, val: number }[]
   });
 
   useEffect(() => {
@@ -49,10 +50,10 @@ export function useSignLanguageModel(
         setTfliteModel(null);
         return;
       }
-      
+
       // Fix Bug 39: Đảm bảo xóa sạch Model Shape cũ trước khi load cái mới
       if (isMounted) setTfliteModel(null);
-      
+
       try {
         let m;
         if (Platform.OS === 'ios') {
@@ -81,7 +82,7 @@ export function useSignLanguageModel(
               const dummy = m.inputs[0].dataType === 'float32' ? new Float32Array(size) : new Uint8Array(size);
               m.runSync([dummy.buffer]);
               console.log("[ML Debug] Warm-up inference hoàn tất!");
-            } catch(warmupErr) { console.warn("Warm-up failed:", warmupErr); }
+            } catch (warmupErr) { console.warn("Warm-up failed:", warmupErr); }
           }
           setTfliteModel(m);
         }
@@ -95,14 +96,14 @@ export function useSignLanguageModel(
         }
       }
     };
-    
+
     // Fix Bug 2 UI/UX: Đợi Animation trượt chuyển màn hình (Slide-in Navigation) hoàn tất rồi mới khóa JS Thread để Load Model, tránh bị khựng (Jitter)
     const task = InteractionManager.runAfterInteractions(() => {
-       if (isMounted) loadModel();
+      if (isMounted) loadModel();
     });
-    
-    return () => { 
-      isMounted = false; 
+
+    return () => {
+      isMounted = false;
       isMountedRef.current = false;
       task.cancel();
     };
@@ -111,191 +112,189 @@ export function useSignLanguageModel(
   useEffect(() => {
     return () => {
       if (tfliteModel && typeof tfliteModel.release === 'function') {
-        try { tfliteModel.release(); } catch (e) {}
+        try { tfliteModel.release(); } catch (e) { }
       }
     };
   }, [tfliteModel]);
 
   useEffect(() => {
     let isActive = true;
-    
+
     const processLoop = async () => {
       if (!isActive) return;
 
       if (frameQueue.current.length > 0 && tfliteModel && !isProcessingRef.current) {
         isProcessingRef.current = true;
-        
+
         // Agentic AI: Drop Frame strategy (Chống nghẽn cổ chai)
         while (frameQueue.current.length > 10) {
-           frameQueue.current.shift();
+          frameQueue.current.shift();
         }
 
         const item = frameQueue.current.shift();
-        
+
         if (!item || !item.uri) {
           isProcessingRef.current = false;
           if (isActive) setTimeout(processLoop, 0);
           return;
         }
-        
+
         const { uri, facing } = item;
         processingItemRef.current = uri;
-          const startTime = Date.now();
+        const startTime = Date.now();
+
+        if (developerDebugMode) {
+          console.log(`[SignLanguage] 1. Bắt đầu xử lý. Queue còn: ${frameQueue.current.length}`);
+        }
+
+        try {
+          let shape = tfliteModel.inputs?.[0]?.shape;
+
+          if (!shape || shape.length < 3) {
+            if (activePack?.inputShape && activePack.inputShape.length >= 3) {
+              shape = activePack.inputShape;
+            } else if (processingItemRef.current?.toLowerCase().includes('mobilenetv2') || activePackId?.toLowerCase().includes('mobilenetv2')) {
+              shape = [1, 96, 96, 3];
+            } else {
+              shape = [1, 224, 224, 3];
+            }
+          }
+
+          const dataType = tfliteModel.inputs?.[0]?.dataType;
+
+          const preStartTime = Date.now();
+          const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(uri, shape, facing);
+
+          // Fix Bug 23: Tự động phán đoán chuẩn hóa hoặc lấy cấu hình từ Pack
+          let normalizationType: '[-1, 1]' | '[0, 1]' | '[0, 255]' = '[0, 1]';
+          if (activePack?.normalization) {
+            normalizationType = activePack.normalization;
+          } else if (customModelUri && customModelUri.toLowerCase().includes('mobilenet')) {
+            // Đa số MobileNetV2 gốc tải từ Keras sẽ dùng [-1, 1]
+            normalizationType = '[-1, 1]';
+          }
+
+          const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, expectedChannels, dataType, pixelFormat, normalizationType);
+          const preprocessTime = Date.now() - preStartTime;
 
           if (developerDebugMode) {
-            console.log(`[SignLanguage] 1. Bắt đầu xử lý. Queue còn: ${frameQueue.current.length}`);
+            let sum = 0;
+            for (let i = 0; i < inputData.length; i++) sum += inputData[i];
+
+            const first5 = Array.from(inputData.slice(0, 5)).map(v => v.toFixed(6));
+            const modelInfo = activePack ? `[${activePack.name} - v${activePack.version}]` : (customModelUri ? '[Custom Model]' : '[Unknown Model]');
+
+            console.log(`[SignLanguage] 2. Bắt đầu Inference: ${modelInfo}`);
+            console.log(`[SignLanguage] 3. Input Tensor -> Shape: ${JSON.stringify(shape)}, DataType: ${dataType}, Sum: ${sum.toFixed(4)}`);
+            console.log(`[SignLanguage] 4. Input Preview: [${first5.join(', ')}...]`);
           }
 
-          try {
-            let shape = tfliteModel.inputs?.[0]?.shape;
-            
-            if (!shape || shape.length < 3) {
-              if (activePack?.inputShape && activePack.inputShape.length >= 3) {
-                shape = activePack.inputShape;
-              } else if (processingItemRef.current?.toLowerCase().includes('mobilenetv2') || activePackId?.toLowerCase().includes('mobilenetv2')) {
-                 shape = [1, 96, 96, 3];
-              } else {
-                 shape = [1, 224, 224, 3];
-              }
-            }
-            
-            const dataType = tfliteModel.inputs?.[0]?.dataType;
-            
-            const preStartTime = Date.now();
-            const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(uri, shape, facing);
-            
-            // Fix Bug 23: Tự động phán đoán chuẩn hóa hoặc lấy cấu hình từ Pack
-            let normalizationType: '[-1, 1]' | '[0, 1]' | '[0, 255]' = '[0, 1]';
-            if (activePack?.normalization) {
-               normalizationType = activePack.normalization;
-            } else if (customModelUri && customModelUri.toLowerCase().includes('mobilenet')) {
-               // Đa số MobileNetV2 gốc tải từ Keras sẽ dùng [-1, 1]
-               normalizationType = '[-1, 1]';
-            }
-            
-            const inputData = await convertPixelsToInputData(uint8Array, expectedElements, isRGBA, expectedChannels, dataType, pixelFormat, normalizationType);
-            const preprocessTime = Date.now() - preStartTime;
+          // Fix Bug 31: Nhường Event Loop cho React UI Thread render animation trước khi luồng JS bị khóa chết 300ms bởi runSync
+          await new Promise(r => setTimeout(r, 0));
 
-            if (developerDebugMode) {
-              let sum = 0;
-              for (let i = 0; i < inputData.length; i++) sum += inputData[i];
-              
-              const first5 = Array.from(inputData.slice(0, 5)).map(v => v.toFixed(6));
-              const modelInfo = activePack ? `[${activePack.name} - v${activePack.version}]` : (customModelUri ? '[Custom Model]' : '[Unknown Model]');
-              
-              console.log(`[SignLanguage] 2. Bắt đầu Inference: ${modelInfo}`);
-              console.log(`[SignLanguage] 3. Input Tensor -> Shape: ${JSON.stringify(shape)}, DataType: ${dataType}, Sum: ${sum.toFixed(4)}`);
-              console.log(`[SignLanguage] 4. Input Preview: [${first5.join(', ')}...]`);
-            }
+          // Fix Bug 4: Giải phóng JS Thread (Đồng bộ sang Bất đồng bộ)
+          // Thay vì runSync (khóa chết màn hình 300ms), dùng await tfliteModel.run để ném vào Background C++ Thread!
+          const infStartTime = Date.now();
+          const outputs = await tfliteModel.run([inputData.buffer]);
+          const inferenceTime = Date.now() - infStartTime;
 
-            // Fix Bug 31: Nhường Event Loop cho React UI Thread render animation trước khi luồng JS bị khóa chết 300ms bởi runSync
-            await new Promise(r => setTimeout(r, 0));
-            
-            // Fix Bug 4: Giải phóng JS Thread (Đồng bộ sang Bất đồng bộ)
-            // Thay vì runSync (khóa chết màn hình 300ms), dùng await tfliteModel.run để ném vào Background C++ Thread!
-            const infStartTime = Date.now();
-            const outputs = await tfliteModel.run([inputData.buffer]);
-            const inferenceTime = Date.now() - infStartTime;
-            
-            const parseStartTime = Date.now();
-            const outDataType = tfliteModel.outputs?.[0]?.dataType;
-            const result = parseInferenceOutput(outputs, outDataType);
-            const parseTime = Date.now() - parseStartTime;
-            
-            if (developerDebugMode) console.log(`[SignLanguage] 5. Profiler -> Inf: ${inferenceTime}ms, Parse: ${parseTime}ms`);
+          const parseStartTime = Date.now();
+          const outDataType = tfliteModel.outputs?.[0]?.dataType;
+          const result = parseInferenceOutput(outputs, outDataType);
+          const parseTime = Date.now() - parseStartTime;
 
-            if (developerDebugMode) {
-              let outLength = 0;
-              let outPreview = "";
-              if (outputs && outputs[0]) {
-                if (outputs[0].length !== undefined) {
-                   outLength = outputs[0].length;
-                   const first5Out = Array.from(outputs[0].slice(0, 5)).map((v: any) => v.toFixed(6));
-                   outPreview = ` Preview: [${first5Out.join(', ')}...]`;
-                } else if (outputs[0].byteLength) {
-                   outLength = outDataType === 'float32' ? outputs[0].byteLength / 4 : outputs[0].byteLength;
-                   // Fix Bug 15: Kiểm tra tính toàn vẹn của mảng Byte trước khi ép kiểu Float32 (tránh lỗi RangeError làm sập App)
-                   if (outDataType === 'float32' && outputs[0].byteLength % 4 !== 0) {
-                      throw new Error(`Buffer rác: byteLength ${outputs[0].byteLength} không chia hết cho 4.`);
-                   }
-                   const outArr = outDataType === 'float32' ? new Float32Array(outputs[0]) : new Uint8Array(outputs[0]);
-                   const first5Out = Array.from(outArr.slice(0, 5)).map((v: any) => v.toFixed(6));
-                   outPreview = ` Preview: [${first5Out.join(', ')}...]`;
+          if (developerDebugMode) console.log(`[SignLanguage] 5. Profiler -> Inf: ${inferenceTime}ms, Parse: ${parseTime}ms`);
+
+          if (developerDebugMode) {
+            let outLength = 0;
+            let outPreview = "";
+            if (outputs && outputs[0]) {
+              if (outputs[0].length !== undefined) {
+                outLength = outputs[0].length;
+                const first5Out = Array.from(outputs[0].slice(0, 5)).map((v: any) => v.toFixed(6));
+                outPreview = ` Preview: [${first5Out.join(', ')}...]`;
+              } else if (outputs[0].byteLength) {
+                outLength = outDataType === 'float32' ? outputs[0].byteLength / 4 : outputs[0].byteLength;
+                // Fix Bug 15: Kiểm tra tính toàn vẹn của mảng Byte trước khi ép kiểu Float32 (tránh lỗi RangeError làm sập App)
+                if (outDataType === 'float32' && outputs[0].byteLength % 4 !== 0) {
+                  throw new Error(`Buffer rác: byteLength ${outputs[0].byteLength} không chia hết cho 4.`);
                 }
-              }
-              console.log(`[SignLanguage] 6. Output Tensor -> DataType: ${outDataType}, Length: ${outLength}.${outPreview}`);
-            }
-
-            const totalTime = Date.now() - startTime;
-            // Fix Bug 40: Bẫy nghịch đảo (Divide By Zero) gây FPS Ảo 1000. Cập nhật giới hạn tối đa 60 FPS
-            const safeTime = totalTime > 0 ? totalTime : 1;
-            const fps = Math.min(60, Math.round(1000 / safeTime));
-
-            if (result) {
-              const { maxIdx, maxVal, top3 } = result;
-              const words = packWords[activePackId || '']?.map((w: any) => w.word) || [];
-              
-              // Chống tràn index và Fix Bug 69 (maxIdx === 0 bị bỏ qua)
-              const safeMaxIdx = (maxIdx !== undefined && maxIdx >= 0 && maxIdx < words.length) ? maxIdx : -1;
-              
-              // Fix Bug 28: Từ chối kết quả rác nếu điểm dưới ngưỡng tối thiểu cực đoan (< 5%)
-              const maxWord = (safeMaxIdx !== -1 && maxVal >= 0.05) ? words[safeMaxIdx] : 'Unknown';
-              
-              if (developerDebugMode && isMountedRef.current) {
-                setMetrics({ preprocessTime, inferenceTime, totalTime, fps, top3 });
-              }
-
-              const top3Str = top3.map((t: {idx: number, val: number}) => {
-                const word = (t.idx >= 0 && t.idx < words.length) ? words[t.idx] : 'Unknown';
-                return `[${word} (Idx ${t.idx}): ${t.val.toFixed(3)}]`;
-              }).join(', ');
-              
-              console.log(`[SignLanguage] 7. Result: ${maxWord} (Idx: ${safeMaxIdx}), Conf: ${maxVal.toFixed(3)} | Time: ${totalTime}ms`);
-              console.log(`[SignLanguage] 8. Top 3: ${top3Str}`);
-              
-              // Agentic AI: Phân tích & Báo cáo ngay lập tức cho Controller
-              if (safeMaxIdx !== -1 && maxVal >= 0.5) {
-                if (isMountedRef.current && processingItemRef.current === uri) {
-                  onDetection(safeMaxIdx, maxVal);
-                }
-              } else {
-                if (isMountedRef.current && processingItemRef.current === uri && onError) {
-                  // Chỉ báo lỗi mờ nhạt hoặc không làm gì để hệ thống tự quét tiếp
-                }
+                const outArr = outDataType === 'float32' ? new Float32Array(outputs[0]) : new Uint8Array(outputs[0]);
+                const first5Out = Array.from(outArr.slice(0, 5)).map((v: any) => v.toFixed(6));
+                outPreview = ` Preview: [${first5Out.join(', ')}...]`;
               }
             }
-          } catch (e: any) {
-            const errMsg = e?.message || String(e);
-            console.error("TFLite inference error:", errMsg);
-            if (isMountedRef.current) {
-              if (onError) onError(`Lỗi Model: ${errMsg}`);
-              if (developerDebugMode) {
-                Alert.alert(i18n.t('detection.mlInferenceError'), errMsg);
+            console.log(`[SignLanguage] 6. Output Tensor -> DataType: ${outDataType}, Length: ${outLength}.${outPreview}`);
+          }
+
+          const totalTime = Date.now() - startTime;
+          // Fix Bug 40: Bẫy nghịch đảo (Divide By Zero) gây FPS Ảo 1000. Cập nhật giới hạn tối đa 60 FPS
+          const safeTime = totalTime > 0 ? totalTime : 1;
+          const fps = Math.min(60, Math.round(1000 / safeTime));
+
+          if (result) {
+            const { maxIdx, maxVal, top3 } = result;
+            const words = packWords[activePackId || '']?.map((w: any) => w.word) || [];
+
+            // Chống tràn index và Fix Bug 69 (maxIdx === 0 bị bỏ qua)
+            const safeMaxIdx = (maxIdx !== undefined && maxIdx >= 0 && maxIdx < words.length) ? maxIdx : -1;
+
+            // Fix Bug 28: Từ chối kết quả rác nếu điểm dưới ngưỡng tối thiểu cực đoan (< 5%)
+            const maxWord = (safeMaxIdx !== -1 && maxVal >= 0.05) ? words[safeMaxIdx] : 'Unknown';
+
+            if (developerDebugMode && isMountedRef.current) {
+              setMetrics({ preprocessTime, inferenceTime, totalTime, fps, top3 });
+            }
+
+            const top3Str = top3.map((t: { idx: number, val: number }) => {
+              const word = (t.idx >= 0 && t.idx < words.length) ? words[t.idx] : 'Unknown';
+              return `[${word} (Idx ${t.idx}): ${t.val.toFixed(3)}]`;
+            }).join(', ');
+
+            console.log(`[SignLanguage] 7. Result: ${maxWord} (Idx: ${safeMaxIdx}), Conf: ${maxVal.toFixed(3)} | Time: ${totalTime}ms`);
+            console.log(`[SignLanguage] 8. Top 3: ${top3Str}`);
+
+            // Agentic AI: Phân tích & Báo cáo ngay lập tức cho Controller
+            if (safeMaxIdx !== -1 && maxVal >= 0.5) {
+              if (isMountedRef.current && processingItemRef.current === uri) {
+                onDetection(safeMaxIdx, maxVal);
+              }
+            } else {
+              if (isMountedRef.current && processingItemRef.current === uri && onError) {
+                // Chỉ báo lỗi mờ nhạt hoặc không làm gì để hệ thống tự quét tiếp
               }
             }
-          } finally {
+          }
+        } catch (e: any) {
+          const errMsg = e?.message || String(e);
+          console.error("TFLite inference error:", errMsg);
+          if (isMountedRef.current) {
+            if (onError) onError(`Lỗi Model: ${errMsg}`);
             if (developerDebugMode) {
-              console.log(`[SignLanguage] 9. Hoàn thành xử lý trong ${Date.now() - startTime}ms.`);
+              Alert.alert(i18n.t('detection.mlInferenceError'), errMsg);
             }
-            processingItemRef.current = null;
-            isProcessingRef.current = false;
+          }
+        } finally {
+          if (developerDebugMode) {
+            console.log(`[SignLanguage] 9. Hoàn thành xử lý trong ${Date.now() - startTime}ms.`);
+          }
+          processingItemRef.current = null;
+          isProcessingRef.current = false;
+          if (isActive && frameQueue.current.length > 0) {
+            setTimeout(processLoop, 0);
           }
         }
-        
-        // Agentic AI: Đệ quy bất đồng bộ qua Event Loop (Non-blocking)
-        if (isActive) {
-          if (frameQueue.current.length === 0) {
-            setTimeout(processLoop, 50); // Polling 20Hz khi rảnh rỗi để tiết kiệm Pin
-          } else {
-            setTimeout(processLoop, 0); // Xử lý ngay khi có việc
-          }
-        }
-      };
+      }
+    };
 
-    processLoop();
+    processLoopRef.current = processLoop;
+    if (frameQueue.current.length > 0) {
+      processLoop();
+    }
 
     return () => {
       isActive = false;
+      processLoopRef.current = null;
     };
   }, [tfliteModel, activePack, activePackId, customModelUri, developerDebugMode, onError, onDetection, packWords]);
 
@@ -311,7 +310,12 @@ export function useSignLanguageModel(
     if (developerDebugMode) {
       console.log(`[SignLanguage] 0. Nhận ảnh mới, đưa vào Queue (Tổng: ${frameQueue.current.length})`);
     }
-    
+
+    // Tự động kích hoạt chu trình xử lý nếu hàng đợi đang rảnh
+    if (!isProcessingRef.current && processLoopRef.current) {
+      processLoopRef.current();
+    }
+
     return { success: true, message: "Đã tiếp nhận và đưa ảnh vào hàng đợi!" };
   }, [developerDebugMode]);
 
@@ -335,7 +339,7 @@ export function useSignLanguageModel(
     return undefined;
   }, [tfliteModel]);
 
-  return { 
+  return {
     runDetection,
     isModelReady: tfliteModel != null,
     boxedModel,

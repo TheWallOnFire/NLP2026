@@ -39,15 +39,18 @@ export const useModelStore = create<ModelState>()(
       })),
       deletePack: async (id) => {
         try {
-            const packDir = FileSystem.documentDirectory + `packs/${id}/`;
-            const info = await FileSystem.getInfoAsync(packDir);
-            if (info.exists) {
-                await FileSystem.deleteAsync(packDir, { idempotent: true });
-            }
+          const packDir = FileSystem.documentDirectory + `packs/${id}/`;
+          const info = await FileSystem.getInfoAsync(packDir);
+          if (info.exists) {
+            await FileSystem.deleteAsync(packDir, { idempotent: true });
+          }
         } catch (e) {
-            console.error("Failed to delete pack folder", e);
+          console.error("Failed to delete pack folder", e);
         }
-        set((state) => ({ packs: state.packs.filter(p => p.id !== id) }));
+        set((state) => ({
+          packs: state.packs.filter(p => p.id !== id),
+          activePackId: state.activePackId === id ? null : state.activePackId
+        }));
       },
       setActivePack: (id) => set({ activePackId: id }),
       customModelUri: null,

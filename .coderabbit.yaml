@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: >-
+  Be precise, technical, constructive, and direct. Focus on mobile runtime performance
+  (frame budget 16-33ms, JS-thread blocking), memory safety in Native C++ Nitro modules,
+  tensor normalization consistency, and asynchronous React state hygiene.
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  collapse_walkthrough: false
+  poem: false
+  sequence_diagrams: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "master"
+      - "develop"
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.expo/**"
+    - "!**/android/**"
+    - "!**/ios/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/web-build/**"
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!**/.pytest_cache/**"
+    - "!**/venv/**"
+    - "!**/.venv/**"
+    - "!data/raw/**"
+    - "!data/processed/**"
+    - "!dataset/**"
+    - "!**/*.tflite"
+    - "!**/*.keras"
+    - "!**/*.h5"
+    - "!**/*.zip"
+    - "!**/*.onnx"
+    - "!package-lock.json"
+    - "!yarn.lock"
+
+  path_instructions:
+    - path: "src/src/hooks/**"
+      instructions: |
+        - Real-Time Frame Processing Budget: Code executes in 10-30 FPS loops. Reject allocations, heavy object cloning, or blocking calls inside frame processor loop bodies.
+        - Color & Tensor Normalization: MediaPipe Palm model expects [0, 1] input normalization. Flag any [-1, 1] normalization as a critical bug that causes ghost activations.
+        - Timer & Lifecycle Cleanup: Verify all setInterval, setTimeout, and requestAnimationFrame timers have corresponding clear calls in useEffect/useCallback cleanups to prevent background battery drain.
+        - Worklet Thread Safety: Ensure VisionCamera frame processor callbacks do not hold dangling native pointers or cause thread deadlocks.
+
+    - path: "src/src/store/**"
+      instructions: |
+        - Zustand State Isolation: Verify dynamic model pack registration updates store state immutably.
+        - Sandboxed Pack Deletion: When a model pack is deleted, confirm that ${FileSystem.documentDirectory}packs/{packId}/ is completely removed to prevent device storage bloat.
+        - Input Validation: Catch corrupted zip packs, missing metadata.json, or invalid vocabulary arrays gracefully without crashing the UI.
+
+    - path: "src/src/screens/**"
+      instructions: |
+        - Safe Area Insets: AppNavigator already manages outer notch insets; nested screens should not wrap outer SafeAreaView redundantly (prevents double notch padding).
+        - UI Responsiveness: Ensure camera preview and inference results render smoothly without freezing the JS event loop.
+        - Permission & Error Fallbacks: Verify camera permission denials and model loading errors show informative user fallback states.
+
+    - path: "models/**"
+      instructions: |
+        - Dynamic Pathing: Never use hardcoded Windows or absolute drive paths (e.g. d:/...). Use os.path.dirname(...) or pathlib.Path.
+        - Model Architecture: Ensure models conform to MobileNetV2 architecture with (224, 224, 3) input shape and float32 quantization/TFLite compatibility.
+        - No Dynamic Subprocesses: Do not invoke subprocess pip install or package managers dynamically within training or inference scripts.
+
+    - path: "tests/**"
+      instructions: |
+        - AI Benchmark Suite: Ensure all benchmark and shape tests support CLI arguments (--model, --labels, --tflite) and perform deterministic validation.
+        - Resource Cleanup: Any temporary files created during unzipping or benchmarking must use tempfile or explicit cleanup in finally blocks.
+
+    - path: "configs/**"
+      instructions: |
+        - Configuration Consistency: Verify all pack URLs or relative paths use standard forward-slash conventions and valid relative paths.
+
+chat:
+  auto_reply: true

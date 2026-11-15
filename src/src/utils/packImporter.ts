@@ -5,6 +5,7 @@ import { ModelPack } from '../features/learning/store/useModelStore';
 import { Word } from '../features/learning/store/useLearningStore';
 
 export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word[] } | null> => {
+  let fileUri: string | null = null;
   try {
     // 1. Pick the file
     const result = await DocumentPicker.getDocumentAsync({
@@ -17,7 +18,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     }
 
     const file = result.assets[0];
-    const fileUri = file.uri;
+    fileUri = file.uri;
 
     // Bước 1.1: Xác thực định dạng file (chỉ chấp nhận .zip)
     const isZip = file.name.toLowerCase().endsWith('.zip') || (file.mimeType && file.mimeType.includes('zip'));
@@ -40,7 +41,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     try {
       const response = await fetch(fileUri);
       const arrayBuffer = await response.arrayBuffer();
-      
+
       // 3. Load with JSZip
       const zip = new JSZip();
       loadedZip = await zip.loadAsync(arrayBuffer);
@@ -93,7 +94,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     // 6. Save .tflite to persistent storage
     const packId = metadataRaw.id || `custom-${Date.now()}`;
     const packDir = `${FileSystem.documentDirectory}packs/${packId}/`;
-    
+
     // Ensure dir exists
     const dirInfo = await FileSystem.getInfoAsync(packDir);
     if (!dirInfo.exists) {
@@ -108,8 +109,8 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
 
     // Extract word images if any
     const imagesDir = `${packDir}word_images/`;
-    await FileSystem.makeDirectoryAsync(imagesDir, { intermediates: true }).catch(() => {});
-    
+    await FileSystem.makeDirectoryAsync(imagesDir, { intermediates: true }).catch(() => { });
+
     // Iterate over files again to extract images
     const extractPromises: Promise<void>[] = [];
     loadedZip.forEach((relativePath, zipEntry) => {
@@ -129,7 +130,7 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
 
     // 7. Construct Store Objects
     const wordCount = Object.keys(wordListRaw).length;
-    
+
     const pack: ModelPack = {
       id: packId,
       name: metadataRaw.name || "Custom Pack",
@@ -159,5 +160,11 @@ export const importCustomPack = async (): Promise<{ pack: ModelPack, words: Word
     }
     // Trả về lỗi có sẵn hoặc lỗi chung
     throw new Error(error.message || "Đã xảy ra lỗi không xác định khi giải nén gói mô hình.");
+  } finally {
+    if (fileUri) {
+      try {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      } catch (_) { }
+    }
   }
 };

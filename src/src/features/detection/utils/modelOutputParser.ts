@@ -12,7 +12,9 @@ export function parseInferenceOutput(outputs: any[], dataType: string | undefine
   } else if (outputs[0]?.buffer) {
     // If it's already a Float32Array, just use it
     if (dataType === 'float32' && !(outputs[0] instanceof Float32Array)) {
-      outputArray = new Float32Array(outputs[0].buffer, outputs[0].byteOffset, outputs[0].byteLength / 4);
+      const offset = outputs[0].byteOffset || 0;
+      const length = Math.floor((outputs[0].byteLength || 0) / 4);
+      outputArray = new Float32Array(outputs[0].buffer, offset, length);
     } else {
       outputArray = outputs[0];
     }

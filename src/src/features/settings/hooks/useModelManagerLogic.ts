@@ -16,6 +16,7 @@ export function useModelManagerLogic(navigation: any) {
 
   const packWords = useLearningStore(state => state.packWords);
   const clearPackProgress = useLearningStore(state => state.clearPackProgress);
+  const removePackWords = useLearningStore(state => state.removePackWords);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [mainTab, setMainTab] = useState<'my-packs' | 'explore'>('my-packs');
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +96,7 @@ export function useModelManagerLogic(navigation: any) {
           onPress: () => {
             deletePack(pack.id);
             clearPackProgress(pack.id);
+            removePackWords(pack.id);
             triggerSelectionFeedback();
           }
         }

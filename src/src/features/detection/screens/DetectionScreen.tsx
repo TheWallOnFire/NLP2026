@@ -17,7 +17,7 @@ import { useDetectionLogic } from '../hooks/useDetectionLogic';
 
 export default function DetectionScreen({ navigation }: any) {
   const { t } = useTranslation();
-  
+
   // Using setDetectionMode from useDetectionLogic directly
 
   const {
@@ -74,7 +74,7 @@ export default function DetectionScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
       <TopOptionsBar
         theme={theme}
         detectionMode={detectionMode}
@@ -146,12 +146,12 @@ export default function DetectionScreen({ navigation }: any) {
           <View style={styles.autoResultOverlay}>
             <View style={[
               styles.autoResultBadge,
-              { 
-                backgroundColor: confidence > 0.8 
-                  ? 'rgba(76, 175, 80, 0.9)' 
-                  : confidence > 0.6 
-                    ? 'rgba(255, 152, 0, 0.9)' 
-                    : 'rgba(244, 67, 54, 0.9)' 
+              {
+                backgroundColor: confidence > 0.8
+                  ? 'rgba(76, 175, 80, 0.9)'
+                  : confidence > 0.6
+                    ? 'rgba(255, 152, 0, 0.9)'
+                    : 'rgba(244, 67, 54, 0.9)'
               }
             ]}>
               <Text style={styles.autoResultText}>{detectedWord}</Text>
@@ -196,7 +196,7 @@ export default function DetectionScreen({ navigation }: any) {
             </View>
             <View style={styles.speedOptions}>
               {(['slow', 'normal', 'fast', 'off'] as const).map((s) => (
-                <Button 
+                <Button
                   key={s}
                   mode={detectionSpeed === s ? "contained" : "text"}
                   onPress={() => { setDetectionSpeed(s); setIsSpeedMenuOpen(false); }}
@@ -222,28 +222,28 @@ export default function DetectionScreen({ navigation }: any) {
       {/* Chuỗi kết quả - Ký tự điền từ phải qua trái (Chỉ hiện cho Live/Auto/Picture) */}
       {(detectionMode === 'live' || detectionMode === 'auto' || detectionMode === 'picture') && (
         <View style={styles.historyTextContainer}>
-        {sessionHistory.length === 0 ? (
-           <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>{t('detection.noResultsYet')}</Text>
-        ) : (
-          <Text 
-            style={styles.historyTextContent} 
-            numberOfLines={1} 
-            ellipsizeMode="head"
-          >
-            {[...sessionHistory].reverse().map((item, index) => {
-              const conf = item.conf || 0;
-              let color = '#F44336'; // Đỏ (<60%)
-              if (conf > 0.80) color = '#4CAF50'; // Xanh lá (>80%)
-              else if (conf > 0.60) color = '#FF9800'; // Vàng (>60%)
-              return (
-                <Text key={item.id} style={{ color: color, fontWeight: 'bold' }}>
-                  {item.sign}{' '}
-                </Text>
-              );
-            })}
-          </Text>
-        )}
-      </View>
+          {sessionHistory.length === 0 ? (
+            <Text style={{ color: 'gray', fontStyle: 'italic', textAlign: 'center' }}>{t('detection.noResultsYet')}</Text>
+          ) : (
+            <Text
+              style={styles.historyTextContent}
+              numberOfLines={1}
+              ellipsizeMode="head"
+            >
+              {[...sessionHistory].reverse().map((item, index) => {
+                const conf = item.conf || 0;
+                let color = '#F44336'; // Đỏ (<60%)
+                if (conf > 0.80) color = '#4CAF50'; // Xanh lá (>80%)
+                else if (conf > 0.60) color = '#FF9800'; // Vàng (>60%)
+                return (
+                  <Text key={item.id} style={{ color: color, fontWeight: 'bold' }}>
+                    {item.sign}{' '}
+                  </Text>
+                );
+              })}
+            </Text>
+          )}
+        </View>
       )}
 
       {/* Action Buttons Row */}

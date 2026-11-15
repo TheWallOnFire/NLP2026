@@ -1,4 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import { loadImage } from 'react-native-nitro-image';
 
 // Lưu trữ Mẫu động (Adaptive Hue)
@@ -66,6 +67,9 @@ export async function trackWithCamShift(
     const img = await loadImage({ filePath: cleanPath });
     const pixels = await img.toRawPixelData();
     const data = new Uint8Array(pixels.buffer || pixels);
+
+    // Dọn dẹp ảnh tạm thời sau khi nạp vào bộ nhớ để chống tràn dung lượng đệm (Cache Bloat)
+    FileSystem.deleteAsync(manip.uri, { idempotent: true }).catch(() => {});
 
     let sumX = 0, sumY = 0, mass = 0;
     let sumHue = 0;

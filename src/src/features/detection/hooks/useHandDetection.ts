@@ -50,6 +50,7 @@ function sigmoid(x: number) {
 
 export function useHandDetection() {
   const [model, setModel] = useState<any>(null);
+  const modelRef = useRef<any>(null);
   const isMounted = useRef(true);
   const isProcessing = useRef(false);
   const wasHandDetected = useRef(false); // Lưu trạng thái track tay trước đó
@@ -62,9 +63,10 @@ export function useHandDetection() {
         // Dùng expo-asset để tự động copy file model từ bundle vào bộ nhớ thiết bị
         const [asset] = await Asset.loadAsync(require('../../../../assets/models/palm_detection.tflite'));
         const modelPath = asset.localUri || asset.uri;
-        
+
         const m = await loadTensorflowModel({ url: modelPath }, []);
         if (isMounted.current) {
+          modelRef.current = m;
           setModel(m);
           console.log("[Hand Detection] Đã load thành công Palm Detection Model!");
         }
@@ -72,12 +74,12 @@ export function useHandDetection() {
         console.warn("[Hand Detection] Lỗi load model (Có thể file chưa được copy vào DocumentDirectory):", e);
       }
     };
-    
+
     loadModel();
     return () => {
       isMounted.current = false;
-      if (model && typeof model.release === 'function') {
-        try { model.release(); } catch(e){}
+      if (modelRef.current && typeof modelRef.current.release === 'function') {
+        try { modelRef.current.release(); } catch (e) { }
       }
     };
   }, []);
@@ -98,7 +100,7 @@ export function useHandDetection() {
       // Chuẩn bị ảnh: prepareImageForModel mặc định sẽ Center Crop thành hình vuông
       const shape = [1, INPUT_SIZE, INPUT_SIZE, 3];
       const { uint8Array, expectedElements, isRGBA, expectedChannels, pixelFormat } = await prepareImageForModel(imageUri, shape, facing);
-      
+
       // Palm Detection Model Google thường dùng Normalization [0, 1] hoặc [-1, 1].
       // Đã đổi sang [0, 1] để kiểm tra xem logit có về bình thường không.
       const inputData = await convertPixelsToInputData(
@@ -109,7 +111,7 @@ export function useHandDetection() {
       await new Promise(r => setTimeout(r, 0)); // Tránh khóa UI Thread
       // Trả lại inputData.buffer vì Nitro C++ yêu cầu chính xác ArrayBuffer gốc
       const outputs = model.runSync([inputData.buffer]);
-      
+
       // MediaPipe trả về 2 Tensor. Tùy phiên bản mà index 0 hoặc 1 là Regressor hoặc Classifier.
       // Cần check kỹ byteLength hoặc length của từng output.
       // console.log(`[Hand Detection] Tensors: ${outputs.length}`);
@@ -174,7 +176,7 @@ export function useHandDetection() {
         // center_y = dy / INPUT_SIZE + anchor.y
         const centerX = (dx / INPUT_SIZE) + anchor.x;
         const centerY = (dy / INPUT_SIZE) + anchor.y;
-        
+
         const boxWidth = w / INPUT_SIZE;
         const boxHeight = h / INPUT_SIZE;
 
@@ -201,7 +203,7 @@ export function useHandDetection() {
           }
         };
       }
-      
+
       wasHandDetected.current = false;
       return { detected: false };
     } catch (e) {
