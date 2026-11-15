@@ -101,7 +101,9 @@ export default {
       practiceWordFlashcardsDesc: "Learn via flashcards and Camera",
       preparing: "Preparing...",
       selectVocabType: "1. Select vocabulary type:",
-      numberOfCards: "2. Number of cards:"
+      numberOfCards: "2. Number of cards:",
+      availableWords: "Available: {{count}} words",
+      unfavorited: "Unfavorited"
     },
     history: {
       title: "All History",
@@ -332,6 +334,14 @@ export default {
       noImagesFound: "No image files found in this folder.",
       fileTooLarge: "File too large",
       fileTooLargeDesc: "Model file must not exceed 200MB.",
+      mlDiagnosticTitle: "ML Diagnostic Tool",
+      diagnosticTestStability: "Stability Test (Determinism)",
+      diagnosticDesc: "This tool processes an image 100 times to verify deterministic model outputs.",
+      currentModelLabel: "Current Model: ",
+      notLoaded: "Not loaded",
+      changeImage: "Change Image",
+      selectImage: "Select Image",
+      run100xTest: "Run 100x Test",
       diagnosticResult: "Result",
       diagnosticStable: "100 runs returned the EXACT SAME RESULT. Pipeline is stable.",
       diagnosticUnstable: "NOISE detected: Found {{count}} different results in 100 runs.",

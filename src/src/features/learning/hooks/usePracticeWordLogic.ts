@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLearningStore } from '../store/useLearningStore';
 import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 
 export function usePracticeWordLogic(packId: string, filterType: string, wordCount: number, cameraRef: any) {
@@ -17,6 +18,16 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
   const [facing, setFacing] = useState<'front' | 'back'>('front');
 
   const latestDetection = useRef<{wordStr: string, conf: number} | null>(null);
+  const isMountedRef = useRef(true);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     // Lọc từ
@@ -58,7 +69,7 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
   const { isModelReady, runDetection, getDebugInfo, clearQueue } = useSignLanguageModel(handleDetection, undefined, packId);
 
   const evaluateDetection = useCallback(() => {
-    if (!currentWord) return;
+    if (!currentWord || !isMountedRef.current) return;
     const det = latestDetection.current;
     
     // Ngưỡng 0.6 cho practice
@@ -66,20 +77,24 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
       setSnackbarColor("green");
       setSnackbarMsg(t('learning.correctFeedback', { confidence: Math.round(det.conf * 100) }));
       triggerSuccessFeedback();
-      setTimeout(handleNext, 1000);
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) handleNext();
+      }, 1000);
     } else {
       setSnackbarColor("red");
       setSnackbarMsg(t('learning.incorrectFeedbackNoDetect', { word: det?.wordStr || 'Unknown' }));
       triggerErrorFeedback();
     }
-  }, [currentWord, handleNext]);
+  }, [currentWord, handleNext, t]);
 
   const checkFromCamera = async () => {
     if (!cameraRef.current || !isModelReady || isProcessing) return;
     setIsProcessing(true);
+    let imagePath: string | undefined;
     try {
       const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
-      let imagePath = photo?.path || photo?.uri || (typeof photo === 'string' ? photo : undefined);
+      imagePath = photo?.path || (typeof photo?.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
       
       if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
         imagePath = `file://${imagePath}`;
@@ -103,6 +118,9 @@ export function usePracticeWordLogic(packId: string, filterType: string, wordCou
       setSnackbarColor("red");
       setSnackbarMsg(t('learning.cameraCaptureFailed'));
     } finally {
+      if (imagePath) {
+        FileSystem.deleteAsync(imagePath, { idempotent: true }).catch(() => {});
+      }
       setIsProcessing(false);
     }
   };

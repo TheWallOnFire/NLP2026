@@ -46,11 +46,13 @@ flowchart LR
 - **Thread Safety:** Ensure heavy computations (`tflite.run`, resizing) do not block the JS event loop or UI Thread.
 - **Race Conditions:** Inspect asynchronous effects, state subscriptions, navigation transitions, and unmount lifecycles.
 - **Stale Closures:** Check `useCallback` and `useEffect` dependency arrays for missing or stale references.
+- **Queue Starvation:** Ensure asynchronous worker queues (e.g. `processLoopRef` in `useSignLanguageModel.ts`) do not silently terminate when empty.
 
 ### Phase 4: Resource & Memory Lifecycle Audit
 - **Memory Leaks:** Verify all event listeners (`AppState`, `NavigationBar`, `setInterval`, `setTimeout`) have corresponding unmount cleanup returns.
-- **C++ JSI & Buffers:** Ensure `ArrayBuffer` allocations do not fragment the Hermes heap; check that typed arrays use correct `byteOffset`.
-- **Filesystem & Cache:** Ensure temporary files created by `ImageManipulator`, `takeSnapshot`, or JSZip are sandboxed and purged.
+- **Native C++ Models:** Ensure native instances (e.g. `react-native-fast-tflite`) are tracked via mutable refs and released on unmount (`modelRef.current?.release()`).
+- **C++ JSI & Buffers:** Ensure `ArrayBuffer` allocations do not fragment the Hermes heap; check that typed arrays use correct `byteOffset` and `Math.floor(byteLength / 4)`.
+- **Filesystem & Cache:** Ensure temporary files created by `ImageManipulator`, `takeSnapshot`, or JSZip are sandboxed and purged in `finally` blocks.
 
 ### Phase 5: Findings Classification & Remediation
 - Classify all issues by severity (Critical P0, Major P1, Moderate P2, Minor P3).
@@ -68,4 +70,3 @@ flowchart LR
 | **P3 — Minor** | Code style inconsistency, deprecated API warning, or missing localization string. | Optional refinement. |
 
 See [review_checklist.md](./references/review_checklist.md) for the comprehensive line-by-line inspection checklist.
-

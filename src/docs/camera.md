@@ -12,7 +12,7 @@ The application utilizes **VisionCamera v5** to interface directly with Android 
 - **Constraint Locking:** Camera frame rate is locked (`constraints: [{ fps: 30 }]`) to eliminate unnecessary thermal stress from 60Hz/120Hz high-refresh sensors.
 - **Dynamic Device Switching:** Seamlessly toggles between front-facing and back-facing lenses with instant state persistence.
 - **Torch / Flash Control:** Hardware torch support with a 3-minute automatic timeout safety guard to prevent overheating.
-- **Snapshot Integration:** High-speed snapshot capture (`takeSnapshot({ quality: ... })`) fed into C++ Nitro raw pixel buffers for machine learning.
+- **Snapshot Integration:** High-speed snapshot capture (`takeSnapshot({ quality: 85 })`) fed into C++ Nitro raw pixel buffers for machine learning.
 
 ---
 
@@ -24,9 +24,10 @@ When the user minimizes the app or switches to another application:
 2. Video players pause playback (`player.pause()`).
 3. Pending snapshot timers and frame loops are aborted to prevent native JNI security exceptions from revoked hardware permissions.
 
-### 2.2. Cache Bloat Prevention
+### 2.2. Cache Bloat Prevention & Instant Purging
 Both `takeSnapshot` and `ImageManipulator` write intermediate JPEG files to `cacheDirectory`:
 - On application startup (`App.tsx`), `initApp` scans `cacheDirectory` and deletes leftover `crop_*` and `media_*` artifacts.
+- In `useAutoDetection.ts`, `useTestLogic.ts`, and `usePracticeWordLogic.ts`, snapshots and cropped files are unlinked in `finally` blocks via `FileSystem.deleteAsync(uri, { idempotent: true })`.
 - In `useDetectionLogic.ts`, mount and unmount hooks purge `ImageManipulator/` and `Camera/` cache subdirectories to guarantee zero storage bloat over prolonged sessions.
 
 ---
@@ -37,7 +38,7 @@ The camera screen operates in two primary visual modes:
 
 1. **Auto Mode (Default):**
    - The static central frame is disabled.
-   - The **Dynamic Square Box** dynamically appears, expands to 1.5x/2.0x around the user's hand, and smoothly follows the hand across the screen using Reanimated Spring Physics.
+   - The **Dynamic Square Box** dynamically appears, expands to 2.0x around the user's hand, and smoothly follows the hand across the screen using Reanimated Spring Physics (`withSpring`).
 2. **Live Reticle Mode:**
    - Displays a classic rectangular scanning target with an animated laser sweep.
-   - Best suited for fixed-station or tripod practice.
+   - Best suited for fixed-station or tripod practice with adjustable speeds (Fast 250ms, Normal 500ms, Slow 1000ms, Manual).

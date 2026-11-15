@@ -14,7 +14,7 @@ This skill guides AI agents through converting trained Keras models into mobile-
 ---
 
 ## 1. When to Use This Skill
-- Adding a new sign language model architecture (e.g. MobileNetV3, ResNet, EfficientNet) to the project.
+- Adding a new sign language model architecture (e.g. MobileNetV2, MobileNetV3, ResNet, EfficientNet) to the project.
 - Converting `.keras` weights to `.tflite` with standard or quantization optimizations.
 - Generating deployable `.zip` Model Packs containing vocabulary mappings, metadata, and gesture illustrations.
 - Updating vocabulary classes or label mappings in `configs/models_config.json`.

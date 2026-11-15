@@ -46,7 +46,7 @@ Running deep learning classification on every camera frame at 30-60 FPS on mobil
 - **Architecture:** Single-Shot Detector (SSD) with 2,016 anchor boxes across two feature map strides:
   - 24x24 feature map (stride 8) x 2 anchors = 1,152 anchors
   - 12x12 feature map (stride 16) x 6 anchors = 864 anchors
-- **Preprocessing:** The raw camera frame is converted using the **Squash Transform** (scaling to 192x192 without aspect crop) so the entire camera view is scanned. Pixel values are normalized to `[0, 1]`.
+- **Preprocessing:** The raw camera frame is converted using the **Squash Transform** (scaling to 192x192 without aspect crop) so the entire camera view is scanned. Pixel values are normalized strictly to `[0, 1]`.
 - **Decoding:** The anchor with the highest logit is selected. After sigmoid activation, if confidence exceeds `DYNAMIC_THRESHOLD` (0.65 for initial acquisition, 0.20 for hysteresis re-acquisition), the hand bounding box is extracted and expanded by 2.0x with safe padding to form a square bounding box.
 - **State Transition:** Switches to `TRACKING` state.
 
@@ -66,8 +66,9 @@ Running deep learning classification on every camera frame at 30-60 FPS on mobil
 - **Asynchronous C++ Inference:**
   - Instead of blocking the JS event loop with synchronous calls, inference runs via `await tfliteModel.run([inputData.buffer])`.
   - Execution occurs on a native C++ worker thread managed by `react-native-fast-tflite` with **XNNPACK** CPU acceleration.
+  - Managed by an event-driven worker queue (`processLoopRef`) in `useSignLanguageModel.ts` that wakes up immediately upon incoming frames.
 - **Output Parsing:**
-  - `parseInferenceOutput` inspects output tensors with memory offset awareness (`byteOffset`) to prevent cross-tensor pointer corruption.
+  - `parseInferenceOutput` inspects output tensors with memory offset awareness (`byteOffset` and `Math.floor(byteLength / 4)`) to prevent cross-tensor pointer corruption.
   - Generates top-1 predicted class, top-3 candidates with confidence scores, and passes them to the UI, TTS, and History systems.
 
 ---

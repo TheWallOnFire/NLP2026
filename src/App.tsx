@@ -9,8 +9,9 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { Platform, LogBox, useColorScheme, AppState } from 'react-native';
 
 import LoadingScreen from './src/features/common/screens/LoadingScreen';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useUserStore } from './src/features/profile/store/useUserStore';
 
 export default function App() {
@@ -128,7 +129,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
-        <AppNavigator />
+        <ErrorBoundary>
+          <AppNavigator />
+        </ErrorBoundary>
       </PaperProvider>
     </SafeAreaProvider>
   );

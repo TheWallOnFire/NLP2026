@@ -22,6 +22,7 @@ export default function MLDiagnosticScreen({ navigation }: any) {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<any[]>([]);
   const [model, setModel] = useState<any>(null);
+  const modelRef = useRef<any>(null);
 
   // Load Model
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function MLDiagnosticScreen({ navigation }: any) {
         } else {
           m = await loadTensorflowModel({ url: urlToLoad }, []); // Disable NNAPI
         }
+        modelRef.current = m;
         setModel(m);
       } catch (e) {
         console.error("Diagnostic Model Load Error", e);
@@ -42,7 +44,9 @@ export default function MLDiagnosticScreen({ navigation }: any) {
     };
     loadModel();
     return () => {
-      if (model && typeof model.release === 'function') model.release();
+      if (modelRef.current && typeof modelRef.current.release === 'function') {
+        try { modelRef.current.release(); } catch (e) {}
+      }
     };
   }, [customModelUri, activePackId]);
 
@@ -134,33 +138,33 @@ export default function MLDiagnosticScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="ML Diagnostic Tool" />
+        <Appbar.Content title={i18n.t('detection.mlDiagnosticTitle')} />
       </Appbar.Header>
 
       <View style={styles.content}>
         <Card style={{ padding: 16, marginBottom: 16 }}>
-          <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>Kiểm thử Độ Ổn Định (Determinism)</Text>
+          <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{i18n.t('detection.diagnosticTestStability')}</Text>
           <Text variant="bodySmall" style={{ marginTop: 8, color: 'gray' }}>
-            Công cụ này sẽ xử lý 1 ảnh 100 lần để xem model có xuất ra cùng 1 kết quả hay không.
+            {i18n.t('detection.diagnosticDesc')}
           </Text>
           <Text style={{ marginTop: 8 }}>
-            Model hiện tại: {model ? (activePack?.name || 'Custom') : 'Chưa nạp'}
+            {i18n.t('detection.currentModelLabel')}{model ? (activePack?.name || 'Custom') : i18n.t('detection.notLoaded')}
           </Text>
         </Card>
 
         <View style={styles.row}>
           <Button mode="outlined" onPress={pickImage} disabled={isRunning} style={{ flex: 1, marginRight: 8 }}>
-            {testImageUri ? "Đổi Ảnh" : "Chọn Ảnh"}
+            {testImageUri ? i18n.t('detection.changeImage') : i18n.t('detection.selectImage')}
           </Button>
           <Button mode="contained" onPress={runDiagnostic} disabled={!testImageUri || !model || isRunning} style={{ flex: 1 }}>
-            {isRunning ? `Running ${progress}/100` : "Run 100x Test"}
+            {isRunning ? `Running ${progress}/100` : i18n.t('detection.run100xTest')}
           </Button>
         </View>
 
         {isRunning && (
           <View style={{ alignItems: 'center', marginVertical: 20 }}>
             <ActivityIndicator size="large" />
-            <Text style={{ marginTop: 8 }}>Vui lòng đợi (Có thể lag nhẹ)...</Text>
+            <Text style={{ marginTop: 8 }}>{i18n.t('detection.pleaseWaitLag')}</Text>
           </View>
         )}
 

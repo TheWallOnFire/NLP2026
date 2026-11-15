@@ -26,10 +26,10 @@ This skill guides AI agents through modifying and expanding the educational and 
 Learning Feature Modules
 ├── ModelPacksScreen: Overview of downloaded packs and overall progress.
 ├── PackDetailScreen: Word lists, favorite bookmarks, and navigation to practice.
-├── PracticeWordSetupScreen: Select range (All, Learned, Favorites) and test mode.
+├── PracticeWordSetupScreen: Select range (All, Learned, Unlearned, Favorites) and card count.
 ├── PracticeWordFlashcardScreen: 3D flip card with sign image and camera verification.
 ├── PracticeScreen: Free-form camera practice against single target words.
-├── TestConfigScreen: Configure mode (Time Attack vs Sprint) and duration.
+├── TestConfigScreen: Configure mode (Time Attack vs Fixed Sprint) and duration/quota.
 └── TestScreen: Active gamified challenge with warm-up countdown and score counter.
 ```
 
@@ -40,6 +40,8 @@ Learning Feature Modules
 Managed by `useTestLogic.ts`:
 - **Warm-up Timer:** A 3-second countdown gives the user time to position their hands before the clock starts.
 - **Time Drift Prevention:** Instead of decrementing interval ticks, calculates remaining time from `testEndTimeRef = Date.now() + duration * 1000`.
+- **Transition Safety:** Stores `transitionTimeoutRef` to cancel in-flight transitions on unmount or re-trigger.
+- **Temporary Cache Cleanup:** Camera snapshots are purged in `finally` blocks via `FileSystem.deleteAsync`.
 - **Gesture Verification:** When a gesture matches `currentWord.word` with `confidence >= threshold`:
   - Triggers success haptic (`triggerSuccessFeedback`).
   - Increments score and advances to a non-repeating random next word.

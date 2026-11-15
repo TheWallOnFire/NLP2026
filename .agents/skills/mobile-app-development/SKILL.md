@@ -28,10 +28,16 @@ This skill guides AI agents through modifying, debugging, configuring, and build
 The mobile app relies on native C++ libraries:
 - `react-native-fast-tflite` (TFLite C++ engine with XNNPACK)
 - `react-native-nitro-modules` (C++ Hybrid Objects & JSI zero-copy buffers)
+- `react-native-nitro-image` (Zero-copy C++ pixel extraction)
 - `react-native-vision-camera` (v5 high-speed native camera)
 - `expo-video` & `react-native-reanimated`
 
 **Vanilla Expo Go CANNOT run these native modules directly.** Developers must use **Expo Prebuild** or **EAS Build** to generate a development build.
+
+### 🛡️ Core Stability Invariants
+1. **FileSystem Import:** Always import from `expo-file-system/legacy` to avoid breaking changes with Expo SDK 54's next-gen FileSystem API.
+2. **Error Boundary:** The root navigator in `App.tsx` is wrapped in `<ErrorBoundary>` to catch unhandled component crashes gracefully.
+3. **Safe Area Insets:** Since `MainTabs` applies bottom navigation padding, screens inside tabs (like `DetectionScreen`) must use `edges={['top', 'left', 'right']}` to prevent double padding.
 
 ---
 

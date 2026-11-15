@@ -101,7 +101,9 @@ export default {
       practiceWordFlashcardsDesc: "Học qua thẻ ghi nhớ và Camera",
       preparing: "Chuẩn bị...",
       selectVocabType: "1. Chọn loại từ vựng:",
-      numberOfCards: "2. Số lượng thẻ:"
+      numberOfCards: "2. Số lượng thẻ:",
+      availableWords: "Có sẵn: {{count}} từ",
+      unfavorited: "Chưa thích"
     },
     history: {
       title: "Toàn bộ lịch sử",
@@ -332,6 +334,14 @@ export default {
       noImagesFound: "Không tìm thấy file ảnh nào trong thư mục này.",
       fileTooLarge: "Dung lượng quá lớn",
       fileTooLargeDesc: "File model không được vượt quá 200MB.",
+      mlDiagnosticTitle: "Công cụ chẩn đoán ML",
+      diagnosticTestStability: "Kiểm thử Độ Ổn Định (Determinism)",
+      diagnosticDesc: "Công cụ này xử lý 1 ảnh 100 lần để kiểm tra tính tất định của mô hình.",
+      currentModelLabel: "Mô hình hiện tại: ",
+      notLoaded: "Chưa nạp",
+      changeImage: "Đổi Ảnh",
+      selectImage: "Chọn Ảnh",
+      run100xTest: "Chạy Kiểm thử 100x",
       diagnosticResult: "Kết quả",
       diagnosticStable: "100 lần chạy ra KẾT QUẢ GIỐNG HỆT NHAU. Pipeline rất ổn định.",
       diagnosticUnstable: "Phát hiện NHIỄU: Có {{count}} kết quả khác biệt trong 100 lần chạy.",

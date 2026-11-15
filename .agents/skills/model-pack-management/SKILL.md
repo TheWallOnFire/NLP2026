@@ -33,7 +33,11 @@ ${FileSystem.documentDirectory}packs/${packId}/
 ```
 
 ### Clean Wiping on Deletion
-Deleting a pack in `useModelStore.deletePack(id)` wipes the entire directory `${FileSystem.documentDirectory}packs/${id}/` using `FileSystem.deleteAsync(packDir, { idempotent: true })`. This guarantees **zero storage bloat** from deleted models.
+Deleting a pack in `useModelStore.deletePack(id)` wipes the entire directory `${FileSystem.documentDirectory}packs/${id}/` using `FileSystem.deleteAsync(packDir, { idempotent: true })`.
+In addition:
+- `useModelStore` resets `activePackId: state.activePackId === id ? null : state.activePackId` to prevent dangling references.
+- `useModelManagerLogic` invokes `removePackWords(pack.id)` to purge orphaned vocabulary from AsyncStorage.
+This guarantees **zero storage bloat** and pristine store states.
 
 ---
 
@@ -50,6 +54,7 @@ flowchart TD
     Sandbox --> SaveTflite["Save model.tflite to storage"]
     SaveTflite --> SaveImgs["Extract word_images/ into pack directory"]
     SaveImgs --> UpdateStores["Update useModelStore & useLearningStore"]
+    UpdateStores --> CleanupTemp["Finally: Delete picked temp archive from cache"]
 ```
 
 See [pack_importer_flow.md](./references/pack_importer_flow.md) for detailed error handling and code references.

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, Avatar, useTheme } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { ROUTES } from '../../../../src/constants/routes';
+import { ROUTES } from '../../../constants/routes';
 
 interface DashboardActivePacksProps {
   downloadedPacks: any[];

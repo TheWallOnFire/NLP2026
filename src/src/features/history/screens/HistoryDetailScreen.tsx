@@ -56,19 +56,19 @@ export default function HistoryDetailScreen() {
 
   const getSessionTypeInfo = (type: string, mode?: string) => {
     if (type === 'test') {
-      return { title: 'Bài kiểm tra', icon: <CheckSquare size={24} color={theme.colors.error} /> };
+      return { title: t('history.testMode') || 'Test Session', icon: <CheckSquare size={24} color={theme.colors.error} /> };
     }
     if (type === 'learning') {
-      return { title: 'Học tập', icon: <BookOpen size={24} color={theme.colors.secondary} /> };
+      return { title: t('history.learning') || 'Learning Session', icon: <BookOpen size={24} color={theme.colors.secondary} /> };
     }
     if (type === 'detection') {
-      if (mode === 'live') return { title: 'Camera', icon: <Camera size={24} color={theme.colors.primary} /> };
-      if (mode === 'picture') return { title: 'Image', icon: <ImageIcon size={24} color={theme.colors.primary} /> };
-      if (mode === 'video') return { title: 'Video', icon: <VideoIcon size={24} color={theme.colors.primary} /> };
+      if (mode === 'live') return { title: t('history.cameraMode') || 'Camera', icon: <Camera size={24} color={theme.colors.primary} /> };
+      if (mode === 'picture') return { title: t('history.imageMode') || 'Image', icon: <ImageIcon size={24} color={theme.colors.primary} /> };
+      if (mode === 'video') return { title: t('history.videoMode') || 'Video', icon: <VideoIcon size={24} color={theme.colors.primary} /> };
       if (mode === 'batch') return { title: 'Batch Scan', icon: <ImageIcon size={24} color={theme.colors.primary} /> };
-      return { title: 'Phiên nhận diện', icon: <Camera size={24} color={theme.colors.primary} /> };
+      return { title: t('history.detectionSession') || 'Detection Session', icon: <Camera size={24} color={theme.colors.primary} /> };
     }
-    return { title: 'Phiên hoạt động', icon: <BookOpen size={24} color={theme.colors.primary} /> };
+    return { title: t('history.title') || 'Activity Session', icon: <BookOpen size={24} color={theme.colors.primary} /> };
   };
 
   const sessionInfo = getSessionTypeInfo(historyItem.type, historyItem.mode);

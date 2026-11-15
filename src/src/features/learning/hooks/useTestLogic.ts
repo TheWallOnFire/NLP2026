@@ -5,6 +5,7 @@ import { useModelStore } from '../store/useModelStore';
 import { triggerSuccessFeedback, triggerErrorFeedback } from '../../../utils/feedback';
 import { useSignLanguageModel } from '../../detection/hooks/useSignLanguageModel';
 import { useSettingsStore } from '../../settings/store/useSettingsStore';
+import * as FileSystem from 'expo-file-system/legacy';
 import i18n from '../../../core/i18n';
 
 export function useTestLogic(packId: string, duration: number, mode: string, cameraRef: any) {
@@ -159,9 +160,10 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
   const checkFromCamera = async () => {
     if (!cameraRef.current || !isModelReady) return;
     setIsProcessing(true);
+    let imagePath: string | undefined;
     try {
       const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
-      let imagePath = photo?.path || (typeof photo.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
+      imagePath = photo?.path || (typeof photo?.saveToTemporaryFileAsync === 'function' && await photo.saveToTemporaryFileAsync('jpg', 85)) || photo?.uri || (typeof photo === 'string' ? photo : undefined);
 
       if (imagePath && !imagePath.startsWith('file://') && !imagePath.startsWith('http') && imagePath.startsWith('/')) {
         imagePath = `file://${imagePath}`;
@@ -187,6 +189,9 @@ export function useTestLogic(packId: string, duration: number, mode: string, cam
       setSnackbarColor("red");
       setSnackbarMsg(i18n.t('learning.cameraCaptureFailed'));
     } finally {
+      if (imagePath) {
+        FileSystem.deleteAsync(imagePath, { idempotent: true }).catch(() => {});
+      }
       setIsProcessing(false);
     }
   };

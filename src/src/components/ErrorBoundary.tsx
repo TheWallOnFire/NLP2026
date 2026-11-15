@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 
 interface Props {
@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('[ErrorBoundary] Uncaught component error:', error, errorInfo);
   }
 
   public render() {
@@ -30,9 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <Text variant="headlineMedium" style={styles.title}>Oops, something went wrong.</Text>
-          <Text variant="bodyMedium" style={styles.message}>
-            {this.state.error?.message || "An unexpected error occurred in the dashboard."}
-          </Text>
+          <ScrollView style={styles.errorBox} contentContainerStyle={styles.errorContent}>
+            <Text variant="bodyMedium" style={styles.message}>
+              {this.state.error?.message || "An unexpected error occurred in the application."}
+            </Text>
+          </ScrollView>
           <Button 
             mode="contained" 
             onPress={() => this.setState({ hasError: false, error: null })}
@@ -54,19 +56,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: '#121212',
   },
   title: {
-    color: '#D32F2F',
+    color: '#EF5350',
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorBox: {
+    maxHeight: 160,
+    width: '100%',
+    backgroundColor: '#1E1E1E',
+    borderRadius: 8,
+    marginBottom: 20,
+    padding: 12,
+  },
+  errorContent: {
+    alignItems: 'center',
   },
   message: {
     textAlign: 'center',
-    opacity: 0.7,
-    marginBottom: 24,
+    color: '#E0E0E0',
   },
   button: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
+    borderRadius: 24,
   }
 });

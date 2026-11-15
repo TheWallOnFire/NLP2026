@@ -18,7 +18,7 @@ This skill provides step-by-step instructions for running benchmarks, verificati
 - Checking TFLite input/output tensor shapes and data types.
 - Evaluating classification accuracy, precision, recall, and F1-score across validation datasets.
 - Diagnosing prediction failures or model output regressions.
-- Running headless benchmark suites.
+- Running headless benchmark suites in CI/CD or non-interactive environments.
 
 ---
 
@@ -28,7 +28,7 @@ All testing utilities are located in `tests/`:
 
 | Script | Purpose | Key Arguments |
 | :--- | :--- | :--- |
-| **`tests/test.py`** | Interactive menu to run any test script. | None (interactive CLI) |
+| **`tests/test.py`** | Interactive runner & automated test orchestrator. | `--run <script|number>`, `--all` |
 | **`tests/01_test_keras_dataset.py`** | Evaluates a `.keras` model on a full dataset. | `--model`, `--data`, `--batch_size`, `--img_size` |
 | **`tests/02_test_keras_center_crop.py`** | Tests center-crop inference on a directory of images. | `--model`, `--data`, `--img_size`, `--save-crops` |
 | **`tests/03_test_tflite_shapes.py`** | Inspects input/output tensor dimensions and types. | `--model`, `--pack` |
@@ -62,7 +62,17 @@ python tests/04_test_tflite_dataset.py --pack models/packs/ASL_MobileNetV2_Final
 ```
 This generates an accuracy percentage and scikit-learn Classification Report with per-class precision and recall.
 
-### Procedure D: Interactive Testing
+### Procedure D: Automated / Headless Test Execution
+Run all test scripts in succession without manual prompts:
+```bash
+python tests/test.py --all
+```
+Or run a specific test by number or name:
+```bash
+python tests/test.py --run 03
+```
+
+### Procedure E: Interactive Menu
 For interactive exploration, launch the test menu:
 ```bash
 python tests/test.py

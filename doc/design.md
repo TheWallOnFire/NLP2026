@@ -149,3 +149,15 @@ Khi người dùng yêu cầu xóa một gói mô hình, toàn bộ thư mục `
 3. **ADR-03: Render Bounding Box trên UI Thread thông qua Reanimated SharedValues**
    - *Ngữ cảnh:* Truyền tọa độ Bounding Box qua React State làm kích hoạt re-render liên tục trên JS Thread gây giật lag.
    - *Quyết định:* Cập nhật trực tiếp vào `useSharedValue` và áp dụng lò xo `withSpring` trên UI Thread.
+4. **ADR-04: Triển khai Hàng đợi Sự kiện (Event-driven Worker Queue) cho Suy luận AI**
+   - *Ngữ cảnh:* Vòng lặp suy luận dùng `setTimeout` đệ quy bị chết (starvation) khi mount lúc hàng đợi rỗng hoặc tốn chu kỳ CPU thăm dò vô ích.
+   - *Quyết định:* Tái cấu trúc thành Event-driven Worker Queue (`processLoopRef`). Khi `runDetection()` đẩy frame mới, nó lập tức kích hoạt bộ xử lý nếu đang nhàn rỗi; khi rỗng, tiến trình ngủ hoàn toàn tiết kiệm 100% pin.
+5. **ADR-05: Canh lề và Khai báo `byteOffset` Bắt buộc cho JSI ArrayBuffer**
+   - *Ngữ cảnh:* Tensor đầu ra của Fast-TFLite chia sẻ chung bộ nhớ đệm ArrayBuffer qua JSI. Truy xuất buffer không khai báo `byteOffset` và độ dài không chia hết cho 4 gây lỗi RangeError hoặc đọc lẫn lộn regressor và classifier.
+   - *Quyết định:* Luôn khởi tạo TypedArray với `outputs[0].byteOffset || 0` và `Math.floor(outputs[0].byteLength / 4)`.
+6. **ADR-06: Dọn dẹp Đĩa cứng Tức thì trong Khối `finally` (Zero Storage Bloat)**
+   - *Ngữ cảnh:* Các lệnh `takeSnapshot` và `ImageManipulator` sinh ra file ảnh tạm thời trong `cacheDirectory` ở tần số 10 FPS, làm cạn kiệt dung lượng đĩa thiết bị di động.
+   - *Quyết định:* Bọc mọi thao tác xử lý ảnh trong `try ... finally` và unmount hook để gọi `FileSystem.deleteAsync` ngay sau khi pixel được nạp vào RAM.
+7. **ADR-07: Bọc Error Boundary Cấp Ứng dụng**
+   - *Ngữ cảnh:* Lỗi crash ở một component con (do texture camera hoặc tensor bất thường) làm sập toàn bộ ứng dụng ra màn hình chính của điện thoại.
+   - *Quyết định:* Đặt `<ErrorBoundary>` bọc ngoài `<AppNavigator />` trong `App.tsx` với giao diện hỗ trợ Dark Theme và nút Reset trạng thái an toàn.

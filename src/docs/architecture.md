@@ -40,7 +40,7 @@ Global state is managed via **Zustand** stores, coupled with `AsyncStorage` via 
    - Manages app theme (Light, Dark, Mixed), active language (`en`, `vi`), audio/TTS settings, camera facing preference, and developer debug mode.
    
 2. **`useModelStore`** (`src/src/features/learning/store/useModelStore.ts`):
-   - Tracks installed Model Packs, the currently active pack ID, custom model URIs, and manages sandboxed pack deletion.
+   - Tracks installed Model Packs, the currently active pack ID, custom model URIs, and manages sandboxed pack deletion (auto-resets `activePackId: null` on deletion).
 
 3. **`useLearningStore`** (`src/src/features/learning/store/useLearningStore.ts`):
    - Maintains vocabulary lists for each pack, tracking learned word state, favorite bookmarks, and completion progress percentages.
@@ -56,6 +56,6 @@ Global state is managed via **Zustand** stores, coupled with `AsyncStorage` via 
 ## Navigation Architecture
 
 Navigation is powered by **React Navigation v7**:
-- **`AppNavigator.tsx`**: The top-level controller housing the bottom tab bar (Detection, Learning, Home Dashboard, Profile, Settings) and detail stack routes (`History`, `HistoryDetail`).
+- **`AppNavigator.tsx`**: The top-level controller housing the bottom tab bar (`MainTabs`: Detection, Learning, Home Dashboard, Profile, Settings) and detail stack routes (`History`, `HistoryDetail`). Wrapped in `<ErrorBoundary>` to catch unhandled errors.
 - **Headerless Screen Layouts**: Standard React Navigation headers are disabled (`headerShown: false`) in favor of bespoke, theme-aware appbars on each screen.
-- **Safe Area Insets**: Edge-to-edge rendering handled with `react-native-safe-area-context` on individual screen views.
+- **Safe Area Insets**: Edge-to-edge rendering handled with `react-native-safe-area-context` on individual screen views, with tab screens avoiding duplicate bottom insets (`edges={['top', 'left', 'right']}`).

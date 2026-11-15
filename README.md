@@ -25,11 +25,15 @@ The **Sign Language Detector App** is an offline-first mobile application design
 
 ```text
 NLP2026/
+├── .agents/                     # Specialized AI agent skills and runbooks
+│   └── skills/                  # Domain runbooks (packaging, evaluation, review, pipeline)
 ├── configs/                     # Centralized model & system configurations
 │   └── models_config.json       # Specifications for trained ASL models
 ├── data/                        # Dataset acquisition and preprocessing
 │   └── download_dataset.py      # Automated dataset downloader (Kaggle ASL Alphabet)
 ├── doc/                         # Architecture, design specs, and tech stack documentation
+│   ├── architecture_and_pipeline.md # Complete architectural and pipeline specification
+│   ├── troubleshooting_and_faq.md   # Developer FAQ and common build/runtime troubleshooting
 │   ├── design.md                # C4 architecture diagrams and pipeline design
 │   ├── proposal.md              # Project proposal, scope, and objectives
 │   ├── tech_stack.md            # Detailed technology stack breakdown
@@ -139,6 +143,9 @@ python models/generator.py
 
 # Run the interactive AI test suite
 python tests/test.py
+
+# Or run the automated headless test suite
+python tests/test.py --all
 ```
 
 ### 3. Mobile App Setup (Expo Dev Client)

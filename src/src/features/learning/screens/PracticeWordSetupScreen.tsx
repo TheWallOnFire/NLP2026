@@ -64,9 +64,9 @@ export default function PracticeWordSetupScreen({ route, navigation }: any) {
             value={filterType}
             onValueChange={(val) => setFilterType(val as any)}
             buttons={[
-              { value: 'all', label: 'All' },
-              { value: 'learned', label: 'Learned' },
-              { value: 'unlearned', label: 'Unlearned' },
+              { value: 'all', label: t('learning.all') },
+              { value: 'learned', label: t('learning.learned') },
+              { value: 'unlearned', label: t('learning.unlearned') },
             ]}
             style={styles.segmented}
           />
@@ -74,12 +74,12 @@ export default function PracticeWordSetupScreen({ route, navigation }: any) {
             value={filterType}
             onValueChange={(val) => setFilterType(val as any)}
             buttons={[
-              { value: 'favorite', label: 'Favorite' },
-              { value: 'unfavorited', label: 'Unfavorited' },
+              { value: 'favorite', label: t('profile.favorites') },
+              { value: 'unfavorited', label: t('learning.unfavorited') || 'Unfavorited' },
             ]}
           />
           <Text variant="bodySmall" style={styles.infoText}>
-            Có sẵn: {maxWords} từ
+            {t('learning.availableWords', { count: maxWords }) || `Available: ${maxWords} words`}
           </Text>
         </Surface>
 

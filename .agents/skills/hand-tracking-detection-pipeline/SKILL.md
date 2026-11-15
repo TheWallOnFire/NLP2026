@@ -40,7 +40,7 @@ The pipeline consists of two concurrent loops managed by `useAutoDetection.ts`:
 2. RECOGNITION LOOP (1-2 FPS, Background C++ Thread)
    ├── Square-crop 224x224 enclosing hand via ImageManipulator
    ├── Convert to Float32Array [0, 1] via imageProcessor.ts
-   ├── await tfliteModel.run() via useSignLanguageModel.ts
+   ├── await tfliteModel.run() via useSignLanguageModel.ts (event-driven worker queue)
    └── parseInferenceOutput.ts -> Class label + TTS + History log
 ```
 
