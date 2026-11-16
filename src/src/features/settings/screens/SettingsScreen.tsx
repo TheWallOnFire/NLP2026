@@ -136,7 +136,30 @@ export default function SettingsScreen({ navigation }: any) {
             <Text variant="bodyMedium" style={{ marginBottom: 16, textAlign: 'center', color: theme.colors.onSurfaceVariant, paddingHorizontal: 8 }}>
               {t('settings.aboutDesc')}
             </Text>
-            <Text variant="bodySmall" style={{ opacity: 0.6, textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 }}>
+            <View style={{
+              backgroundColor: theme.colors.surfaceVariant,
+              borderRadius: 16,
+              padding: 12,
+              width: '100%',
+              marginBottom: 16,
+            }}>
+              <Text variant="labelMedium" style={{ fontWeight: 'bold', color: theme.colors.primary, marginBottom: 6 }}>
+                {t('settings.projectHighlights', 'Project Highlights')}
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4, lineHeight: 18 }}>
+                • {t('settings.projectArch')}
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4, lineHeight: 18 }}>
+                • {t('settings.projectEngine')}
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4, lineHeight: 18 }}>
+                • {t('settings.projectPrivacy')}
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 18 }}>
+                • {t('settings.projectPacks')}
+              </Text>
+            </View>
+            <Text variant="bodySmall" style={{ opacity: 0.6, textAlign: 'center', lineHeight: 20, paddingHorizontal: 8 }}>
               {t('settings.appDescriptionLong', 'This application utilizes an autonomous Agentic AI pipeline for real-time sign language recognition, running completely on-device without blocking the main UI thread.')}
             </Text>
           </Dialog.Content>

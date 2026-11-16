@@ -15,9 +15,50 @@
 
 ---
 
-## 🌟 Overview
+## 🌟 Project Overview & Architecture
 
-The **Sign Language Detector App** is an offline-first mobile application designed to recognize and interpret American Sign Language (ASL) hand signs in real-time. Powered by a hybrid computer vision pipeline combining **MediaPipe Palm Detection**, **CamShift Adaptive Tracking**, and **MobileNetV2 Classification**, it operates entirely on-device with zero cloud dependencies, ensuring ultra-low latency and user privacy.
+The **NLP2026 Sign Language Detector App** is a **100% offline, privacy-first, on-device mobile platform** designed to bridge the communication gap between the Deaf/Hard-of-Hearing community and hearing individuals through real-time American Sign Language (ASL) recognition, interactive learning, and gamification.
+
+Unlike traditional cloud-based solutions that suffer from network latency, bandwidth consumption, and privacy vulnerabilities, this application executes its entire computer vision and deep learning pipeline directly on mobile hardware (Edge AI) via native C++ acceleration.
+
+### 🎯 Key Project Highlights
+- **100% On-Device & Privacy-First:** Zero cloud roundtrips, zero internet required; camera frames never leave the device.
+- **Autonomous Dual-Loop Vision Pipeline:** Eliminates thermal throttling and UI stutter by separating high-frequency hand tracking from neural inference.
+- **Dynamic Model Pack Ecosystem:** Import and hot-swap `.zip` Model Packs containing custom TFLite models, metadata, and sign vocabularies without recompiling.
+- **Interactive Educational Suite:** 3D interactive flashcards with live camera verification, plus gamified **Time Attack** and **Fixed Sprint** test modes.
+- **Zero Storage Bloat Policy:** Instant unlinking of camera snapshots and temporary image buffers in `finally` blocks, plus clean sandboxed pack deletion (`packs/{id}/`).
+- **Resilient Mobile Architecture:** App-level `<ErrorBoundary>` protection, memory-aligned JSI TypedArray sharing (`byteOffset`), and forward-compatible `expo-file-system/legacy`.
+
+### ⚡ The Dual-Loop Pipeline Architecture
+
+```text
+                         Camera Stream (30 FPS Native Sensor)
+                                          │
+                                          ▼
+         ┌─────────────────────────────────────────────────────────────────┐
+         │  LOOP 1: Tracking Loop (10–15 FPS, JS Thread + Reanimated)      │
+         │  • SEARCHING: MediaPipe Palm Detection SSD (192x192, 2,016 neo) │
+         │  • TRACKING: CamShift HSV Skin-Color Tracker (Adaptive Hue)     │
+         │  • Top-bias weighting & Hysteresis (anti-fist drop)             │
+         └────────────────────────────────┬────────────────────────────────┘
+                                          │ Bounding Box [0..1]
+                                          ▼
+         ┌─────────────────────────────────────────────────────────────────┐
+         │  UI Thread Spring Physics (Reanimated 4 — 60 FPS)               │
+         │  • Dynamic green box smoothly tracks hand anywhere on screen    │
+         └────────────────────────────────┬────────────────────────────────┘
+                                          │ When State == TRACKING
+                                          ▼
+         ┌─────────────────────────────────────────────────────────────────┐
+         │  LOOP 2: Recognition Loop (1–2 FPS, Background C++ Thread)      │
+         │  • Square crop (224x224) enclosing hand coordinates             │
+         │  • MobileNetV2 ASL Classifier (29 classes: A–Z, del, space)     │
+         │  • react-native-fast-tflite with XNNPACK CPU multi-threading    │
+         └────────────────────────────────┬────────────────────────────────┘
+                                          │
+                                          ▼
+                         [TTS Audio + Haptics + UI Result]
+```
 
 ---
 
